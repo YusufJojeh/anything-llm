@@ -16,8 +16,9 @@ prefer narrow, documented interception points over broad edits (see `CLAUDE.md`)
 - `runtime/YusufActionBoundary.js` — sole governed-tool dispatch path.
 - `approvals/ApprovalService.js` — durable approval lifecycle + consumption validation.
 - `execution/ExecutionCoordinator.js`, `execution/AdapterContract.js`,
-  `execution/InMemoryTestAdapter.js` — execution/verification/reconciliation, and the adapter
-  interface (only an in-memory test adapter exists today — no real adapter yet).
+  `execution/InMemoryTestAdapter.js` — execution/verification/reconciliation, the adapter
+  interface, and a test-only in-memory implementation. `adapters/localGit/LocalGitAdapter.js`
+  (Gate D) is the first real implementation — see below.
 - `audit/AuditService.js` — hash-chained, HMAC-checkpointed append-only audit.
 - `actions/IntentCanonicalizer.js`, `actions/IntentService.js` — request canonicalization,
   server-owned idempotency (`intentFingerprint`).
@@ -30,8 +31,29 @@ prefer narrow, documented interception points over broad edits (see `CLAUDE.md`)
 
 ## Yusuf OS models
 
-`server/models/yusufOS/`: `agent.js`, `agentRun.js`, `project.js`, `task.js` — thin Prisma-backed
-model wrappers for `yusuf_agents`, `yusuf_agent_runs`, `yusuf_projects`, `yusuf_tasks`.
+`server/models/yusufOS/`: `agent.js`, `agentRun.js`, `project.js`, `task.js`, `gitRepository.js`
+(Gate D) — thin Prisma-backed model wrappers for `yusuf_agents`, `yusuf_agent_runs`,
+`yusuf_projects`, `yusuf_tasks`, `yusuf_git_repositories`.
+
+## Gate D — LocalGit adapter
+
+`server/domain/yusufOS/adapters/localGit/`:
+- `LocalGitAdapter.js` — implements `GovernedAdapter`; dispatches by capability key.
+- `repositoryIdentity.js` — resolves + re-validates a `yusuf_git_repositories` binding against
+  live disk state on every call.
+- `pathPolicy.js` — canonical path resolution, directory-pathspec/protected-path/traversal/
+  symlink-escape/option-injection denial for `git.stage_paths`.
+- `branchPolicy.js` — branch name / single-revision validation, protected-branch detection.
+- `remoteIdentity.js` — credential-free remote fingerprinting; rejects embedded credentials.
+- `gitProcess.js` — hardened `git` invocation: argv-only, hooks/credential-helper/external-diff/
+  textconv/fsmonitor neutralized, minimal allowlisted child environment.
+- `shapes.js`, `snapshot.js` — shared resource/target object shapes and live git-state readers,
+  used identically by the request builders and by `LocalGitAdapter.preflight()` so the two never
+  drift into incompatible canonical-hash inputs.
+- `requestBuilders.js` — one `buildActionRequest`-shaped function per capability; not yet wired
+  to a real agent tool (Gate E) but used directly by the Gate D test suite.
+Fixture: `server/__testUtils__/yusufOS/gitRepositoryFixture.js` (disposable working repo + local
+bare remote, no network).
 
 ## Yusuf OS API
 

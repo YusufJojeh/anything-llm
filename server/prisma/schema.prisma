@@ -528,6 +528,7 @@ model yusuf_projects {
   updatedAt       DateTime                         @default(now()) @updatedAt
   tasks           yusuf_tasks[]
   policyOverrides yusuf_project_policy_overrides[]
+  gitRepositories yusuf_git_repositories[]
 
   @@index([status])
 }
@@ -804,6 +805,33 @@ model yusuf_audit_checkpoints {
   lastHash     String
   signature    String
   updatedAt    DateTime @default(now()) @updatedAt
+}
+
+// Gate D: a repository an Agent may operate on is never authorized merely by
+// existing on disk. Binding, protected branches, and allowed remote identity
+// are project-owned configuration; hard security invariants (forbidden
+// protected-branch pushes, forbidden capabilities) remain code-owned in the
+// capabilities registry and cannot be loosened from this table.
+model yusuf_git_repositories {
+  id                    Int            @id @default(autoincrement())
+  uuid                  String         @unique
+  projectId             Int
+  key                   String
+  canonicalRoot         String         @unique
+  defaultBranch         String         @default("main")
+  protectedBranches     String         @default("[]")
+  allowedRemoteName     String         @default("origin")
+  allowedRemoteIdentity String
+  allowLocalCommit      Boolean        @default(false)
+  allowFeaturePush      Boolean        @default(false)
+  status                String         @default("ACTIVE")
+  version               Int            @default(1)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @default(now()) @updatedAt
+  project               yusuf_projects @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, key])
+  @@index([status])
 }
 
 model yusuf_security_settings {

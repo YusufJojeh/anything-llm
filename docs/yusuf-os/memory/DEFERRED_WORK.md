@@ -3,15 +3,18 @@
 Do not build these unprompted; they belong to specific future gates and building early would
 outrun the security architecture meant to gate them.
 
-## Gate D (next, not started)
+## Gate D — DONE (2026-08-17)
 
-Real LocalGit adapter against a disposable local repo + bare remote (see `CURRENT_GATE.md`).
-Nothing beyond that — no GitHub API, no real push.
+Real LocalGit adapter against a disposable local repo + bare remote. See `GATE_HISTORY.md` for
+full evidence. No GitHub API, no real push — both remain deferred below.
 
-## Gate E (later)
+## Gate E (next, not started)
 
 Engineering Agent and Reviewer Agent runtime/intelligence — actually using the Gate D LocalGit
-capabilities through real agent reasoning, not just proving the pipeline works.
+capabilities through real agent reasoning, not just proving the pipeline works (Gate D wired the
+adapter and full boundary chain, and reused `requestBuilders.js` from tests, but no live AIbitat
+agent has `enableYusufGovernance()`/`bindTool()` called on it for LocalGit yet). See
+`CURRENT_GATE.md`.
 
 ## Gate F (later)
 
