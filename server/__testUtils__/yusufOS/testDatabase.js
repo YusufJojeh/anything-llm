@@ -20,9 +20,17 @@ async function createTestDatabase({ applyGateCSeparately = false } = {}) {
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort();
-  const upstream = migrationNames.filter((name) => name !== GATE_C_MIGRATION);
+  // `applyGateCSeparately` proves the Yusuf migrations apply cleanly *on top
+  // of* a fully migrated upstream AnythingLLM database. It partitions by
+  // ownership rather than by naming a single migration: later Yusuf gates
+  // (Gate D's repository binding, Gate E's agent runtime) build on Gate C's
+  // tables, so their relative order must be preserved or their table
+  // redefinitions have nothing to copy from.
+  const isYusufMigration = (name) => name.includes("_add_yusuf_os_");
+  const upstream = migrationNames.filter((name) => !isYusufMigration(name));
+  const yusufMigrations = migrationNames.filter(isYusufMigration);
   const ordered = applyGateCSeparately
-    ? [...upstream, GATE_C_MIGRATION]
+    ? [...upstream, ...yusufMigrations]
     : migrationNames;
   const sqlite = new DatabaseSync(databasePath);
   try {
@@ -47,7 +55,8 @@ async function createTestDatabase({ applyGateCSeparately = false } = {}) {
   return {
     db,
     databasePath,
-    migrationOutput: `Applied ${ordered.length} SQL migrations in order; final migration ${ordered.at(-1)}.`,
+    migrationOutput: `Applied ${ordered.length} SQL migrations in order; final migration ${ordered.at(-1)}. Yusuf migrations applied: ${yusufMigrations.join(", ")}.`,
+    yusufMigrations,
     async cleanup() {
       await db.$disconnect();
       for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -66,6 +75,11 @@ async function createTestDatabase({ applyGateCSeparately = false } = {}) {
 }
 
 async function clearYusufTables(db) {
+  // Gate E tables first: they reference runs/tasks/agents.
+  await db.yusuf_review_verdicts.deleteMany();
+  await db.yusuf_run_evidence.deleteMany();
+  await db.yusuf_handoffs.deleteMany();
+  await db.yusuf_project_commands.deleteMany();
   await db.yusuf_action_receipts.deleteMany();
   await db.yusuf_approval_requests.deleteMany();
   await db.yusuf_policy_decisions.deleteMany();

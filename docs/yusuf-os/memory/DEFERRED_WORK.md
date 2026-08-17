@@ -49,3 +49,20 @@ Raw shell execution (`git.raw`, `shell.exec`), `git.push_arbitrary`, `git.force_
 architecture review, not just a Gate D extension. `protected_branch.force_push` and
 `protected_branch.direct_push` are already `HARD_FORBIDDEN` at the registry level, not merely
 undefined.
+
+## Updated after Gate E (2026-08-17)
+
+Gate E is **done** (Chief of Staff / Engineering / Reviewer runtime). Still deferred:
+
+- **Gate F (next)**: Command Center *backend projections* only — normalized `systemStatus`,
+  `agentStatuses`, `taskStatuses`, `approvalQueue`, `activeHandoffs`, `runProgress`,
+  `adapterHealth`, `costSummary`, `auditSummary` over HTTP + SSE. No UI.
+- **Gate G**: the Command Center frontend itself — see `FRONTEND_VISION.md` for the approved
+  direction that must not be replaced with a generic dashboard.
+- **Real LLM provider wiring** for agent reasoning (see `KNOWN_RISKS.md` #12).
+- The **full specialist agent roster** beyond the three core roles (Monitoring, Marketing,
+  Career, Security, Research, Memory Curator, Sales, Recruiter, Founder, Finance, Strategist,
+  Social, Design, Operations).
+- **Memory Curator** and the four-way Documents / Knowledge / Evidence / Memory split.
+- Everything already listed above: shell adapter, browser/Open Computer, GitHub API and real
+  network push, Gmail/LinkedIn/WhatsApp/Calendar, governed MCP side effects, governed SQL.

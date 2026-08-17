@@ -77,3 +77,41 @@ P1-equivalent issues *were* found during Gate D's own review and are documented 
     `feature/yusuf-os-core`, none pushed. Not a security risk, but worth knowing before any
     destructive git operation — always `git status`/`git log` first, per the harness's own safety
     rules, and never push without Yusuf's explicit approval.
+
+## Added in Gate E (2026-08-17)
+
+11. **Prisma's SQLite column-add rewrites the whole table and drops CHECK constraints.**
+    [VERIFIED_BY_TEST, Gate E] Prisma does not model CHECK constraints, so its generated
+    "RedefineTables" SQL silently loses Gate C's status/priority/principal-type/version
+    constraints. Gate E hit this for real and hand-corrected the migration. **Any future gate that
+    adds a column to an existing `yusuf_*` table must re-add every CHECK constraint by hand and
+    verify with the regression test in `migrationSafety.test.js`** — never ship the generated SQL
+    unread.
+
+12. **Agent reasoning is not yet wired to a real LLM provider.** [DOCUMENTED_DECISION, Gate E]
+    `ModelClient` is provider-agnostic with a `DeterministicModelClient` used by all core tests,
+    so CI needs no API key and no network. The orchestration, security, and completion behavior
+    are fully proven; what is *not* yet proven is a real model's ability to choose good
+    capability calls. Wiring AnythingLLM's provider abstraction in is a later gate — and the
+    security properties are designed to hold regardless of what the model emits.
+
+13. **`startRun`'s concurrency check is read-then-transition, not atomic.** [VERIFIED_FROM_REPOSITORY,
+    Gate E] Two truly simultaneous `startRun` calls for the same Agent could each observe
+    `active < maxConcurrent` and both proceed, briefly exceeding the limit by one. The conditional
+    transition still prevents double-starting the *same* run, and the current orchestration is
+    sequential, so this is a consistency wrinkle rather than a security boundary. If Gate F+ adds
+    parallel workers, make the limit atomic (e.g. a conditional update against a counter) rather
+    than relying on the count query.
+
+14. **Task ownership (`assignedAgentId`) follows the handoff, by design.** [DOCUMENTED_DECISION,
+    Gate E] Gate C's `IntentService` requires the acting Agent to match the task's assigned Agent,
+    so the Reviewer must genuinely own the task while reviewing it. Delegation *history* lives in
+    `yusuf_handoffs`, not in `assignedAgentId`. Anything reading `assignedAgentId` must treat it as
+    "who holds the task right now", not "who it was originally delegated to".
+
+15. **Project command definitions are trusted configuration.** [DOCUMENTED_DECISION, Gate E]
+    `yusuf_project_commands` rows supply the executable (from a code-owned allowlist) and argv.
+    The model can only pick a semantic key. But a bad *registration* could still pass hostile argv
+    (e.g. `node --experimental-loader=...`), so registering a command is an operator-trust action,
+    equivalent to installing server code. `npm`/`npx`/`yarn` are deliberately excluded from the
+    allowlist because on Windows they are `.cmd` shims that would require `shell: true`.

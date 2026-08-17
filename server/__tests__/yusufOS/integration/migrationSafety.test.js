@@ -28,9 +28,13 @@ describe("Yusuf OS additive migration safety", () => {
         "yusuf_audit_events",
       ])
     );
-    expect(testDatabase.migrationOutput).toContain(
-      "20260817033000_add_yusuf_os_core"
-    );
+    // Every Yusuf migration applied cleanly on top of a fully migrated
+    // upstream database, in gate order.
+    expect(testDatabase.yusufMigrations).toEqual([
+      "20260817033000_add_yusuf_os_core",
+      "20260817120000_add_yusuf_os_git_repositories",
+      "20260817180000_add_yusuf_os_agent_runtime",
+    ]);
   });
 
   test("confirmed API filters have migration-backed indexes", async () => {
@@ -97,6 +101,47 @@ describe("Yusuf OS additive migration safety", () => {
       db.yusuf_task_dependencies.create({
         data: { taskId: task.id, dependsOnTaskId: task.id },
       })
+    ).rejects.toBeTruthy();
+  });
+
+  test("later gates preserve Gate C's CHECK constraints through table redefinition", async () => {
+    // Prisma's SQLite "add a column" strategy rewrites the whole table and
+    // does not carry CHECK constraints across, so every gate that adds a
+    // column to an existing yusuf_* table must restore them by hand. This
+    // asserts the constraints still bite after all migrations have run.
+    await expect(
+      db.$executeRawUnsafe(
+        `INSERT INTO yusuf_agent_runs (uuid, taskId, requestedByPrincipalType, requestedByPrincipalId, status, requestId) VALUES (?, 1, 'USER', 'yusuf', 'NOT_A_REAL_STATUS', 'request')`,
+        randomUUID()
+      )
+    ).rejects.toBeTruthy();
+    await expect(
+      db.$executeRawUnsafe(
+        `INSERT INTO yusuf_agent_runs (uuid, taskId, requestedByPrincipalType, requestedByPrincipalId, runKind, requestId) VALUES (?, 1, 'USER', 'yusuf', 'NOT_A_REAL_KIND', 'request')`,
+        randomUUID()
+      )
+    ).rejects.toBeTruthy();
+    await expect(
+      db.$executeRawUnsafe(
+        `INSERT INTO yusuf_tasks (uuid, requestedByPrincipalType, requestedByPrincipalId, title, objective, priority, requestId) VALUES (?, 'USER', 'yusuf', 'bad', 'bad', 'P9', 'request')`,
+        randomUUID()
+      )
+    ).rejects.toBeTruthy();
+  });
+
+  test("Gate E enum-backed columns reject values outside their contract", async () => {
+    await expect(
+      db.$executeRawUnsafe(
+        `INSERT INTO yusuf_handoffs (uuid, taskId, fromAgentId, toAgentId, reason, status, idempotencyKey, requestId) VALUES (?, 1, 1, 2, 'x', 'NOT_A_STATUS', ?, 'request')`,
+        randomUUID(),
+        randomUUID()
+      )
+    ).rejects.toBeTruthy();
+    await expect(
+      db.$executeRawUnsafe(
+        `INSERT INTO yusuf_review_verdicts (uuid, taskId, reviewRunId, reviewerAgentId, verdict, summary, evidenceDigest, requestId) VALUES (?, 1, 1, 1, 'DEFINITELY_FINE', 's', 'd', 'request')`,
+        randomUUID()
+      )
     ).rejects.toBeTruthy();
   });
 

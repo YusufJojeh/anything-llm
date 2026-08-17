@@ -66,3 +66,23 @@ re-statement of a record.
   what broke the first attempt at `server/__tests__/yusufOS/fixtures/gitRepositoryFixture.js`.
 - If suite/test counts drop from 16/164 (Yusuf OS) or 47/467 (full server) without an intentional
   test change, treat it as a regression, not an expected fluctuation.
+
+## Gate E update [VERIFIED_BY_TEST — 2026-08-17]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server
+```
+→ **49 suites, 521 tests, 0 failed.** (Gate D baseline was 47/467; Gate E adds 2 suites and 54
+tests.) `npx eslint .` in `server/` clean; `git diff --check` exit 0; `prisma validate` valid with
+an empty `migrate diff`.
+
+New Gate E suites: `server/__tests__/yusufOS/security/agentRuntimeSecurity.test.js` (38 tests —
+capability isolation, model-output authority rejection, reviewer spoofing, handoff forgery,
+idempotency, concurrency, illegal transitions, evidence integrity) and
+`server/__tests__/yusufOS/integration/agentOrchestration.test.js` (11 tests — full happy path,
+BLOCK + rework, stale review, PASS_WITH_WARNINGS, approval suspend/resume, rejected approval,
+prompt injection, FORBIDDEN-despite-PASS, projection shape, audit continuity, telemetry).
+
+New fixture: `server/__testUtils__/yusufOS/agentFixture.js` (disposable git-backed project with a
+deliberately failing check + the three seeded Agents). Requires no LLM key and no network.

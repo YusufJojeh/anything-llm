@@ -189,9 +189,54 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SERVER_KEY_RECONCILE",
     hardFlags: [],
   }),
+  "project.read_file": definition({
+    key: "project.read_file",
+    domain: "project",
+    description:
+      "Read one allowlisted, non-secret file inside a bound project root.",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "project.write_file": definition({
+    key: "project.write_file",
+    domain: "project",
+    description:
+      "Replace the contents of one allowlisted, non-secret file inside a bound project root.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L2,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
+  "project.run_command": definition({
+    key: "project.run_command",
+    domain: "project",
+    description:
+      "Run one project-registered, server-owned command by its semantic key. Never a model-supplied shell string.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L2,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
 });
 
 const HARD_FORBIDDEN = Object.freeze([
+  // Gate E: an Agent may never author its own review verdict, mark a gated
+  // Task complete, or act as another Agent. These are code-owned invariants
+  // so that even a fully compromised prompt cannot request them legally.
+  "review.self_certify",
+  "task.force_complete",
+  "agent.impersonate",
   "credential.extract",
   "browser.cookie.export",
   "browser.session_token.export",

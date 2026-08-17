@@ -31,11 +31,13 @@ Policy → (approval if required) → Execution Coordinator → Verification →
 
 ## Current gate
 
-See `docs/yusuf-os/memory/CURRENT_GATE.md` for the authoritative current state. As of the last
-onboarding pass (2026-08-17): Gate C is implemented and independently verified
-(`READY_FOR_GATE_D`). Gate D (governed LocalGit vertical slice, disposable local repo + bare
-remote, no GitHub/network) has **not** started. Do not begin Gate D implementation without
-Yusuf's explicit instruction.
+See `docs/yusuf-os/memory/CURRENT_GATE.md` for the authoritative current state. As of 2026-08-17:
+Gates B, C, D and **E** are complete and verified (521 tests green). Gate E added the first
+governed AI staff runtime — Chief of Staff / Engineering / Reviewer with isolated capabilities,
+durable handoffs, independent review verdicts, and a deterministic completion gate. Gate F
+(Command Center *backend projections* only — no UI) has **not** started. Do not begin Gate F
+without Yusuf's explicit instruction, and read `docs/yusuf-os/memory/FRONTEND_VISION.md` before
+any frontend work so the approved Command Center direction is preserved.
 
 ## Ground rules
 

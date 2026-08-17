@@ -1,5 +1,50 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-17 — Gate E implementation (Claude Code, Opus 5)
+
+**Branch/HEAD at start:** `feature/yusuf-os-core`, four local checkpoint commits (Gate B, Gate C,
+memory, Gate D). Yusuf sent the full Gate E authorization and said "START GATE E."
+
+**What was done:** Implemented, tested, and security-reviewed Gate E — the first governed AI staff
+runtime. See `GATE_HISTORY.md` for the complete record. Summary:
+- Three code-owned AgentDefinitions with genuinely isolated capabilities (Chief of Staff holds
+  none, Engineering holds write/git, Reviewer is read-only), seeded via `AgentRegistry` which
+  refuses any grant outside the role's code-owned allowlist.
+- Durable `yusuf_handoffs`, append-only `yusuf_review_verdicts`, `yusuf_run_evidence`, and a
+  project-owned `yusuf_project_commands` registry; additive migration
+  `20260817180000_add_yusuf_os_agent_runtime`.
+- Deterministic `CompletionPolicy` reading only persisted state, plus `ChiefOfStaff` orchestration
+  (delegate / request review / rework / surface approvals+blockers / evaluate completion /
+  `taskState()` projection).
+- Two new governed capabilities: `project.write_file` (reuses Gate D's hardened path policy) and
+  `project.run_command` (semantic key → server-owned argv, code-owned executable allowlist,
+  `shell:false`). No raw shell, no arbitrary filesystem.
+- Structured output contracts that reject any authority-bearing model field at any nesting depth.
+- 2 new test suites (49 tests) proving the full happy path against a *real* disposable git project
+  whose file genuinely changes, the BLOCK→rework→PASS loop, approval suspend/resume, prompt
+  injection, capability isolation, reviewer forgery, idempotency, and audit continuity.
+
+**Security review outcome:** self-conducted (the delegated review agent hit a session limit
+mid-run). Three real issues found and **fixed with regression tests**: dropped CHECK constraints
+from Prisma's table-redefine; caller-asserted validation evidence; cross-task evidence injection.
+Final P0 = 0, P1 = 0.
+
+**Tests:** 49 suites / **521 tests** pass; lint clean; `git diff --check` clean; Prisma valid with
+empty `migrate diff`. Zero Gate C/D regression.
+
+**What remains:** Gate F (Command Center backend projections) — not started, per instruction to
+stop after Gate E. No GitHub/network push at any point; all push tests used the disposable local
+bare remote.
+
+**Current blocker:** none. Waiting on Yusuf's explicit authorization before Gate F.
+
+**Exact next action for the next session:** if Gate F is authorized, generalize
+`ChiefOfStaff.taskState()` into the normalized cross-task projections named in
+`docs/yusuf-os/gate-b/api-realtime-frontend.md` §§4-5 and add the SSE delivery layer. Build **no
+UI** — read `FRONTEND_VISION.md` first so the approved Command Center direction is preserved.
+
+**Do not repeat:** re-deriving Gate B/C/D/E. The memory set is current as of this session.
+
 ## 2026-08-17 — Gate D implementation (Claude Code, Sonnet 5) — same session as onboarding, below
 
 **Branch/HEAD at start:** `feature/yusuf-os-core`, three local checkpoint commits already made

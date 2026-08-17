@@ -19,3 +19,17 @@ one ADR in isolation, or decisions made during Gate C implementation itself.
 
 Add to this table only when something genuinely new and non-obvious is decided — most
 architectural decisions belong in a proper ADR under `docs/yusuf-os/gate-b/adrs/`, not here.
+
+## Gate E decisions (2026-08-17)
+
+| Decision | Reason | Source |
+|---|---|---|
+| Chief of Staff holds **zero** capabilities | Makes "the delegator inherits the delegatee's authority" structurally impossible rather than merely discouraged; orchestration is deterministic server logic, not a governed side effect | `agents/definitions.js` |
+| Role capability allowlists are code-owned; DB grants can only narrow | A stray or malicious DB grant must not be able to give the Reviewer write access | `AgentRegistry.assertGrantAllowed` |
+| Review verdict authority = "run owned by the reviewer agent with runKind REVIEW", enforced server-side | The only durable way to stop Engineering forging a PASS; never parse model prose for authority | `review/ReviewService.js` |
+| Verdicts are immutable and append-only (`reviewRunId` unique) | A later PASS must not erase an earlier BLOCK; rework must preserve review history | `yusuf_review_verdicts` |
+| Task `assignedAgentId` follows the handoff | Gate C requires the acting Agent to match the task's assignee, so the Reviewer must own the task while reviewing; delegation history lives in `yusuf_handoffs` | `ChiefOfStaff.requestReview/requestRework`, `KNOWN_RISKS.md` #14 |
+| VALIDATION evidence status is derived from the ActionReceipt, not the caller | Found in Gate E's own security review — a caller-asserted `PASSED` was the same self-certification hole the completion gate exists to close | `AgentRunCoordinator.recordEvidence` |
+| Project commands are semantic keys resolved to server-owned argv; executables from a code-owned allowlist; `npm`/`npx`/`yarn` excluded | Lets validation run without exposing a shell; the Windows `.cmd` shim problem would have required `shell:true` | `adapters/project/commandRegistry.js` |
+| Core agent tests use a deterministic model client | CI must never depend on a paid external LLM or the network; security properties must hold regardless of model output | `agents/ModelClient.js` |
+| Token-usage telemetry is coerced to numbers instead of passed through the redactor | `promptTokens`/`totalTokens` match the secret redactor's key patterns and would be blanked; numbers cannot carry a credential | `AgentRunCoordinator.recordTelemetry` |

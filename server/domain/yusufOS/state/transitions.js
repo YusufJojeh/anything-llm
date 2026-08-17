@@ -27,7 +27,9 @@ const transitions = Object.freeze({
   run: {
     [RUN_STATUSES.QUEUED]: [RUN_STATUSES.RUNNING, RUN_STATUSES.CANCELLED],
     [RUN_STATUSES.RUNNING]: [
+      RUN_STATUSES.WAITING_TOOL,
       RUN_STATUSES.WAITING_APPROVAL,
+      RUN_STATUSES.WAITING_HANDOFF,
       RUN_STATUSES.WAITING_DEPENDENCY,
       RUN_STATUSES.BLOCKED,
       RUN_STATUSES.VERIFYING,
@@ -36,8 +38,25 @@ const transitions = Object.freeze({
       RUN_STATUSES.FAILED_UNKNOWN,
       RUN_STATUSES.CANCELLED,
     ],
+    [RUN_STATUSES.WAITING_TOOL]: [
+      RUN_STATUSES.RUNNING,
+      RUN_STATUSES.WAITING_APPROVAL,
+      RUN_STATUSES.FAILED,
+      RUN_STATUSES.FAILED_UNKNOWN,
+      RUN_STATUSES.CANCELLED,
+    ],
     [RUN_STATUSES.WAITING_APPROVAL]: [
       RUN_STATUSES.RUNNING,
+      RUN_STATUSES.BLOCKED,
+      RUN_STATUSES.FAILED,
+      RUN_STATUSES.CANCELLED,
+    ],
+    // A run that handed work to another Agent is finished with its own turn;
+    // it completes or is cancelled. It never silently resumes RUNNING, because
+    // the receiving Agent owns the next step.
+    [RUN_STATUSES.WAITING_HANDOFF]: [
+      RUN_STATUSES.COMPLETED,
+      RUN_STATUSES.BLOCKED,
       RUN_STATUSES.FAILED,
       RUN_STATUSES.CANCELLED,
     ],

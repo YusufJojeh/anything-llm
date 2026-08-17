@@ -511,6 +511,9 @@ model yusuf_agents {
   runs              yusuf_agent_runs[]
   capabilityGrants  yusuf_agent_capabilities[]
   intents           yusuf_action_intents[]
+  handoffsFrom      yusuf_handoffs[]           @relation("YusufHandoffFrom")
+  handoffsTo        yusuf_handoffs[]           @relation("YusufHandoffTo")
+  reviewVerdicts    yusuf_review_verdicts[]
 
   @@index([status])
   @@index([escalationAgentId])
@@ -529,6 +532,7 @@ model yusuf_projects {
   tasks           yusuf_tasks[]
   policyOverrides yusuf_project_policy_overrides[]
   gitRepositories yusuf_git_repositories[]
+  commands        yusuf_project_commands[]
 
   @@index([status])
 }
@@ -562,6 +566,8 @@ model yusuf_tasks {
   objective                String
   priority                 String                    @default("P2")
   status                   String                    @default("PLANNED")
+  taskKind                 String                    @default("GENERAL")
+  blockedReason            String?
   completionGates          String                    @default("[]")
   requestId                String
   deadline                 DateTime?
@@ -576,6 +582,9 @@ model yusuf_tasks {
   dependents               yusuf_task_dependencies[] @relation("YusufTaskDependents")
   runs                     yusuf_agent_runs[]
   intents                  yusuf_action_intents[]
+  handoffs                 yusuf_handoffs[]
+  reviewVerdicts           yusuf_review_verdicts[]
+  evidence                 yusuf_run_evidence[]
 
   @@index([status, priority, updatedAt])
   @@index([assignedAgentId, status])
@@ -598,26 +607,35 @@ model yusuf_task_dependencies {
 }
 
 model yusuf_agent_runs {
-  id                       Int                    @id @default(autoincrement())
-  uuid                     String                 @unique
+  id                       Int                     @id @default(autoincrement())
+  uuid                     String                  @unique
   taskId                   Int
   agentId                  Int?
   requestedByPrincipalType String
   requestedByPrincipalId   String
-  status                   String                 @default("QUEUED")
+  status                   String                  @default("QUEUED")
+  runKind                  String                  @default("EXECUTION")
+  failureKind              String?
+  blockedReason            String?
+  idempotencyKey           String?                 @unique
   modelRef                 String?
   promptDigest             String?
   tokenUsage               String?
   estimatedCostMicros      Int?
   requestId                String
-  version                  Int                    @default(1)
+  version                  Int                     @default(1)
   startedAt                DateTime?
   completedAt              DateTime?
-  createdAt                DateTime               @default(now())
-  updatedAt                DateTime               @default(now()) @updatedAt
-  task                     yusuf_tasks            @relation(fields: [taskId], references: [id], onDelete: Restrict)
-  agent                    yusuf_agents?          @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @default(now()) @updatedAt
+  task                     yusuf_tasks             @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  agent                    yusuf_agents?           @relation(fields: [agentId], references: [id], onDelete: SetNull)
   intents                  yusuf_action_intents[]
+  handoffsFrom             yusuf_handoffs[]        @relation("YusufHandoffFromRun")
+  handoffsTo               yusuf_handoffs[]        @relation("YusufHandoffToRun")
+  reviewVerdict            yusuf_review_verdicts?  @relation("YusufReviewRun")
+  reviewedVerdicts         yusuf_review_verdicts[] @relation("YusufReviewTargetRun")
+  evidence                 yusuf_run_evidence[]
 
   @@index([taskId, status])
   @@index([agentId, status])
@@ -832,6 +850,109 @@ model yusuf_git_repositories {
 
   @@unique([projectId, key])
   @@index([status])
+}
+
+// Gate E: a project-owned, server-trusted registry of semantic commands an
+// Agent may request by key only. The model never supplies an executable,
+// argv, cwd, or environment — it selects a key, and the server resolves the
+// exact invocation from this table. This exists so validation can run
+// without exposing a raw shell.
+model yusuf_project_commands {
+  id          Int            @id @default(autoincrement())
+  uuid        String         @unique
+  projectId   Int
+  key         String
+  description String         @default("")
+  executable  String
+  args        String         @default("[]")
+  cwdRelative String         @default(".")
+  timeoutMs   Int            @default(120000)
+  enabled     Boolean        @default(true)
+  version     Int            @default(1)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @default(now()) @updatedAt
+  project     yusuf_projects @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, key])
+  @@index([projectId, enabled])
+}
+
+// Gate E: durable Agent-to-Agent handoff. This is the real backend edge a
+// future Command Center renders — never frontend-only decoration.
+model yusuf_handoffs {
+  id             Int               @id @default(autoincrement())
+  uuid           String            @unique
+  taskId         Int
+  fromAgentId    Int
+  toAgentId      Int
+  fromRunId      Int?
+  toRunId        Int?
+  reason         String
+  status         String            @default("PENDING")
+  artifacts      String            @default("[]")
+  idempotencyKey String            @unique
+  requestId      String
+  version        Int               @default(1)
+  acceptedAt     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @default(now()) @updatedAt
+  task           yusuf_tasks       @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  fromAgent      yusuf_agents      @relation("YusufHandoffFrom", fields: [fromAgentId], references: [id], onDelete: Restrict)
+  toAgent        yusuf_agents      @relation("YusufHandoffTo", fields: [toAgentId], references: [id], onDelete: Restrict)
+  fromRun        yusuf_agent_runs? @relation("YusufHandoffFromRun", fields: [fromRunId], references: [id], onDelete: SetNull)
+  toRun          yusuf_agent_runs? @relation("YusufHandoffToRun", fields: [toRunId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, status])
+  @@index([toAgentId, status])
+  @@index([requestId])
+}
+
+// Gate E: an independent Reviewer judgement. Append-only — a later PASS never
+// overwrites an earlier BLOCK, so review history survives rework. The unique
+// reviewRunId is what makes a verdict attributable to exactly one
+// Reviewer-owned run; completion logic queries this table, never model prose.
+model yusuf_review_verdicts {
+  id              Int               @id @default(autoincrement())
+  uuid            String            @unique
+  taskId          Int
+  reviewRunId     Int               @unique
+  targetRunId     Int?
+  reviewerAgentId Int
+  verdict         String
+  summary         String
+  findings        String            @default("[]")
+  evidenceDigest  String
+  requestId       String
+  createdAt       DateTime          @default(now())
+  task            yusuf_tasks       @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  reviewRun       yusuf_agent_runs  @relation("YusufReviewRun", fields: [reviewRunId], references: [id], onDelete: Restrict)
+  targetRun       yusuf_agent_runs? @relation("YusufReviewTargetRun", fields: [targetRunId], references: [id], onDelete: SetNull)
+  reviewerAgent   yusuf_agents      @relation(fields: [reviewerAgentId], references: [id], onDelete: Restrict)
+
+  @@index([taskId, createdAt])
+  @@index([verdict])
+}
+
+// Gate E: structured, server-recorded evidence produced during a run
+// (implementation summary, validation/test results, analysis). Completion
+// gates read this table rather than trusting an Agent's narrative claim.
+model yusuf_run_evidence {
+  id        Int              @id @default(autoincrement())
+  uuid      String           @unique
+  runId     Int
+  taskId    Int
+  kind      String
+  status    String
+  summary   String
+  payload   String           @default("{}")
+  digest    String
+  createdAt DateTime         @default(now())
+  run       yusuf_agent_runs @relation(fields: [runId], references: [id], onDelete: Restrict)
+  task      yusuf_tasks      @relation(fields: [taskId], references: [id], onDelete: Restrict)
+
+  @@index([taskId, kind, createdAt])
+  @@index([runId, kind])
 }
 
 model yusuf_security_settings {

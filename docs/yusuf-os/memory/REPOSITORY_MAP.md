@@ -106,3 +106,30 @@ flags threaded through workspace-agent and ephemeral-agent construction.
 
 Does not exist yet. Deliberately kept separate from the rest of `frontend/` per Gate B
 (`docs/yusuf-os/gate-b/api-realtime-frontend.md`). See `ROADMAP.md` for the intended shape.
+
+## Gate E additions (agent runtime)
+
+- `server/domain/yusufOS/agents/` — `definitions.js` (code-owned roles + allowed capabilities),
+  `AgentRegistry.js` (seeding, grant isolation, role assertions), `contracts.js` (structured
+  output validation / authority-field rejection), `ModelClient.js` (provider-agnostic +
+  deterministic test client + untrusted-content wrapping), `AgentRunCoordinator.js` (run
+  lifecycle, idempotency, concurrency, evidence, telemetry), `toolBinding.js` (per-role governed
+  toolsets over the Gate C Action Boundary).
+- `server/domain/yusufOS/orchestration/` — `ChiefOfStaff.js` (deterministic orchestration:
+  delegate, review request, rework, blockers, projection, completion), `CompletionPolicy.js`
+  (the deterministic gate).
+- `server/domain/yusufOS/handoffs/HandoffService.js` — durable agent-to-agent edges.
+- `server/domain/yusufOS/review/ReviewService.js` — reviewer-owned, append-only verdicts.
+- `server/domain/yusufOS/adapters/project/` — `ProjectAdapter.js` (governed file read/write +
+  command run), `commandRegistry.js` (semantic key → server-owned invocation, code-owned
+  executable allowlist), `processRunner.js` (argv-only, `shell:false`, minimal env),
+  `requestBuilders.js`.
+- `server/models/yusufOS/gitRepository.js` (Gate D) and the Gate E tables:
+  `yusuf_handoffs`, `yusuf_review_verdicts`, `yusuf_run_evidence`, `yusuf_project_commands`,
+  plus new columns on `yusuf_tasks` / `yusuf_agent_runs`. Migration
+  `20260817180000_add_yusuf_os_agent_runtime`.
+- Tests: `server/__tests__/yusufOS/security/agentRuntimeSecurity.test.js`,
+  `server/__tests__/yusufOS/integration/agentOrchestration.test.js`; fixture
+  `server/__testUtils__/yusufOS/agentFixture.js`.
+- **No upstream AnythingLLM files were modified in Gate E** — the whole gate is additive under
+  `server/domain/yusufOS/`, `server/models/yusufOS/`, and the test tree.

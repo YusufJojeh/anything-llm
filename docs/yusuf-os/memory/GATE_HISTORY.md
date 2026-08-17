@@ -156,3 +156,49 @@ server regression: **47 suites / 467 tests**, all passing; lint clean; `git diff
 raw shell, `git.exec`, force-push, or arbitrary command capability. See `DEFERRED_WORK.md`.
 
 Verdict: **GO_GATE_E** — see `CURRENT_GATE.md`.
+
+## Gate E — First Governed AI Staff Runtime [VERIFIED_BY_TEST, 2026-08-17]
+
+Status: **Complete.** Builds the first real multi-agent runtime on top of the Gate C kernel and
+Gate D adapter, without weakening either (zero lines changed in `runtime/`, `policy/`,
+`approvals/`, `execution/ExecutionCoordinator.js`, `audit/`).
+
+**Architecture (deliberately decomposed — no "god service", no "god agent"):**
+`agents/definitions.js` (code-owned roles) · `agents/AgentRegistry.js` (seeding + grant
+isolation) · `agents/contracts.js` (structured output validation) · `agents/ModelClient.js`
+(provider-agnostic + deterministic test client) · `agents/AgentRunCoordinator.js` (run lifecycle,
+idempotency, concurrency, evidence) · `agents/toolBinding.js` (per-role governed toolsets) ·
+`orchestration/ChiefOfStaff.js` (deterministic orchestration) ·
+`orchestration/CompletionPolicy.js` (the gate) · `handoffs/HandoffService.js` ·
+`review/ReviewService.js` (verdict authority) · `adapters/project/*` (file + typed command).
+
+**Proven end-to-end (real, not simulated):** a disposable git-backed project with an
+intentionally broken `add()` and a failing `node test/check.js`; Chief of Staff delegates →
+Engineering reads/writes the file and runs validation *through the Action Boundary* → requests
+review → Reviewer independently reads the diff and returns a verdict → the deterministic gate
+completes the task. The file on disk genuinely changes.
+
+**Also proven:** the BLOCK path (bad change caught, task cannot complete, rework creates a new
+run, second review PASSes, prior BLOCK preserved in history); stale-review detection;
+`PASS_WITH_WARNINGS`; L3 approval suspend/resume (Gate C parks the run at `WAITING_APPROVAL`
+automatically and resumes it on consumption — orchestration does not have to re-wake it);
+rejected approval producing a distinguishable blocker; a hostile README failing to change any
+authoritative state or the audit chain; a Reviewer PASS failing to make a protected-branch push
+legal; full audit continuity across the whole orchestration.
+
+**Security review (self-conducted; the delegated review agent hit a session limit mid-run, so the
+audit was completed directly against the six Gate E claims).** Three real issues found and fixed
+with regression tests before completion:
+1. **Prisma's SQLite table-redefine silently dropped Gate C's CHECK constraints** on
+   `yusuf_tasks`/`yusuf_agent_runs` (status/priority/principal-type/version). Restored by hand in
+   the migration and extended for the new enums; a regression test now asserts the constraints
+   still bite after all migrations.
+2. **Validation evidence was caller-asserted.** `recordEvidence` accepted `status: "PASSED"`,
+   which the completion gate trusts as proof — the same self-certification class the gate exists
+   to prevent. Now VALIDATION evidence requires an intent reference and derives PASSED/FAILED
+   from the governed ActionReceipt.
+3. **Evidence could be filed against a task its run didn't belong to**, letting evidence be
+   injected into another task's gate. Now rejected.
+
+Final: **P0 = 0, P1 = 0.** 49 suites / **521 tests** pass, lint clean, `git diff --check` clean,
+Prisma valid with an empty `migrate diff`. Verdict: **GO_GATE_F**.
