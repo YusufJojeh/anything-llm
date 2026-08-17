@@ -19,6 +19,21 @@ function auditKey() {
   return key;
 }
 
+/**
+ * Whether the audit subsystem is actually usable. Callers that need to report
+ * health must use this rather than a bare `typeof` check on the env var — a
+ * short or empty key passes a type check but makes every append and every
+ * verification fail closed.
+ */
+function auditKeyConfigured() {
+  try {
+    auditKey();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function checkpointSignature(sequence, hash) {
   return createHmac("sha256", auditKey())
     .update(`${sequence}:${hash}`, "utf8")
@@ -204,6 +219,7 @@ class AuditService {
 
 module.exports = {
   AuditService,
+  auditKeyConfigured,
   GENESIS_HASH,
   CANONICALIZATION_VERSION,
   hashableEvent,

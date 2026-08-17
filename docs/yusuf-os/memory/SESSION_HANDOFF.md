@@ -1,5 +1,35 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-17 — Gate F implementation (Claude Code, Opus 5)
+
+**What was done:** Implemented Gate F — read-only Command Center backend projections per
+`docs/yusuf-os/gate-b/api-realtime-frontend.md` §4-5. **No UI** (that is Gate G). Added
+`DashboardProjection` (the §4 shape), `EventProjection` (§5 envelope derived from the existing
+audit chain rather than a second event store), the `/dashboard`, `/events`, `/events/stream` (SSE)
+and `/audit-integrity/check` routes behind the existing control-plane guard, and real gate
+accounting in `CompletionPolicy` so `runProgress` carries true satisfied/total counts.
+
+**Two things worth carrying forward:**
+1. **Running the thing found what unit tests could not.** A live SSE smoke test revealed the stream
+   was emitting internal numeric task/run ids while the dashboard emitted uuids — a client could
+   not have correlated them. The mapper looked correct in isolation. Fixed, with a regression test.
+2. **The independent review was run properly this time** (the Gate E lesson) and found **six**
+   issues, all fixed with tests — see `GATE_HISTORY.md`. The two that mattered most were a cached
+   `VALID` audit verdict that kept describing a chain which had grown past what was verified, and
+   `pendingReconciliation` reporting a clean system while unverified external effects existed.
+
+**Tests:** 50 suites / **546 tests**, lint clean, `git diff --check` clean. Zero Gate C/D/E
+regression.
+
+**What remains:** Gate G (the `/os` Command Center frontend). Not started.
+
+**Current blocker:** none. Waiting on Yusuf's explicit authorization before Gate G.
+
+**Exact next action for the next session:** if Gate G is authorized, read `FRONTEND_VISION.md`
+first, then build `/os` strictly against the Gate F projections — agent constellation with real
+handoff/review edges, an equally-capable accessible non-graph view, RTL, reduced motion, and no
+value the backend did not assert.
+
 ## 2026-08-17 — Gate E implementation (Claude Code, Opus 5)
 
 **Branch/HEAD at start:** `feature/yusuf-os-core`, four local checkpoint commits (Gate B, Gate C,

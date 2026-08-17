@@ -9,6 +9,30 @@ const {
 const { ReviewService } = require("../review/ReviewService");
 const { canonicalHash } = require("../security/canonicalJson");
 
+// The fixed set of gates every task is measured against, and which blocker
+// belongs to which gate. Gate F's `runProgress` reports real satisfied/total
+// counts from this map rather than inventing a progress percentage.
+const CORE_GATES = Object.freeze([
+  "implementation",
+  "validation",
+  "review",
+  "approvals",
+  "security",
+  "externalEffects",
+]);
+
+const BLOCKER_GATE = Object.freeze({
+  NO_IMPLEMENTATION_EVIDENCE: "implementation",
+  NO_VALIDATION_EVIDENCE: "validation",
+  VALIDATION_FAILED: "validation",
+  NO_REVIEW: "review",
+  REVIEW_BLOCKED: "review",
+  REVIEW_STALE: "review",
+  APPROVAL_PENDING: "approvals",
+  SECURITY_BLOCKER: "security",
+  EXTERNAL_EFFECT_UNVERIFIED: "externalEffects",
+});
+
 const GATE_REASONS = Object.freeze({
   NO_IMPLEMENTATION_EVIDENCE: "NO_IMPLEMENTATION_EVIDENCE",
   NO_VALIDATION_EVIDENCE: "NO_VALIDATION_EVIDENCE",
@@ -138,9 +162,17 @@ class CompletionPolicy {
     }
 
     const unique = [...new Set(blockers)];
+    const failedGates = new Set(
+      unique.map((reason) => BLOCKER_GATE[reason]).filter(Boolean)
+    );
     return {
       complete: unique.length === 0,
       blockers: unique,
+      gates: {
+        total: CORE_GATES.length,
+        satisfied: CORE_GATES.length - failedGates.size,
+        failed: [...failedGates],
+      },
       reviewVerdict: latestVerdict?.verdict || null,
       // PASS_WITH_WARNINGS completes the task but is surfaced explicitly so a
       // future Command Center (and Yusuf) can see it was not a clean PASS.
@@ -152,4 +184,4 @@ class CompletionPolicy {
   }
 }
 
-module.exports = { CompletionPolicy, GATE_REASONS };
+module.exports = { CompletionPolicy, GATE_REASONS, CORE_GATES, BLOCKER_GATE };

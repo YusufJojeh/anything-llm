@@ -28,6 +28,13 @@ const {
 const {
   ApprovalService,
 } = require("../../domain/yusufOS/approvals/ApprovalService");
+const {
+  DashboardProjection,
+  recordAuditCheck,
+} = require("../../domain/yusufOS/projections/DashboardProjection");
+const {
+  EventProjection,
+} = require("../../domain/yusufOS/projections/EventProjection");
 
 function asyncRoute(handler) {
   return async (request, response) => {
@@ -380,6 +387,156 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
     guard,
     asyncRoute(async (_request, response) => {
       response.status(200).json({ integrity: await audit.verify() });
+    })
+  );
+
+  // --- Gate F: Command Center projections (read-only) ---------------------
+  // Every route below is a projection of persisted state. None of them mutate
+  // anything, and all inherit the same localhost + bearer-token guard as the
+  // rest of the control plane.
+
+  app.get(
+    "/yusuf-os/dashboard",
+    guard,
+    asyncRoute(async (request, response) => {
+      const projection = new DashboardProjection(db);
+      response.status(200).json(
+        await projection.build({
+          taskLimit: request.query.taskLimit,
+        })
+      );
+    })
+  );
+
+  app.get(
+    "/yusuf-os/events",
+    guard,
+    asyncRoute(async (request, response) => {
+      const events = new EventProjection(db);
+      response
+        .status(200)
+        .json(
+          await events.since(request.query.after || 0, request.query.limit)
+        );
+    })
+  );
+
+  app.post(
+    "/yusuf-os/audit-integrity/check",
+    guard,
+    asyncRoute(async (_request, response) => {
+      // Deliberately a command, not part of the dashboard read: verifying the
+      // chain walks every audit event, so it must never be triggered
+      // implicitly by a UI poll. Until it is run, the dashboard honestly
+      // reports UNCHECKED.
+      const integrity = await audit.verify();
+      const checkpoint = await db.yusuf_audit_checkpoints.findUnique({
+        where: { key: "PRIMARY" },
+      });
+      response.status(200).json({
+        integrity,
+        summary: recordAuditCheck(integrity, checkpoint?.lastSequence || 0),
+      });
+    })
+  );
+
+  /**
+   * SSE delivery for the same events `/events` returns.
+   *
+   * The HTTP snapshot remains the source of truth (Gate B §5); this is a
+   * delivery optimization. Control mutations never travel over this channel —
+   * it is strictly server-to-client projection data.
+   */
+  app.get(
+    "/yusuf-os/events/stream",
+    guard,
+    asyncRoute(async (request, response) => {
+      const events = new EventProjection(db);
+      const startCursor = Number(
+        request.headers["last-event-id"] || request.query.after || 0
+      );
+
+      response.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+
+      let cursor =
+        Number.isInteger(startCursor) && startCursor >= 0 ? startCursor : 0;
+      let closed = false;
+      let poll = null;
+      let heartbeat = null;
+      let pumping = false;
+
+      const shutdown = () => {
+        if (closed) return;
+        closed = true;
+        if (poll) clearTimeout(poll);
+        if (heartbeat) clearInterval(heartbeat);
+        try {
+          response.end();
+        } catch {
+          /* connection already torn down */
+        }
+      };
+      // Registered before the first await: `close` can fire while the initial
+      // pump is still querying, and a listener attached afterwards would miss
+      // it, leaking both timers for the life of the process.
+      request.on("close", shutdown);
+      request.on("aborted", shutdown);
+      response.on("error", shutdown);
+      const write = (payload, { id, event } = {}) => {
+        if (closed) return;
+        if (id !== undefined) response.write(`id: ${id}\n`);
+        if (event) response.write(`event: ${event}\n`);
+        response.write(`data: ${JSON.stringify(payload)}\n\n`);
+      };
+
+      const pump = async () => {
+        if (closed) return;
+        try {
+          const batch = await events.since(cursor, 100);
+          if (batch.reset) {
+            // Tell the client to reload /dashboard rather than trying to
+            // reconcile from an unusable cursor.
+            write(
+              { reason: batch.reason, cursor: batch.cursor },
+              { event: "reset" }
+            );
+            cursor = Number(batch.cursor);
+            return;
+          }
+          for (const envelope of batch.events)
+            write(envelope, { id: envelope.sequence, event: "yusuf" });
+          cursor = Math.max(cursor, Number(batch.cursor));
+        } catch (error) {
+          write({ code: error.code || "INTERNAL_ERROR" }, { event: "error" });
+        }
+      };
+
+      // Self-scheduling rather than setInterval: a pump that outruns a fixed
+      // interval would start again from the same cursor, re-emitting events
+      // and letting a late-finishing write move the cursor backwards.
+      const tick = async () => {
+        if (closed || pumping) return;
+        pumping = true;
+        try {
+          await pump();
+        } finally {
+          pumping = false;
+          if (!closed) poll = setTimeout(tick, 1000);
+        }
+      };
+      await tick();
+      // Comment frames keep intermediaries from closing an idle connection
+      // without injecting anything a client would parse as an event.
+      heartbeat = setInterval(() => {
+        if (!closed) response.write(": keep-alive\n\n");
+      }, 15000);
+      // The socket may have dropped while the first pump was still querying.
+      if (closed) shutdown();
     })
   );
 }

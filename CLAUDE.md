@@ -32,12 +32,17 @@ Policy → (approval if required) → Execution Coordinator → Verification →
 ## Current gate
 
 See `docs/yusuf-os/memory/CURRENT_GATE.md` for the authoritative current state. As of 2026-08-17:
-Gates B, C, D and **E** are complete and verified (521 tests green). Gate E added the first
+Gates B, C, D, E and **F** are complete and verified (546 tests green). Gate E added the first
 governed AI staff runtime — Chief of Staff / Engineering / Reviewer with isolated capabilities,
-durable handoffs, independent review verdicts, and a deterministic completion gate. Gate F
-(Command Center *backend projections* only — no UI) has **not** started. Do not begin Gate F
-without Yusuf's explicit instruction, and read `docs/yusuf-os/memory/FRONTEND_VISION.md` before
-any frontend work so the approved Command Center direction is preserved.
+durable handoffs, independent review verdicts, and a deterministic completion gate. Gate F added
+the read-only Command Center backend projections (`/dashboard`, `/events`, SSE `/events/stream`)
+— **no UI**. Gate G (the `/os` Command Center frontend) has **not** started. Do not begin Gate G
+without Yusuf's explicit instruction, and read `docs/yusuf-os/memory/FRONTEND_VISION.md` first so
+the approved Command Center direction is preserved.
+
+**Review lesson (Gate E/F):** self-review is materially weaker than independent review. Both gates
+claimed a clean bill of health from self-audit and an independent pass then found real High/Medium
+issues. Run an independent security review before reporting P0/P1 = 0.
 
 ## Ground rules
 

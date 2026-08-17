@@ -1,6 +1,6 @@
 # Current Gate
 
-_Last updated: 2026-08-17 (Gate E implementation pass). Gate E complete; Gate F not started._
+_Last updated: 2026-08-17 (Gate F implementation pass). Gate F complete; Gate G not started._
 
 ## Gate E — First Governed AI Staff Runtime — status: COMPLETE
 
@@ -34,16 +34,25 @@ See `GATE_HISTORY.md` for the full record. Implemented and tested:
 - Migration `20260817180000_add_yusuf_os_agent_runtime` (additive; hand-corrected to preserve
   Gate C's CHECK constraints that Prisma's table-redefine drops).
 
-## Next gate: Gate F — Command Center backend projections [PLANNED, not started]
+## Gate F — Command Center Backend Projections — status: COMPLETE
 
-**Objective:** expose normalized, queryable projections the future Command Center renders —
-`systemStatus`, `agentStatuses`, `taskStatuses`, `approvalQueue`, `activeHandoffs`, `runProgress`,
-`adapterHealth`, `costSummary`, `auditSummary` — over HTTP with SSE reconciliation, per
-`docs/yusuf-os/gate-b/api-realtime-frontend.md` §§4-5.
+Read-only projections implementing `docs/yusuf-os/gate-b/api-realtime-frontend.md` §4-5. **No UI
+was built.** See `GATE_HISTORY.md` for the full record including the six independent-review
+findings that were fixed. Surface:
 
-**Starting point:** `ChiefOfStaff.taskState()` already returns the per-task shape (agents, real
-handoff edges, review history, waiting approvals, completion assessment). Gate F generalizes this
-across tasks/agents and adds the realtime delivery layer. Do **not** build UI in Gate F — see
-`FRONTEND_VISION.md`.
+- `GET /api/yusuf-os/dashboard` — the normalized §4 projection.
+- `GET /api/yusuf-os/events?after=` — cursor-paged `YusufEventEnvelope`s.
+- `GET /api/yusuf-os/events/stream` — SSE with `Last-Event-ID` resume and reset frames.
+- `POST /api/yusuf-os/audit-integrity/check` — the only path that walks the chain.
+
+All behind the existing localhost + bearer-token control-plane guard.
+
+## Next gate: Gate G — Command Center frontend [PLANNED, not started]
+
+**Objective:** build the `/os` experience against the Gate F projections. **Read
+`docs/yusuf-os/memory/FRONTEND_VISION.md` first** — the approved direction is a relationship-
+centric AI Staff Command Center (agent constellation with real delegation/handoff/review edges),
+not a CRUD dashboard, with an equally-capable non-graph accessible view, RTL, and reduced-motion
+support. No fake data: every value must come from a Gate F projection.
 
 **Blockers before starting:** none technical; **waiting on Yusuf's explicit instruction.**

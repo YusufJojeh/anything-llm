@@ -86,3 +86,15 @@ prompt injection, FORBIDDEN-despite-PASS, projection shape, audit continuity, te
 
 New fixture: `server/__testUtils__/yusufOS/agentFixture.js` (disposable git-backed project with a
 deliberately failing check + the three seeded Agents). Requires no LLM key and no network.
+
+## Gate F update [VERIFIED_BY_TEST — 2026-08-17]
+
+→ **50 suites, 546 tests, 0 failed.** New suite:
+`server/__tests__/yusufOS/integration/commandCenterProjection.test.js` (21 tests — dashboard shape
+and honesty, auth on every projection route, kill-switch surfacing, adapter health, audit
+UNCHECKED→VALID→STALE lifecycle, approval attention queue, event ordering/cursor/reset semantics,
+metadata allowlist, uuid identity correlation, read-only guarantee).
+
+Note: the SSE stream was additionally smoke-tested against a **live** server (real socket, real
+frames) — that is how the uuid-correlation defect was found. Unit tests over the mapper alone did
+not catch it.

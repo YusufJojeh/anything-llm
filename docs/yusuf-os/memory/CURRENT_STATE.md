@@ -1,6 +1,6 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-17, Gate E implementation pass._
+_Last verified: 2026-08-17, Gate F implementation pass._
 
 **Branch:** `feature/yusuf-os-core`. Five local checkpoint commits (Gate B docs, Gate C core,
 Claude memory, Gate D LocalGit, Gate E agent runtime), all unpushed. `origin` =
@@ -14,6 +14,9 @@ Claude memory, Gate D LocalGit, Gate E agent runtime), all unpushed. `origin` =
   API, mandatory runtime interception).
 - Gate D (governed LocalGit adapter — the first real adapter and the first real L3 side effect,
   `git.push_feature_branch`, against a disposable local repo + bare remote).
+- **Gate F (Command Center backend projections)** — read-only `/dashboard`, `/events`, SSE
+  `/events/stream`, and `POST /audit-integrity/check`, all behind the control-plane guard. The
+  event stream is derived from the existing audit chain rather than a second event store.
 - **Gate E (the first governed AI staff runtime)** — three real Agents with isolated
   capabilities (Chief of Staff orchestrates and holds *zero* capabilities; Engineering holds the
   write/git capabilities; Reviewer is read-only), durable Handoffs, independent Reviewer
@@ -21,13 +24,12 @@ Claude memory, Gate D LocalGit, Gate E agent runtime), all unpushed. `origin` =
   (`project.write_file`, `project.run_command` via a server-owned typed command registry — no
   raw shell).
 
-**What has passed:** 49/49 server suites, **525/525 tests**, lint clean, `git diff --check`
+**What has passed:** 50/50 server suites, **546/546 tests**, lint clean, `git diff --check`
 clean, Prisma schema valid with an empty `migrate diff`. All re-run live this session.
 
-**Next gate:** Gate F — Command Center backend projections (normalized `systemStatus`,
-`agentStatuses`, `approvalQueue`, `activeHandoffs`, etc. over HTTP/SSE). **Not started.**
-`ChiefOfStaff.taskState()` is the seed of this. Do not begin without Yusuf's explicit
-instruction.
+**Next gate:** Gate G — the `/os` Command Center **frontend**, built against Gate F's
+projections. **Not started.** Read `FRONTEND_VISION.md` before any UI work. Do not begin without
+Yusuf's explicit instruction.
 
 **Must not be rebuilt:** the Gate C kernel (still unmodified in `runtime/`, `policy/`,
 `approvals/`, `execution/ExecutionCoordinator.js`, `audit/`), the Gate D LocalGit adapter, and

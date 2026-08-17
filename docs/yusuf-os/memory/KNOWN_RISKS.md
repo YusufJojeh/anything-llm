@@ -134,3 +134,15 @@ P1-equivalent issues *were* found during Gate D's own review and are documented 
     compared to anything — a concurrent edit is silently clobbered (last-writer-wins). No
     attacker-controlled consequence was identified, but do not rely on that preflight as a
     concurrency guarantee for L2 capabilities.
+
+18. **Projection caches are process-local and reset on restart.** [DOCUMENTED_DECISION, Gate F]
+    `adapterHealthCache` (10s TTL) and `auditCheckCache` live in module scope. A restart returns
+    `chainStatus` to `UNCHECKED`, which is the intended fail-safe direction. If Yusuf OS ever runs
+    multiple server processes, each will hold its own cache and the dashboard may disagree between
+    them — move these to a shared store at that point rather than assuming coherence.
+
+19. **The RFC 9457 problem+json error shape from Gate B §2 is not yet implemented.**
+    [DOCUMENTED_DECISION, Gate F] The control plane still returns the Gate C envelope
+    (`{error: {code, message, details, requestId}}`). Migrating would change a contract Gate C's
+    tests assert, so it was deliberately deferred rather than done halfway. Do it as its own small
+    change with the tests updated together, not as a side effect of a feature gate.

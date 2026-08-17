@@ -243,3 +243,60 @@ than self-assessment.
 
 **Lesson recorded for future gates:** self-review is materially weaker than independent review.
 Do not report P0/P1 = 0 on the strength of a self-audit alone.
+
+## Gate F — Command Center Backend Projections [VERIFIED_BY_TEST, 2026-08-17]
+
+Status: **Complete.** Read-only projections only — **no UI was built** (that is Gate G; see
+`FRONTEND_VISION.md`). Implements `docs/yusuf-os/gate-b/api-realtime-frontend.md` §4 and §5.
+
+**What was built:**
+- `projections/DashboardProjection.js` — the §4 `DashboardProjection` shape: `systemStatus`,
+  `agentStatuses`, `taskStatuses`, `approvalAttentionQueue`, `activeHandoffs`, `runProgress`,
+  `adapterHealth`, `auditSummary`, `costSummary`. Every value derives from persisted state; an
+  unprovable value is reported as `0`/`null`/`UNCHECKED` rather than estimated.
+- `projections/EventProjection.js` — the §5 `YusufEventEnvelope`, **derived from the existing
+  audit chain** rather than a second event store. The chain already provides a single global
+  monotonic `sequence`, durable retention, and write-time redaction, which is exactly what the
+  realtime contract needs. Read-only: nothing in the projection can write, reorder, or delete an
+  audit row.
+- Routes (all behind the existing localhost + bearer-token guard): `GET /dashboard`,
+  `GET /events?after=`, `GET /events/stream` (SSE with `Last-Event-ID` resume, reset frames,
+  heartbeat), `POST /audit-integrity/check`.
+- `CompletionPolicy` now reports `gates: {total, satisfied, failed}` so `runProgress` carries real
+  gate counts instead of a fabricated percentage.
+
+**Design decisions worth remembering:**
+- Chain verification is a *command*, never part of a dashboard read — it walks every audit event,
+  so a UI poll must not trigger it. Until it is run the honest answer is `UNCHECKED`.
+- Adapter availability spawns a real `git --version`, so it is cached for 10s; a poll must not
+  fork a process per request.
+- Event `aggregateId` is translated from the audit chain's internal numeric task/run ids to public
+  uuids. **This was caught by running the SSE stream live, not by unit tests** — the mapper looked
+  correct in isolation, but the stream emitted ids no client could join against the dashboard.
+
+**Independent security review** (run properly this time, per the Gate E lesson) found **six**
+findings, all fixed with regression tests:
+1. *[Medium]* A cached `VALID` audit verdict was paired with a **live** `lastSequence`, so a
+   verification of sequence 10 kept describing a chain that had since grown — precisely the
+   tampering window the hash chain exists to reveal. Now records `verifiedThroughSequence` and
+   reports `STALE` when the chain has moved past it.
+2. *[Medium]* `pendingReconciliation` counted only `UNKNOWN`, contradicting `CompletionPolicy`'s
+   own definition and reporting a clean system after a crash between execution and verification.
+   Now counts every non-terminal execution state.
+3. *[Medium]* `activeHandoffs[].gate` emitted raw agent-authored free text into the operator's
+   view and the event stream. Handoff reasons are now a controlled `UPPER_SNAKE_CASE` vocabulary
+   at write time, and clamped/redacted on read.
+4. *[Low]* SSE disconnect listeners were registered **after** the first `await`, so a client that
+   aborted during the initial query leaked both timers permanently.
+5. *[Low]* `setInterval(pump)` was non-reentrant: a slow pump could re-emit events and move the
+   cursor backwards. Replaced with a self-scheduling loop and a monotonic cursor.
+6. *[Low]* `controlPlane: HEALTHY` came from a `typeof` check that an empty or short audit key
+   passes, while the audit subsystem itself requires ≥32 chars. Now uses the audit subsystem's own
+   predicate.
+
+**Verified clean by the reviewer:** read-only guarantee (no write reachable from any projection
+path), guard coverage including SSE, deny-by-default metadata allowlist with no prototype-pollution
+path, cursor/reset semantics (including the off-by-one at the retention boundary), identity
+correlation, and SSE framing injection (`JSON.stringify` escaping plus a numeric-only `id:` line).
+
+Final: **50 suites / 546 tests**, lint clean, diff clean. **P0 = 0, P1 = 0.** Verdict: **GO_GATE_G**.

@@ -60,12 +60,19 @@ class HandoffService {
         "A handoff must move work between two different Agents.",
         { status: 422 }
       );
-    if (typeof reason !== "string" || reason.trim().length === 0)
+    // A controlled vocabulary, not free text. `reason` is surfaced to the
+    // operator as a `gate` label in the Command Center projection, so an Agent
+    // must not be able to put arbitrary (or injected) prose there.
+    if (
+      typeof reason !== "string" ||
+      !/^[A-Z][A-Z0-9_]{2,63}$/.test(reason.trim())
+    )
       throw new YusufOSError(
         ErrorCodes.VALIDATION_ERROR,
-        "A handoff requires an explicit reason.",
+        "A handoff reason must be an UPPER_SNAKE_CASE token (3-64 chars), not free text.",
         { status: 422 }
       );
+    reason = reason.trim();
 
     const [fromAgent, toAgent] = await Promise.all([
       this.db.yusuf_agents.findUnique({ where: { id: Number(fromAgentId) } }),
