@@ -435,6 +435,100 @@ describe("Gate E — reviewer independence is structural", () => {
     expect(await db.yusuf_run_evidence.count()).toBe(0);
   });
 
+  test("an Agent cannot rewrite a script that a registered command executes", async () => {
+    // Regression (independent review, High): project.write_file (L2) plus
+    // project.run_command (L2) otherwise compose into arbitrary code execution
+    // — write the validation script, then run it. Allowlisting the
+    // *executable* does nothing about the content of the *script*.
+    const {
+      buildWriteFileRequest,
+    } = require("../../../domain/yusufOS/adapters/project/requestBuilders");
+    await expect(
+      buildWriteFileRequest(
+        {
+          repositoryId: fixture.repositoryUuid,
+          relativePath: "test/check.js",
+          contents: "require('child_process').execSync('whoami');\n",
+        },
+        db
+      )
+    ).rejects.toMatchObject({ code: "ACTION_FORBIDDEN" });
+
+    // A normal source file in the same project is still writable.
+    await expect(
+      buildWriteFileRequest(
+        {
+          repositoryId: fixture.repositoryUuid,
+          relativePath: "src/calculator.js",
+          contents: "module.exports = { add: (a, b) => a + b };\n",
+        },
+        db
+      )
+    ).resolves.toBeTruthy();
+  });
+
+  test("a command whose executed files cannot be enumerated is not registrable", async () => {
+    const {
+      registerProjectCommand,
+    } = require("../../../domain/yusufOS/adapters/project/commandRegistry");
+    // `node --test` discovers files at runtime, so none of them could be
+    // protected from an Agent write — refuse the registration instead.
+    await expect(
+      registerProjectCommand(
+        {
+          projectId: fixture.project.id,
+          key: "project.run_lint",
+          executable: "node",
+          args: ["--test"],
+        },
+        db
+      )
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  test("an Agent cannot target a repository bound to a different project", async () => {
+    // Regression (independent review, High): repositoryId is model-chosen, and
+    // a binding lookup alone only proves the binding exists — not that it is
+    // this task's repository. Policy resolves project overrides from the
+    // task's project, so a cross-project write would also evade them.
+    const otherFixture = await createAgentFixture({ db });
+    try {
+      const task = await fixture.createTask({});
+      const toolset = buildAgentToolset({ agentKey: AGENT_KEYS.ENGINEERING, db });
+      const run = await new AgentRunCoordinator(db).createRun({
+        taskId: task.id,
+        agentId: fixture.engineering.id,
+        runKind: RUN_KINDS.IMPLEMENTATION,
+        principal: { type: "AGENT", id: fixture.chief.uuid },
+        requestId: randomUUID(),
+      });
+      await db.yusuf_tasks.updateMany({
+        where: { id: task.id },
+        data: { assignedAgentId: fixture.engineering.id },
+      });
+      await expect(
+        invokeCapability({
+          toolset,
+          capabilityKey: "project.read_file",
+          // A real, ACTIVE binding — belonging to the *other* project.
+          args: {
+            repositoryId: otherFixture.repositoryUuid,
+            relativePath: "src/calculator.js",
+          },
+          runtimeContext: {
+            requestId: randomUUID(),
+            principal: { type: "AGENT", id: fixture.engineering.uuid },
+            agentId: fixture.engineering.id,
+            taskId: task.id,
+            runId: run.id,
+          },
+        })
+      ).rejects.toMatchObject({ code: "ACTION_FORBIDDEN" });
+    } finally {
+      otherFixture.cleanup();
+    }
+  });
+
   test("an Agent cannot operate on a project it was not assigned", async () => {
     const otherFixture = await createAgentFixture({ db });
     try {

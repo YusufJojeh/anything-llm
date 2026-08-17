@@ -73,7 +73,7 @@ re-statement of a record.
 YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
   npx jest server
 ```
-→ **49 suites, 521 tests, 0 failed.** (Gate D baseline was 47/467; Gate E adds 2 suites and 54
+→ **49 suites, 525 tests, 0 failed.** (Gate D baseline was 47/467; Gate E adds 2 suites and 54
 tests.) `npx eslint .` in `server/` clean; `git diff --check` exit 0; `prisma validate` valid with
 an empty `migrate diff`.
 

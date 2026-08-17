@@ -3,7 +3,10 @@ const path = require("path");
 const prisma = require("../../../../utils/prisma");
 const { GovernedAdapter } = require("../../execution/AdapterContract");
 const { canonicalHash, sha256 } = require("../../security/canonicalJson");
-const { resolveBoundRepository } = require("../localGit/repositoryIdentity");
+const {
+  resolveBoundRepository,
+  assertRepositoryMatchesTask,
+} = require("../localGit/repositoryIdentity");
 const { resolveWithinRoot } = require("../localGit/pathPolicy");
 const { resolveProjectCommand } = require("./commandRegistry");
 const { runProjectCommand } = require("./processRunner");
@@ -58,6 +61,7 @@ class ProjectAdapter extends GovernedAdapter {
       target.repositoryId,
       this.db
     );
+    await assertRepositoryMatchesTask(repository, intentSnapshot, this.db);
     // For a file write the "resource version" is the current on-disk digest of
     // the exact file being replaced: if anything else edits that file between
     // intent creation and execution, the bound approval/authorization no
@@ -91,6 +95,7 @@ class ProjectAdapter extends GovernedAdapter {
       target.repositoryId,
       this.db
     );
+    await assertRepositoryMatchesTask(repository, intent, this.db);
     return {
       capabilityKey: intent.capabilityKey,
       repository,

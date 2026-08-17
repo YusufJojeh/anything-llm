@@ -1,7 +1,10 @@
 const prisma = require("../../../../utils/prisma");
 const { GovernedAdapter } = require("../../execution/AdapterContract");
 const { canonicalHash } = require("../../security/canonicalJson");
-const { resolveBoundRepository } = require("./repositoryIdentity");
+const {
+  resolveBoundRepository,
+  assertRepositoryMatchesTask,
+} = require("./repositoryIdentity");
 const { parseResourceId } = require("./shapes");
 const { runGit, assertGitAvailable } = require("./gitProcess");
 const {
@@ -80,6 +83,7 @@ class LocalGitAdapter extends GovernedAdapter {
   async preflight(intentSnapshot) {
     const { repositoryId, branch } = parseResourceId(intentSnapshot.resourceId);
     const repository = await resolveBoundRepository(repositoryId, this.db);
+    await assertRepositoryMatchesTask(repository, intentSnapshot, this.db);
     const target = JSON.parse(intentSnapshot.canonicalTarget || "{}");
     const resourceVersion = await branchHeadSha(
       repository.canonicalRoot,
@@ -107,6 +111,7 @@ class LocalGitAdapter extends GovernedAdapter {
   async prepare(intent) {
     const { repositoryId, branch } = parseResourceId(intent.resourceId);
     const repository = await resolveBoundRepository(repositoryId, this.db);
+    await assertRepositoryMatchesTask(repository, intent, this.db);
     return {
       capabilityKey: intent.capabilityKey,
       repository,

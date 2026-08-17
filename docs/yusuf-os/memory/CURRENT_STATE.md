@@ -21,7 +21,7 @@ Claude memory, Gate D LocalGit, Gate E agent runtime), all unpushed. `origin` =
   (`project.write_file`, `project.run_command` via a server-owned typed command registry — no
   raw shell).
 
-**What has passed:** 49/49 server suites, **521/521 tests**, lint clean, `git diff --check`
+**What has passed:** 49/49 server suites, **525/525 tests**, lint clean, `git diff --check`
 clean, Prisma schema valid with an empty `migrate diff`. All re-run live this session.
 
 **Next gate:** Gate F — Command Center backend projections (normalized `systemStatus`,
@@ -39,7 +39,11 @@ CI needs no API key), shell adapter, browser/Open Computer, GitHub API/real netw
 Gmail/LinkedIn/WhatsApp/Calendar, governed MCP side effects, governed SQL, the full specialist
 agent roster beyond the three core roles, Memory Curator. Full list in `DEFERRED_WORK.md`.
 
-**Open/residual items:** see `KNOWN_RISKS.md`. No P0/P1 as of this session. Gate E's own review
-found and fixed three real issues before completion: Prisma's SQLite table-redefine silently
-dropped Gate C's CHECK constraints; validation evidence was caller-asserted rather than derived
-from the governed receipt; and evidence could be filed against a task its run didn't belong to.
+**Open/residual items:** see `KNOWN_RISKS.md`. No P0/P1 as of this session — but note that
+**six** real issues were found and fixed during Gate E, three by the in-gate self-review (dropped
+CHECK constraints, caller-asserted validation evidence, cross-task evidence injection) and three
+more by a *later independent* review of the committed code (write_file+run_command composing into
+arbitrary code execution; no task-project binding on the model-chosen `repositoryId`; the recorded
+`evidenceDigest` never being verified). See `GATE_HISTORY.md`. The lesson is recorded there:
+self-review is materially weaker than independent review — do not claim P0/P1 = 0 from a
+self-audit alone.

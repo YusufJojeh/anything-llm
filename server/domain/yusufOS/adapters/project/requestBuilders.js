@@ -4,7 +4,10 @@ const { YusufOSError, ErrorCodes } = require("../../errors/YusufOSError");
 const { sha256 } = require("../../security/canonicalJson");
 const { resolveBoundRepository } = require("../localGit/repositoryIdentity");
 const { resolveWithinRoot } = require("../localGit/pathPolicy");
-const { assertSemanticKey } = require("./commandRegistry");
+const {
+  assertSemanticKey,
+  commandExecutedPaths,
+} = require("./commandRegistry");
 const { MAX_FILE_BYTES } = require("./ProjectAdapter");
 
 const RESOURCE_TYPE = "PROJECT_FILE";
@@ -59,6 +62,18 @@ async function buildWriteFileRequest(args = {}, db = prisma) {
       ErrorCodes.VALIDATION_ERROR,
       "contents exceeds the governed write size limit.",
       { status: 422 }
+    );
+  // Refuse to rewrite a script that a registered command executes. Without
+  // this, "write the validation script, then run validation" composes
+  // project.write_file (L2) + project.run_command (L2) into arbitrary code
+  // execution as the server user — no allowlist of *executables* constrains
+  // the content of the *script* they run.
+  const executed = await commandExecutedPaths(repository.projectId, db);
+  if (executed.has(relativePath))
+    throw new YusufOSError(
+      ErrorCodes.ACTION_FORBIDDEN,
+      "This file is executed by a registered project command and cannot be rewritten by an Agent.",
+      { status: 403, details: { relativePath } }
     );
   return {
     resource: {

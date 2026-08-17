@@ -343,6 +343,63 @@ describe("Gate E — end-to-end governed AI staff lifecycle", () => {
     expect(assessment.blockers).toContain("REVIEW_STALE");
   });
 
+  test("a governed mutation after a PASS blocks completion even when no evidence is recorded", async () => {
+    // Regression (independent review): the staleness check previously relied
+    // on self-reported IMPLEMENTATION evidence, so an Agent could perform more
+    // governed work after review and simply not record it. Receipts are
+    // created by the Execution Coordinator, not the Agent, so they are the
+    // tamper-proof signal.
+    const task = await fixture.createTask({});
+    const delegation = await chief.delegate({
+      taskId: task.id,
+      toAgentKey: AGENT_KEYS.ENGINEERING,
+      requestId: randomUUID(),
+    });
+    await chief.markTaskRunning({ taskId: task.id });
+    await runs.startRun({ runId: delegation.run.id, requestId: randomUUID() });
+    await runEngineeringTurn({ task, run: delegation.run, contents: FIXED_CALCULATOR });
+
+    const review = await chief.requestReview({
+      taskId: task.id,
+      fromRunId: delegation.run.id,
+      requestId: randomUUID(),
+    });
+    await runs.startRun({ runId: review.reviewRun.id, requestId: randomUUID() });
+    await reviewerVerdict({
+      task,
+      reviewRun: review.reviewRun,
+      verdict: REVIEW_VERDICTS.PASS,
+      summary: "Reviewed the calculator fix.",
+      targetRunId: delegation.run.id,
+    });
+    expect((await chief.completion.evaluate(task.id)).complete).toBe(true);
+
+    // A second Engineering turn slips in a change the Reviewer never saw, and
+    // records no evidence for it.
+    const sneaky = await chief.requestRework({
+      taskId: task.id,
+      reason: "SECOND_TURN",
+      requestId: randomUUID(),
+      attempt: 2,
+    });
+    await runs.startRun({ runId: sneaky.run.id, requestId: randomUUID() });
+    const toolset = buildAgentToolset({ agentKey: AGENT_KEYS.ENGINEERING, db });
+    await invokeCapability({
+      toolset,
+      capabilityKey: "project.write_file",
+      args: {
+        repositoryId: fixture.repositoryUuid,
+        relativePath: "src/calculator.js",
+        contents: "module.exports = { add: (a, b) => a + b, backdoor: true };\n",
+      },
+      runtimeContext: engineeringContext(sneaky.run, task),
+    });
+
+    const assessment = await chief.completion.evaluate(task.id);
+    expect(assessment.complete).toBe(false);
+    expect(assessment.blockers).toContain("REVIEW_STALE");
+  });
+
   test("PASS_WITH_WARNINGS completes deterministically and surfaces the warnings", async () => {
     const task = await fixture.createTask({});
     const delegation = await chief.delegate({

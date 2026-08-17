@@ -115,3 +115,22 @@ P1-equivalent issues *were* found during Gate D's own review and are documented 
     (e.g. `node --experimental-loader=...`), so registering a command is an operator-trust action,
     equivalent to installing server code. `npm`/`npx`/`yarn` are deliberately excluded from the
     allowlist because on Windows they are `.cmd` shims that would require `shell: true`.
+
+16. **Executing repository-authored code is inherently dangerous; Gate E constrains it rather than
+    sandboxing it.** [VERIFIED_BY_TEST, Gate E post-review] `project.run_command` runs a real
+    `node` process with the server user's privileges. Gate E prevents the obvious escalation
+    (an Agent rewriting the script that gets executed) by requiring commands to name their scripts
+    explicitly and forbidding writes to those paths. It does **not** sandbox the child: a command
+    whose script was already malicious at registration time, or which `require`s a file the Agent
+    *can* write, still runs unconfined. Registering a project command is therefore an
+    operator-trust action equivalent to installing server code. A future gate wanting untrusted
+    repositories must add OS-level isolation (separate low-privilege user or container with no
+    read access outside the project root) or raise `project.run_command` to L3.
+
+17. **`ProjectAdapter.preflight`'s freshness computation only binds on the approval path.**
+    [VERIFIED_FROM_REPOSITORY, Gate E post-review] `preflight` computes a `resourceVersion` from
+    the file's current digest, but `ExecutionCoordinator` only consumes `governedPreflight` when
+    consuming an approval. `project.write_file` is L2/ALLOW, so its recomputed digest is never
+    compared to anything — a concurrent edit is silently clobbered (last-writer-wins). No
+    attacker-controlled consequence was identified, but do not rely on that preflight as a
+    concurrency guarantee for L2 capabilities.

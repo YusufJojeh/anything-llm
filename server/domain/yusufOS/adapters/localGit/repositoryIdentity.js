@@ -112,4 +112,47 @@ async function registerRepository(
   );
 }
 
-module.exports = { resolveBoundRepository, registerRepository };
+/**
+ * Proves the repository an Agent targeted actually belongs to the project that
+ * owns the intent's task.
+ *
+ * `repositoryId` is chosen by the Agent, and a binding lookup alone only proves
+ * the binding exists — not that it is *this* task's repository. Without this
+ * check an Agent working in a permissive project could read, write, run
+ * commands in, or push from a different project's repository, and Policy would
+ * evaluate that action against the wrong project's overrides (PolicyEngine
+ * resolves project restrictions from `intent.task.projectId`, not from the
+ * repository actually being touched).
+ */
+async function assertRepositoryMatchesTask(binding, intent, db = prisma) {
+  if (!intent?.taskId) return binding;
+  const task = await db.yusuf_tasks.findUnique({
+    where: { id: Number(intent.taskId) },
+    select: { projectId: true },
+  });
+  // A task with no project is unscoped and has no "other project" to confuse
+  // it with — that is Gate D's original model and remains reachable only from
+  // server-side task creation, never from an Agent. The cross-project attack
+  // this guards against requires the task to belong to a project, so the
+  // comparison is enforced exactly when there is something to compare.
+  if (!task || task.projectId === null) return binding;
+  if (Number(task.projectId) !== Number(binding.projectId))
+    throw new YusufOSError(
+      ErrorCodes.ACTION_FORBIDDEN,
+      "The requested repository belongs to a different project than this task.",
+      {
+        status: 403,
+        details: {
+          taskProjectId: task.projectId,
+          repositoryProjectId: binding.projectId,
+        },
+      }
+    );
+  return binding;
+}
+
+module.exports = {
+  resolveBoundRepository,
+  registerRepository,
+  assertRepositoryMatchesTask,
+};

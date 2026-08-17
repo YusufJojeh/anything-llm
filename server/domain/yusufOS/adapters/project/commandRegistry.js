@@ -31,6 +31,40 @@ function assertSemanticKey(key) {
   return key;
 }
 
+/**
+ * Extracts the repository-authored script paths a registered command will
+ * execute. These are the files that, if an Agent could rewrite them, would
+ * turn `project.run_command` into arbitrary code execution with the server's
+ * privileges — an allowlist of *executables* does nothing about the content of
+ * the *script* those executables run.
+ */
+function executedScriptPaths(args) {
+  return (args || []).filter(
+    (arg) =>
+      typeof arg === "string" &&
+      !arg.startsWith("-") &&
+      /\.(js|cjs|mjs)$/i.test(arg)
+  );
+}
+
+/**
+ * A command must name the exact scripts it runs. Directory-discovery forms
+ * (`node --test`, a bare directory argument) are refused because the set of
+ * files they would execute cannot be enumerated at registration time, so those
+ * files cannot be protected from `project.write_file`.
+ */
+function assertEnumerableCommand(executable, args) {
+  if (executable !== "node") return args;
+  const scripts = executedScriptPaths(args);
+  if (scripts.length === 0)
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      "A node command must name the explicit script file(s) it runs; discovery forms such as `--test` are not registrable because the executed files cannot be protected from agent writes.",
+      { status: 422, details: { args } }
+    );
+  return args;
+}
+
 function assertAllowedExecutable(executable) {
   if (!ALLOWED_EXECUTABLES.includes(executable))
     throw new YusufOSError(
@@ -86,6 +120,7 @@ async function registerProjectCommand(
 ) {
   assertSemanticKey(key);
   assertAllowedExecutable(executable);
+  assertEnumerableCommand(executable, args || []);
   const { randomUUID } = require("crypto");
   return db.yusuf_project_commands.create({
     data: {
@@ -101,11 +136,38 @@ async function registerProjectCommand(
   });
 }
 
+/**
+ * Every repo-relative script path any enabled command for this project would
+ * execute. `project.write_file` refuses to write these, which is what stops
+ * "write the test file, then run the tests" from becoming arbitrary code
+ * execution.
+ */
+async function commandExecutedPaths(projectId, db = prisma) {
+  const rows = await db.yusuf_project_commands.findMany({
+    where: { projectId: Number(projectId), enabled: true },
+  });
+  const paths = new Set();
+  for (const row of rows) {
+    let args = [];
+    try {
+      args = JSON.parse(row.args || "[]");
+    } catch {
+      continue;
+    }
+    for (const script of executedScriptPaths(args))
+      paths.add(script.split("\\").join("/").replace(/^\.\//, ""));
+  }
+  return paths;
+}
+
 module.exports = {
   ALLOWED_EXECUTABLES,
   SEMANTIC_COMMAND_KEYS,
   assertSemanticKey,
   assertAllowedExecutable,
+  assertEnumerableCommand,
+  executedScriptPaths,
+  commandExecutedPaths,
   resolveProjectCommand,
   registerProjectCommand,
 };

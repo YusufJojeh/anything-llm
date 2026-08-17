@@ -202,3 +202,44 @@ with regression tests before completion:
 
 Final: **P0 = 0, P1 = 0.** 49 suites / **521 tests** pass, lint clean, `git diff --check` clean,
 Prisma valid with an empty `migrate diff`. Verdict: **GO_GATE_F**.
+
+### Gate E — independent security review (post-commit, same session)
+
+The in-gate review was self-conducted because the delegated review agent hit a session limit. A
+**second, genuinely independent** review was then run against the committed code (`b8f61935`) and
+found **three real issues the self-review missed** — two High. This is recorded honestly because
+the original Gate E report claimed P0/P1 = 0, which was premature.
+
+1. **[High] `project.write_file` + `project.run_command` composed into arbitrary code execution.**
+   Engineering held both (L2/ALLOW each). The registered validation command necessarily executes a
+   script *inside the project root* — exactly the region `write_file` may rewrite. Write the
+   validation script, then run it, and you get arbitrary code execution as the server user: enough
+   to read `server/.env` (which holds `YUSUF_OS_AUDIT_HMAC_KEY` and `YUSUF_OS_CONTROL_TOKEN`) and
+   thereby forge the audit chain and reach the control plane. Allowlisting the *executable* does
+   nothing about the content of the *script*.
+   **Fixed:** registered commands must name the explicit script(s) they run (discovery forms such
+   as `node --test` are refused at registration because their executed files can't be enumerated),
+   and `project.write_file` now refuses any path a registered command executes.
+
+2. **[High] No binding between a task's project and the repository an Agent targeted.**
+   `repositoryId` is model-chosen; `resolveBoundRepository` only proved the binding existed, not
+   that it belonged to *this* task's project. An Agent in a permissive project could read/write/
+   run/commit/push in another project's repository — and `PolicyEngine` resolves project overrides
+   from `task.projectId`, so the target project's restrictions were never consulted.
+   **Fixed:** `assertRepositoryMatchesTask` in both the Project and LocalGit adapters. (The prior
+   test only used a *random* uuid, which failed for the wrong reason and gave false confidence.)
+
+3. **[Medium] The recorded `evidenceDigest` was never verified, and post-verdict governed
+   mutations didn't block completion.** Staleness relied on self-reported IMPLEMENTATION evidence,
+   so an Agent could do more governed work after a PASS and simply not record it.
+   **Fixed:** the completion gate now recomputes and compares the evidence digest the verdict was
+   bound to, *and* blocks on any execution receipt newer than the governing verdict (receipts are
+   created by the Execution Coordinator, not by an Agent). Ordering uses monotonic ids/receipt
+   completion rather than SQLite's one-second `CURRENT_TIMESTAMP`.
+
+All three have regression tests. Post-fix: **49 suites / 525 tests**, lint clean, diff clean.
+Verdict stands at **GO_GATE_F**, now with P0 = 0, P1 = 0 verified by an independent pass rather
+than self-assessment.
+
+**Lesson recorded for future gates:** self-review is materially weaker than independent review.
+Do not report P0/P1 = 0 on the strength of a self-audit alone.

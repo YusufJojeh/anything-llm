@@ -7,6 +7,7 @@ const {
   POLICY_OUTCOMES,
 } = require("../constants");
 const { ReviewService } = require("../review/ReviewService");
+const { canonicalHash } = require("../security/canonicalJson");
 
 const GATE_REASONS = Object.freeze({
   NO_IMPLEMENTATION_EVIDENCE: "NO_IMPLEMENTATION_EVIDENCE",
@@ -32,6 +33,44 @@ class CompletionPolicy {
   constructor(db = prisma) {
     this.db = db;
     this.reviews = new ReviewService(db);
+  }
+
+  /**
+   * Decides whether the governing verdict still describes the task's current
+   * state.
+   *
+   * Two independent signals, because either alone is forgeable or incomplete:
+   *  1. The evidence digest recorded at verdict time must still match the
+   *     task's evidence set. ReviewService binds the verdict to exactly what
+   *     was reviewed; verifying it here is what makes that binding meaningful
+   *     rather than decorative.
+   *  2. No governed mutation receipt may be newer than the verdict. Receipts
+   *     are created by the Execution Coordinator, not by an Agent, so this
+   *     catches work performed *after* a PASS even when the Agent simply
+   *     declines to record evidence for it — self-reported evidence rows
+   *     cannot be the only staleness signal.
+   *
+   * Ordering uses monotonic ids rather than `createdAt`, because SQLite's
+   * CURRENT_TIMESTAMP has one-second resolution and same-second work would
+   * otherwise slip past a timestamp comparison.
+   */
+  async #reviewIsStale(taskId, verdict) {
+    const evidence = await this.db.yusuf_run_evidence.findMany({
+      where: { taskId },
+      orderBy: { id: "asc" },
+      select: { digest: true, kind: true, status: true },
+    });
+    if (canonicalHash(evidence) !== verdict.evidenceDigest) return true;
+
+    const mutationAfterVerdict = await this.db.yusuf_action_receipts.findFirst({
+      where: {
+        intent: { taskId },
+        id: { gt: 0 },
+        completedAt: { gt: verdict.createdAt },
+      },
+      select: { id: true },
+    });
+    return Boolean(mutationAfterVerdict);
   }
 
   async evaluate(taskId) {
@@ -68,12 +107,7 @@ class CompletionPolicy {
     if (!latestVerdict) blockers.push(GATE_REASONS.NO_REVIEW);
     else if (latestVerdict.verdict === REVIEW_VERDICTS.BLOCK)
       blockers.push(GATE_REASONS.REVIEW_BLOCKED);
-    else if (
-      implementation &&
-      latestVerdict.createdAt < implementation.createdAt
-    )
-      // A PASS recorded before the newest implementation evidence did not see
-      // that work; re-review is required rather than inheriting the old PASS.
+    else if (await this.#reviewIsStale(numericTaskId, latestVerdict))
       blockers.push(GATE_REASONS.REVIEW_STALE);
 
     for (const intent of intents) {
