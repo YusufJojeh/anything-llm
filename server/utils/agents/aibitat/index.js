@@ -55,6 +55,7 @@ class AIbitat {
   agents = new Map();
   channels = new Map();
   functions = new Map();
+  #yusufGovernance = null;
 
   /**
    * Buffer for citations collected during tool execution.
@@ -431,6 +432,44 @@ class AIbitat {
     this._aborted = true;
     this.abortController.abort();
     this.emitter.emit("abort", null, this);
+  }
+
+  /**
+   * Opt this runtime into mandatory Yusuf OS governance. Once enabled, legacy,
+   * imported, MCP, and Flow tools without a Yusuf capability binding fail closed.
+   */
+  enableYusufGovernance({ actionBoundary, runtimeContext = {} }) {
+    if (
+      !actionBoundary ||
+      typeof actionBoundary.dispatch !== "function" ||
+      typeof actionBoundary.isRegistered !== "function"
+    )
+      throw new TypeError("A Yusuf Action Boundary is required.");
+    this.#yusufGovernance = Object.freeze({
+      actionBoundary,
+      runtimeContext: Object.freeze({ ...runtimeContext }),
+    });
+    return this;
+  }
+
+  filterFunctionsForRuntime(functions = []) {
+    if (!this.#yusufGovernance) return functions;
+    return functions.filter((functionConfig) =>
+      this.#yusufGovernance.actionBoundary.isRegistered(functionConfig)
+    );
+  }
+
+  async invokeTool(functionConfig, args) {
+    if (!this.#yusufGovernance) return functionConfig.handler(args);
+    return this.#yusufGovernance.actionBoundary.dispatch({
+      functionConfig,
+      arguments: args,
+      runtimeContext: this.#yusufGovernance.runtimeContext,
+    });
+  }
+
+  isYusufGoverned() {
+    return this.#yusufGovernance !== null;
   }
 
   /**
@@ -918,6 +957,7 @@ ${this.getHistory({ to: route.to })
     let functions = fromConfig.functions
       ?.map((name) => this.functions.get(this.#parseFunctionName(name)))
       .filter((a) => !!a);
+    functions = this.filterFunctionsForRuntime(functions);
 
     // Rerank tools based on user prompt if enabled
     if (ToolReranker.isEnabled() && functions?.length) {
@@ -1079,7 +1119,7 @@ https://docs.anythingllm.com/agent/intelligent-tool-selection
         `[debug]: ${fn.caller} is attempting to call \`${name}\` tool ${JSON.stringify(args, null, 2)}`
       );
 
-      const result = await fn.handler(args);
+      const result = await this.invokeTool(fn, args);
       Telemetry.sendTelemetry("agent_tool_call", { tool: name }, null, true);
       this.emitter.emit("toolCallResult", {
         toolName: name,
@@ -1242,7 +1282,7 @@ https://docs.anythingllm.com/agent/intelligent-tool-selection
         `[debug]: ${fn.caller} is attempting to call \`${name}\` tool`
       );
 
-      const result = await fn.handler(args);
+      const result = await this.invokeTool(fn, args);
       Telemetry.sendTelemetry("agent_tool_call", { tool: name }, null, true);
       this.emitter.emit("toolCallResult", {
         toolName: name,

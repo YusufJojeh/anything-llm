@@ -233,6 +233,7 @@ class AgentFlows {
         setup: (aibitat) => {
           aibitat.function({
             name: toolName,
+            trustClassification: "EXTERNAL_TOOL_UNGOVERNED",
             description:
               flow.config.description || `Execute agent flow: ${flow.name}`,
             parameters: {

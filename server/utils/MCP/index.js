@@ -70,6 +70,7 @@ class MCPCompatibilityLayer extends MCPHypervisor {
                 controller: new AbortController(),
                 description: tool.description,
                 isMCPTool: true,
+                trustClassification: "EXTERNAL_TOOL_UNGOVERNED",
                 examples: [],
                 parameters: {
                   $schema: "http://json-schema.org/draft-07/schema#",

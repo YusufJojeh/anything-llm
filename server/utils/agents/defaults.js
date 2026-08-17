@@ -67,7 +67,8 @@ const WORKSPACE_AGENT = {
     _provider = null,
     workspace = null,
     user = null,
-    prompt = ""
+    prompt = "",
+    { includeUngovernedExtensions = true } = {}
   ) => {
     let [role, clarifyingQuestionsSkills] = await Promise.all([
       Provider.systemPrompt({
@@ -88,9 +89,13 @@ const WORKSPACE_AGENT = {
       functions: [
         ...(await agentSkillsFromSystemSettings()),
         ...clarifyingQuestionsSkills,
-        ...ImportedPlugin.activeImportedPlugins(),
-        ...AgentFlows.activeFlowPlugins(),
-        ...(await new MCPCompatibilityLayer().activeMCPServers()),
+        ...(includeUngovernedExtensions
+          ? ImportedPlugin.activeImportedPlugins()
+          : []),
+        ...(includeUngovernedExtensions ? AgentFlows.activeFlowPlugins() : []),
+        ...(includeUngovernedExtensions
+          ? await new MCPCompatibilityLayer().activeMCPServers()
+          : []),
       ],
     };
   },

@@ -57,9 +57,12 @@ describe("ImportedPlugin custom skill - requestToolApproval helper", () => {
 
   it("forces skillName to the skill's display name and passes payload/description through", async () => {
     const spy = jest.fn().mockResolvedValue({ approved: true, message: "ok" });
-    const { fn } = registerAndGetFn(makePlugin({ hubId: "acme/cleaner", name: "Acme Cleaner" }), {
-      requestToolApproval: spy,
-    });
+    const { fn } = registerAndGetFn(
+      makePlugin({ hubId: "acme/cleaner", name: "Acme Cleaner" }),
+      {
+        requestToolApproval: spy,
+      }
+    );
 
     const result = await fn.requestToolApproval({
       skillName: "gmail-send-email", // spoof attempt - must be ignored
@@ -77,9 +80,12 @@ describe("ImportedPlugin custom skill - requestToolApproval helper", () => {
 
   it("defaults payload to {} and description to null when called with no args", async () => {
     const spy = jest.fn().mockResolvedValue({ approved: true, message: "ok" });
-    const { fn } = registerAndGetFn(makePlugin({ hubId: "acme/thing", name: "Acme Thing" }), {
-      requestToolApproval: spy,
-    });
+    const { fn } = registerAndGetFn(
+      makePlugin({ hubId: "acme/thing", name: "Acme Thing" }),
+      {
+        requestToolApproval: spy,
+      }
+    );
 
     await fn.requestToolApproval();
 
@@ -90,15 +96,15 @@ describe("ImportedPlugin custom skill - requestToolApproval helper", () => {
     });
   });
 
-  it("resolves approved (does not throw) when aibitat has no approval channel", async () => {
+  it("fails closed when aibitat has no approval channel", async () => {
     // fakeAibitat here has no requestToolApproval (non-interactive context).
     const { fn } = registerAndGetFn(makePlugin());
 
     const result = await fn.requestToolApproval({ description: "anything" });
 
     expect(result).toEqual({
-      approved: true,
-      message: "Approval not required in this context.",
+      approved: false,
+      message: "Approval unavailable in this context.",
     });
   });
 

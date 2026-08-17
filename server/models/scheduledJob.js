@@ -1,6 +1,10 @@
 const prisma = require("../utils/prisma");
 const later = require("@breejs/later");
 const cronValidate = require("cron-validate").default;
+const {
+  assertNoUngovernedScheduledExtensions,
+  SAFE_UNATTENDED_SCHEDULED_TOOLS,
+} = require("../jobs/helpers/scheduled-approval-policy");
 
 // Use UTC time for cron interpretation. This ensures consistent behavior
 // regardless of server timezone (e.g., when running in containers).
@@ -57,6 +61,7 @@ const ScheduledJob = {
 
   create: async function ({ name, prompt, tools = null, schedule } = {}) {
     try {
+      assertNoUngovernedScheduledExtensions(tools || []);
       const nextRunAt = this.computeNextRunAt(schedule);
       const job = await prisma.scheduled_jobs.create({
         data: {
@@ -80,6 +85,7 @@ const ScheduledJob = {
       for (const key of this.writable) {
         if (data.hasOwnProperty(key)) {
           if (key === "tools") {
+            assertNoUngovernedScheduledExtensions(data[key] || []);
             updates[key] = data[key] ? JSON.stringify(data[key]) : null;
           } else {
             updates[key] = data[key];
@@ -492,7 +498,14 @@ const ScheduledJob = {
       console.error("Failed to load MCP servers for available tools:", error);
     }
 
-    return categories;
+    return categories
+      .map((category) => ({
+        ...category,
+        items: category.items.filter((item) =>
+          SAFE_UNATTENDED_SCHEDULED_TOOLS.has(item.id)
+        ),
+      }))
+      .filter((category) => category.items.length > 0);
   },
 };
 

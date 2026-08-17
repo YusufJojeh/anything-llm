@@ -5,6 +5,9 @@ const { isSingleUserMode } = require("../utils/middleware/multiUserProtected");
 const { reqBody, safeJsonParse } = require("../utils/http");
 const { BackgroundService } = require("../utils/BackgroundWorkers");
 const { Telemetry } = require("../models/telemetry");
+const {
+  assertNoUngovernedScheduledExtensions,
+} = require("../jobs/helpers/scheduled-approval-policy");
 
 // BackgroundService is a singleton, so `new BackgroundService()` anywhere in
 // the codebase returns the same instance that `server/index.js` booted. We
@@ -156,6 +159,13 @@ function scheduledJobEndpoints(app) {
         } else if (tools?.length > 0 && !Array.isArray(tools)) {
           errorMessage = "Tools must be an array";
         }
+        if (!errorMessage) {
+          try {
+            assertNoUngovernedScheduledExtensions(tools || []);
+          } catch (error) {
+            errorMessage = error.message;
+          }
+        }
         if (errorMessage)
           return response.status(400).json({
             job: null,
@@ -226,7 +236,16 @@ function scheduledJobEndpoints(app) {
 
         if (name !== undefined) updates.name = String(name).trim();
         if (prompt !== undefined) updates.prompt = String(prompt).trim();
-        if (tools !== undefined) updates.tools = tools;
+        if (tools !== undefined) {
+          try {
+            assertNoUngovernedScheduledExtensions(tools || []);
+          } catch (error) {
+            return response
+              .status(400)
+              .json({ job: null, error: error.message });
+          }
+          updates.tools = tools;
+        }
         if (enabled !== undefined) updates.enabled = Boolean(enabled);
         if (schedule !== undefined) {
           if (!ScheduledJob.isValidCron(schedule)) {

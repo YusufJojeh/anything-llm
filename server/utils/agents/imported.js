@@ -167,9 +167,8 @@ class ImportedPlugin {
    * `skillName` is captured from the skill's hubId so a skill cannot spoof
    * another tool's name to bypass its own approval.
    *
-   * When no approval channel exists (e.g. scheduled jobs) it resolves
-   * approved so the skill still runs, matching how built-in tools fall
-   * through their approval guard.
+   * When no approval channel exists (for example an unattended job), fail
+   * closed. Absence of a human channel is never authorization.
    *
    * @param {object} aibitat - The aibitat instance.
    * @param {string} skillName - The skill's hubId.
@@ -182,8 +181,8 @@ class ImportedPlugin {
     } = {}) {
       if (typeof aibitat?.requestToolApproval !== "function") {
         return {
-          approved: true,
-          message: "Approval not required in this context.",
+          approved: false,
+          message: "Approval unavailable in this context.",
         };
       }
       return aibitat.requestToolApproval({
@@ -221,6 +220,7 @@ class ImportedPlugin {
         aibitat.function({
           super: aibitat,
           name: this.name,
+          trustClassification: "LOCAL_PLUGIN_UNGOVERNED",
           config: this.config,
           runtimeArgs: this.runtimeArgs,
           description: this.config.description,

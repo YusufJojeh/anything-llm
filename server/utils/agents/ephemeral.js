@@ -42,6 +42,8 @@ class EphemeralAgentHandler extends AgentHandler {
   #funcsToLoad = [];
   /** @type {Array<{name: string, mime: string, contentString: string}>} attachments for multimodal support */
   #attachments = [];
+  /** @type {boolean} prevents loading imported JS, Flows, and MCP processes */
+  #blockUngovernedExtensions = false;
 
   /** @type {AIbitat|null} */
   aibitat = null;
@@ -60,7 +62,8 @@ class EphemeralAgentHandler extends AgentHandler {
    * userId: import("@prisma/client").users["id"]|null,
    * threadId: import("@prisma/client").workspace_threads["id"]|null,
    * sessionId: string|null,
-   * attachments: Array<{name: string, mime: string, contentString: string}>
+   * attachments: Array<{name: string, mime: string, contentString: string}>,
+   * blockUngovernedExtensions: boolean
    * }} parameters
    */
   constructor({
@@ -71,6 +74,7 @@ class EphemeralAgentHandler extends AgentHandler {
     threadId = null,
     sessionId = null,
     attachments = [],
+    blockUngovernedExtensions = false,
   }) {
     super({ uuid });
     this.#invocationUUID = uuid;
@@ -84,6 +88,7 @@ class EphemeralAgentHandler extends AgentHandler {
     this.#threadId = threadId;
     this.#sessionId = sessionId;
     this.#attachments = attachments;
+    this.#blockUngovernedExtensions = blockUngovernedExtensions;
   }
 
   log(text, ...args) {
@@ -409,15 +414,22 @@ class EphemeralAgentHandler extends AgentHandler {
         this.provider,
         this.#workspace,
         user,
-        this.#prompt
+        this.#prompt,
+        { includeUngovernedExtensions: !this.#blockUngovernedExtensions }
       )
     );
 
     this.#funcsToLoad = [
       ...(await agentSkillsFromSystemSettings()),
-      ...ImportedPlugin.activeImportedPlugins(),
-      ...AgentFlows.activeFlowPlugins(),
-      ...(await new MCPCompatibilityLayer().activeMCPServers()),
+      ...(this.#blockUngovernedExtensions
+        ? []
+        : ImportedPlugin.activeImportedPlugins()),
+      ...(this.#blockUngovernedExtensions
+        ? []
+        : AgentFlows.activeFlowPlugins()),
+      ...(this.#blockUngovernedExtensions
+        ? []
+        : await new MCPCompatibilityLayer().activeMCPServers()),
     ];
   }
 

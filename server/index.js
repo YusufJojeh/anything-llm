@@ -45,6 +45,12 @@ const {
   googleAgentSkillEndpoints,
 } = require("./endpoints/utils/googleAgentSkillEndpoints");
 const { memoryEndpoints } = require("./endpoints/memory");
+const { yusufOSEndpoints } = require("./endpoints/yusufOS");
+const { yusufRequestContext } = require("./domain/yusufOS/api/requestContext");
+const {
+  yusufControlPlaneGuard,
+  yusufBodyParserError,
+} = require("./domain/yusufOS/api/controlPlaneGuard");
 const { httpLogger } = require("./middleware/httpLogger");
 const app = express();
 const apiRouter = express.Router();
@@ -62,6 +68,17 @@ if (
   );
 }
 app.use(cors({ origin: true }));
+// Yusuf OS is authenticated and size-limited before the legacy 3GB parsers.
+// The route handlers are registered as pre-guarded below to avoid a second
+// identity/auth pass and to preserve one request correlation ID.
+app.use(
+  "/api/yusuf-os",
+  yusufRequestContext,
+  yusufControlPlaneGuard,
+  bodyParser.json({ limit: "256kb" }),
+  bodyParser.text({ limit: "256kb" }),
+  yusufBodyParserError
+);
 app.use(bodyParser.text({ limit: FILE_LIMIT }));
 app.use(bodyParser.json({ limit: FILE_LIMIT }));
 app.use(
@@ -104,6 +121,7 @@ scheduledJobEndpoints(apiRouter);
 outlookAgentEndpoints(apiRouter);
 googleAgentSkillEndpoints(apiRouter);
 memoryEndpoints(apiRouter);
+yusufOSEndpoints(apiRouter, { preGuarded: true });
 // Externally facing embedder endpoints
 embeddedEndpoints(apiRouter);
 

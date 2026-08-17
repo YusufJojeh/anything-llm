@@ -180,16 +180,16 @@ model workspace_suggested_messages {
 }
 
 model workspace_chats {
-  id             Int      @id @default(autoincrement())
-  workspaceId    Int
-  prompt         String
-  response       String
-  include        Boolean  @default(true)
-  user_id        Int?
-  thread_id      Int? // No relation to prevent whole table migration
-  api_session_id String? // String identifier for only the dev API to partition chats in any mode.
-  createdAt      DateTime @default(now())
-  lastUpdatedAt  DateTime @default(now())
+  id              Int      @id @default(autoincrement())
+  workspaceId     Int
+  prompt          String
+  response        String
+  include         Boolean  @default(true)
+  user_id         Int?
+  thread_id       Int? // No relation to prevent whole table migration
+  api_session_id  String? // String identifier for only the dev API to partition chats in any mode.
+  createdAt       DateTime @default(now())
+  lastUpdatedAt   DateTime @default(now())
   feedbackScore   Boolean?
   memoryProcessed Boolean? @map("memory_processed")
   users           users?   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -459,30 +459,359 @@ model model_routers {
 }
 
 model model_router_rules {
-  id               Int           @id @default(autoincrement())
-  router_id        Int
-  enabled          Boolean       @default(true)
-  priority         Int
-  type             String        @default("calculated")
-  title            String
-  description      String?
+  id              Int           @id @default(autoincrement())
+  router_id       Int
+  enabled         Boolean       @default(true)
+  priority        Int
+  type            String        @default("calculated")
+  title           String
+  description     String?
   // For `calculated` rules: the boolean operator joining `conditions` — "AND"
   // (all must match) or "OR" (any must match). Null for `llm` rules.
-  condition_logic  String?
+  condition_logic String?
   // For `calculated` rules: JSON-stringified array of condition objects, each
   // shaped as { property: string, comparator: string, value: string } where
   // `property` ∈ VALID_PROPERTIES and `comparator` ∈ VALID_COMPARATORS (see
   // server/models/modelRouterRule.js). `value` is always stored as a string;
   // numeric comparators parse it at evaluation time. Null for `llm` rules.
-  conditions       String?
-  route_provider   String
-  route_model      String
-  created_by       Int?
-  createdAt        DateTime      @default(now())
-  lastUpdatedAt    DateTime      @default(now())
-  router           model_routers @relation(fields: [router_id], references: [id], onDelete: Cascade)
+  conditions      String?
+  route_provider  String
+  route_model     String
+  created_by      Int?
+  createdAt       DateTime      @default(now())
+  lastUpdatedAt   DateTime      @default(now())
+  router          model_routers @relation(fields: [router_id], references: [id], onDelete: Cascade)
 
   @@unique([router_id, title])
   @@index([router_id])
   @@index([router_id, enabled, priority])
+}
+
+// Yusuf OS control-plane state. Canonical capability definitions and hard
+// security invariants are code-owned; this schema stores grants, restrictions,
+// evaluated decisions, and durable runtime state only.
+model yusuf_agents {
+  id                Int                        @id @default(autoincrement())
+  uuid              String                     @unique
+  key               String                     @unique
+  name              String
+  mission           String
+  instructions      String
+  status            String                     @default("DRAFT")
+  modelPolicyRef    String?
+  approvalPolicyRef String?
+  escalationAgentId Int?
+  maxConcurrentRuns Int                        @default(1)
+  version           Int                        @default(1)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @default(now()) @updatedAt
+  escalationAgent   yusuf_agents?              @relation("YusufAgentEscalation", fields: [escalationAgentId], references: [id], onDelete: SetNull)
+  escalatedBy       yusuf_agents[]             @relation("YusufAgentEscalation")
+  tasks             yusuf_tasks[]
+  runs              yusuf_agent_runs[]
+  capabilityGrants  yusuf_agent_capabilities[]
+  intents           yusuf_action_intents[]
+
+  @@index([status])
+  @@index([escalationAgentId])
+}
+
+model yusuf_projects {
+  id              Int                              @id @default(autoincrement())
+  uuid            String                           @unique
+  key             String                           @unique
+  name            String
+  status          String                           @default("ACTIVE")
+  metadata        String                           @default("{}")
+  version         Int                              @default(1)
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @default(now()) @updatedAt
+  tasks           yusuf_tasks[]
+  policyOverrides yusuf_project_policy_overrides[]
+
+  @@index([status])
+}
+
+model yusuf_project_policy_overrides {
+  id            Int            @id @default(autoincrement())
+  projectId     Int
+  capabilityKey String
+  effect        String
+  riskFloor     String?
+  constraints   String         @default("{}")
+  enabled       Boolean        @default(true)
+  version       Int            @default(1)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now()) @updatedAt
+  project       yusuf_projects @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, capabilityKey])
+  @@index([projectId, enabled])
+}
+
+model yusuf_tasks {
+  id                       Int                       @id @default(autoincrement())
+  uuid                     String                    @unique
+  projectId                Int?
+  parentTaskId             Int?
+  assignedAgentId          Int?
+  requestedByPrincipalType String
+  requestedByPrincipalId   String
+  title                    String
+  objective                String
+  priority                 String                    @default("P2")
+  status                   String                    @default("PLANNED")
+  completionGates          String                    @default("[]")
+  requestId                String
+  deadline                 DateTime?
+  version                  Int                       @default(1)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @default(now()) @updatedAt
+  project                  yusuf_projects?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  parentTask               yusuf_tasks?              @relation("YusufTaskParent", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks               yusuf_tasks[]             @relation("YusufTaskParent")
+  assignedAgent            yusuf_agents?             @relation(fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  dependencies             yusuf_task_dependencies[] @relation("YusufTaskDependencies")
+  dependents               yusuf_task_dependencies[] @relation("YusufTaskDependents")
+  runs                     yusuf_agent_runs[]
+  intents                  yusuf_action_intents[]
+
+  @@index([status, priority, updatedAt])
+  @@index([assignedAgentId, status])
+  @@index([projectId, status])
+  @@index([parentTaskId])
+  @@index([requestId])
+}
+
+model yusuf_task_dependencies {
+  id              Int         @id @default(autoincrement())
+  taskId          Int
+  dependsOnTaskId Int
+  relation        String      @default("BLOCKS")
+  createdAt       DateTime    @default(now())
+  task            yusuf_tasks @relation("YusufTaskDependencies", fields: [taskId], references: [id], onDelete: Restrict)
+  dependsOnTask   yusuf_tasks @relation("YusufTaskDependents", fields: [dependsOnTaskId], references: [id], onDelete: Restrict)
+
+  @@unique([taskId, dependsOnTaskId])
+  @@index([dependsOnTaskId])
+}
+
+model yusuf_agent_runs {
+  id                       Int                    @id @default(autoincrement())
+  uuid                     String                 @unique
+  taskId                   Int
+  agentId                  Int?
+  requestedByPrincipalType String
+  requestedByPrincipalId   String
+  status                   String                 @default("QUEUED")
+  modelRef                 String?
+  promptDigest             String?
+  tokenUsage               String?
+  estimatedCostMicros      Int?
+  requestId                String
+  version                  Int                    @default(1)
+  startedAt                DateTime?
+  completedAt              DateTime?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @default(now()) @updatedAt
+  task                     yusuf_tasks            @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  agent                    yusuf_agents?          @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  intents                  yusuf_action_intents[]
+
+  @@index([taskId, status])
+  @@index([agentId, status])
+  @@index([requestId])
+}
+
+model yusuf_agent_capabilities {
+  id                  Int          @id @default(autoincrement())
+  agentId             Int
+  capabilityKey       String
+  capabilityVersion   Int
+  resourceConstraints String       @default("{}")
+  targetConstraints   String       @default("{}")
+  payloadConstraints  String       @default("{}")
+  enabled             Boolean      @default(true)
+  version             Int          @default(1)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @default(now()) @updatedAt
+  agent               yusuf_agents @relation(fields: [agentId], references: [id], onDelete: Restrict)
+
+  @@unique([agentId, capabilityKey])
+  @@index([agentId, enabled])
+}
+
+model yusuf_action_intents {
+  id                       Int                      @id @default(autoincrement())
+  uuid                     String                   @unique
+  taskId                   Int
+  runId                    Int
+  agentId                  Int?
+  requestedByPrincipalType String
+  requestedByPrincipalId   String
+  capabilityKey            String
+  capabilityVersion        Int
+  resourceType             String
+  resourceId               String
+  resourceVersion          String?
+  environment              String
+  canonicalTarget          String
+  canonicalPayload         String
+  canonicalPreconditions   String
+  targetIdentityDigest     String
+  accountIdentityDigest    String?
+  payloadHash              String
+  intentFingerprint        String                   @unique
+  canonicalizationVersion  Int
+  status                   String                   @default("INTENT_CREATED")
+  activePolicyDecisionId   Int?
+  requestId                String
+  version                  Int                      @default(1)
+  expiresAt                DateTime?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @default(now()) @updatedAt
+  task                     yusuf_tasks              @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  run                      yusuf_agent_runs         @relation(fields: [runId], references: [id], onDelete: Restrict)
+  agent                    yusuf_agents?            @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  policyDecisions          yusuf_policy_decisions[]
+  approval                 yusuf_approval_requests?
+  receipt                  yusuf_action_receipts?
+
+  @@index([runId, status])
+  @@index([taskId, status])
+  @@index([agentId, status])
+  @@index([requestId])
+}
+
+model yusuf_policy_decisions {
+  id                         Int                       @id @default(autoincrement())
+  uuid                       String                    @unique
+  intentId                   Int
+  decisionVersion            Int                       @default(1)
+  outcome                    String
+  riskLevel                  String
+  reasonCode                 String
+  explanation                String
+  matchedRules               String                    @default("[]")
+  evaluatedAgentPolicyRef    String?
+  evaluatedProjectPolicyRef  String?
+  evaluatedResourceVersions  String                    @default("[]")
+  evaluatedAccountConstraint String?
+  policyBundleDigest         String
+  decidedByPrincipalType     String
+  decidedByPrincipalId       String
+  requestId                  String
+  decidedAt                  DateTime                  @default(now())
+  intent                     yusuf_action_intents      @relation(fields: [intentId], references: [id], onDelete: Restrict)
+  approvals                  yusuf_approval_requests[]
+
+  @@unique([intentId, decisionVersion])
+  @@index([intentId, decidedAt])
+  @@index([outcome, riskLevel])
+  @@index([requestId])
+}
+
+model yusuf_approval_requests {
+  id                     Int                    @id @default(autoincrement())
+  uuid                   String                 @unique
+  intentId               Int                    @unique
+  policyDecisionId       Int
+  payloadHash            String
+  boundIntentVersion     Int
+  targetIdentityDigest   String
+  boundResourceVersions  String                 @default("[]")
+  boundAccountConstraint String?
+  requiredRiskLevel      String
+  status                 String                 @default("PENDING")
+  requestedAt            DateTime               @default(now())
+  expiresAt              DateTime
+  decidedAt              DateTime?
+  decidedByPrincipalType String?
+  decidedByPrincipalId   String?
+  decisionNote           String?
+  consumedAt             DateTime?
+  invalidatedAt          DateTime?
+  invalidationReason     String?
+  requestId              String
+  version                Int                    @default(1)
+  intent                 yusuf_action_intents   @relation(fields: [intentId], references: [id], onDelete: Restrict)
+  policyDecision         yusuf_policy_decisions @relation(fields: [policyDecisionId], references: [id], onDelete: Restrict)
+
+  @@index([status, requestedAt])
+  @@index([requestId])
+}
+
+model yusuf_action_receipts {
+  id                  Int                  @id @default(autoincrement())
+  uuid                String               @unique
+  intentId            Int                  @unique
+  executionAttempt    Int                  @default(1)
+  executionKey        String               @unique
+  adapterKind         String
+  adapterId           String
+  safeAccountIdentity String?
+  outcome             String
+  externalReference   String?
+  beforeVersions      String               @default("[]")
+  afterVersions       String               @default("[]")
+  sanitizedResult     String?
+  verificationStatus  String               @default("PENDING")
+  verificationResult  String?
+  evidenceRefs        String               @default("[]")
+  requestId           String
+  version             Int                  @default(1)
+  startedAt           DateTime             @default(now())
+  completedAt         DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @default(now()) @updatedAt
+  intent              yusuf_action_intents @relation(fields: [intentId], references: [id], onDelete: Restrict)
+
+  @@index([outcome, verificationStatus])
+  @@index([requestId])
+}
+
+model yusuf_audit_events {
+  id                      Int      @id @default(autoincrement())
+  uuid                    String   @unique
+  sequence                Int      @unique
+  occurredAt              DateTime @default(now())
+  eventType               String
+  principalType           String
+  principalId             String
+  taskRef                 String?
+  runRef                  String?
+  intentRef               String?
+  approvalRef             String?
+  resourceType            String?
+  resourceId              String?
+  outcome                 String?
+  metadata                String   @default("{}")
+  requestId               String
+  canonicalizationVersion Int
+  previousHash            String
+  eventHash               String   @unique
+
+  @@index([occurredAt, id])
+  @@index([intentRef, sequence])
+  @@index([taskRef, sequence])
+  @@index([requestId])
+}
+
+model yusuf_audit_checkpoints {
+  id           Int      @id @default(autoincrement())
+  key          String   @unique
+  lastSequence Int
+  lastHash     String
+  signature    String
+  updatedAt    DateTime @default(now()) @updatedAt
+}
+
+model yusuf_security_settings {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  version   Int      @default(1)
+  updatedBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }
