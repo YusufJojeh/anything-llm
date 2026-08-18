@@ -15,7 +15,9 @@ export default {
   },
   brand: {
     name: "Yusuf OS",
-    core: "Chief of Staff",
+    // The central node names the system, never an Agent. `chief_of_staff` is a
+    // real AgentDefinition that appears in the constellation like any other.
+    core: "System Core",
     tagline: "AI staff, under control",
   },
   nav: {

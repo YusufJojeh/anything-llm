@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { roleFor, ROLE_KEYS } from "../state/agentRoles";
+import { i18n } from "./renderWithI18n";
 import { edgeKind, buildEdges, buildAgents } from "../state/commandCenterModel";
 import { dashboardFixture, rosterFixture } from "./fixtures";
 
@@ -72,5 +73,53 @@ describe("relationship semantics", () => {
     expect(edge.kind).toBe("REVIEW");
     // Still not active: PENDING is not a live handoff, so it must not animate.
     expect(edge.active).toBe(false);
+  });
+});
+
+describe("the system core is not an Agent", () => {
+  /*
+   * `chief_of_staff` is a real, independent AgentDefinition with its own node,
+   * role glyph and server-owned status. The centre of the constellation names
+   * the *system*. If the core ever borrows an Agent's name again, the operator
+   * cannot tell whether the centre is a machine or a member of staff.
+   */
+  test.each([
+    ["en", "System Core", "Chief of Staff"],
+    ["ar", "نواة النظام", "رئيس الأركان"],
+  ])(
+    "the core identifies as the system, not the Chief of Staff (%s)",
+    (lng, expected, agentName) => {
+      const core = i18n.t("yusufOS:brand.core", { lng });
+      expect(core).toBe(expected);
+      expect(core).not.toBe(agentName);
+    }
+  );
+
+  test("the Chief of Staff survives as a separate Agent identity", () => {
+    const chief = roleFor("chief_of_staff");
+    expect(chief.known).toBe(true);
+    expect(chief.glyph).toBe("CS");
+  });
+
+  test("no Agent role borrows the core's identity", () => {
+    for (const lng of ["en", "ar"]) {
+      const core = i18n.t("yusufOS:brand.core", { lng });
+      for (const key of ROLE_KEYS) {
+        // A role must never resolve to the same label the core uses.
+        expect(
+          i18n.t(`yusufOS:status.agent.${key}`, { lng, defaultValue: key })
+        ).not.toBe(core);
+      }
+    }
+  });
+
+  test("the core label and the core drawer title name the same thing", () => {
+    // Both surfaces describe the system core; they must not drift apart into
+    // two different names for one object.
+    for (const lng of ["en", "ar"]) {
+      const core = i18n.t("yusufOS:brand.core", { lng }).toLowerCase();
+      const title = i18n.t("yusufOS:core.title", { lng }).toLowerCase();
+      expect(title).toBe(core);
+    }
   });
 });

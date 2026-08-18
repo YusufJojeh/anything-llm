@@ -36,6 +36,16 @@ capability, no backend change** (`git diff HEAD -- server/` is empty).
   `.yos-row` hover/selection treatment, and a status *readout* (hairline-divided, tabular numerals,
   colour only on non-zero counts) replacing the three KPI-style tiles.
 
+### Core identity correction (post-acceptance)
+
+The central node originally read `YUSUF OS / CHIEF OF STAFF / <state>`. Chief of Staff is a **real,
+independent AgentDefinition** with its own constellation node, role glyph and server-owned status,
+so the core was duplicating an Agent's identity — leaving the operator unable to tell whether the
+centre was the machine or a member of staff. The core now reads `YUSUF OS / SYSTEM CORE / <state>`
+in English and `نظام يوسف / نواة النظام / <state>` in Arabic. Guarded by regression tests asserting
+that the core label is the system, that `chief_of_staff` still resolves to its own `CS` identity,
+and that no Agent role label may ever equal the core label.
+
 ### Two real defects found by reading the installed skills, not by looking
 
 - `h-screen` on the shell — wrong on mobile browsers where the URL bar resizes the viewport. Now
