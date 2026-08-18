@@ -33,6 +33,34 @@ import i18n from "@/i18n";
 import { registerYusufOSTranslations } from "../i18n";
 import { dashboardFixture, rosterFixture } from "../__tests__/fixtures";
 
+/*
+ * Refuse to run outside development. The harness is never bundled (its only
+ * entry is a root HTML file rollup does not take as an input), so this is
+ * belt-and-braces — but a fixture renderer that could execute in production is
+ * exactly the kind of thing that should fail loudly rather than quietly work.
+ */
+if (!import.meta.env.DEV) {
+  document.body.textContent =
+    "The Yusuf OS fixture harness is development-only.";
+  throw new Error("yusuf-os harness: refusing to run outside development");
+}
+
+/*
+ * The harness shares an origin with the real application, so anything it writes
+ * to `localStorage` silently changes the real app. i18next's language detector
+ * caches the active language there, which meant opening the harness with
+ * `?lang=ar` switched `/` and `/os` to Arabic for good.
+ *
+ * Block writes to that key for the lifetime of this page. Scoped to the harness
+ * document only — the real app's own language switching is untouched.
+ */
+const BLOCKED_STORAGE_KEYS = new Set(["i18nextLng"]);
+const nativeSetItem = window.localStorage.setItem.bind(window.localStorage);
+window.localStorage.setItem = (key, value) => {
+  if (BLOCKED_STORAGE_KEYS.has(key)) return;
+  nativeSetItem(key, value);
+};
+
 const params = new URLSearchParams(window.location.search);
 const scenario = params.get("scenario") || "healthy";
 const language = params.get("lang") || "en";
