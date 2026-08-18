@@ -58,7 +58,20 @@ export default function Drawer({
     returnFocusRef.current = document.activeElement;
     // Focus the panel itself rather than its first control: reading starts at
     // the title, and a screen reader announces the dialog name on entry.
-    const frame = requestAnimationFrame(() => panelRef.current?.focus());
+    //
+    // Done synchronously in the effect, not in `requestAnimationFrame`: React
+    // has already committed the DOM by now, and rAF does not run in a hidden or
+    // throttled tab — which would open the dialog with focus still stranded
+    // outside it. The frame callback is kept only as a redundant retry for the
+    // case where something else steals focus during the same commit.
+    panelRef.current?.focus();
+    const frame = requestAnimationFrame(() => {
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(document.activeElement)
+      )
+        panelRef.current.focus();
+    });
     return () => {
       cancelAnimationFrame(frame);
       const target = returnFocusRef.current;

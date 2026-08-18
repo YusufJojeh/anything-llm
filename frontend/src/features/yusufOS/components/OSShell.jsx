@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { ErrorBoundary } from "react-error-boundary";
 import {
   Pulse,
   CirclesThree,
@@ -156,7 +157,7 @@ export default function OSShell() {
 
   return (
     <div
-      className="yos-root flex min-h-screen flex-col md:flex-row"
+      className="yos-root flex min-h-screen flex-col md:flex-row xl:h-screen xl:min-h-0 xl:overflow-hidden"
       dir={rtl ? "rtl" : "ltr"}
     >
       <a
@@ -170,7 +171,7 @@ export default function OSShell() {
         {t("yusufOS:nav.skipToContent")}
       </a>
       <Rail />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col xl:min-h-0">
         <header
           className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 md:px-6"
           style={{ borderColor: "var(--yos-border)" }}
@@ -204,13 +205,30 @@ export default function OSShell() {
           />
         </header>
 
-        <main id="yos-main" className="min-w-0 flex-1">
+        <main
+          id="yos-main"
+          className="min-w-0 flex-1 xl:min-h-0 xl:overflow-hidden"
+        >
           {phase === PHASES.LOADING && !dashboard ? (
             <LoadingBlock rows={6} />
           ) : phase === PHASES.ERROR && !dashboard ? (
             <ErrorBlock error={error} onRetry={refresh} />
           ) : (
-            <Outlet />
+            <ErrorBoundary
+              // Keyed on the route so navigating away clears a failed surface.
+              resetKeys={[location.pathname]}
+              FallbackComponent={({ error: renderError }) => (
+                <ErrorBlock
+                  error={{
+                    code: "RENDER_FAILED",
+                    message: renderError?.message || null,
+                  }}
+                  onRetry={refresh}
+                />
+              )}
+            >
+              <Outlet />
+            </ErrorBoundary>
           )}
         </main>
       </div>

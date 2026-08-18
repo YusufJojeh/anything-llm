@@ -62,6 +62,9 @@ export default {
   },
   core: {
     title: "System core",
+    countApprovals: "Approvals",
+    countBlocked: "Blocked",
+    countActiveRuns: "Active runs",
     open: "Open system detail",
     selected: "System core selected",
     state: {

@@ -1,5 +1,31 @@
 # Test Baseline
 
+## Live visual QA (Gate G closeout) [VERIFIED_IN_BROWSER — 2026-08-18]
+
+Run against the dev-only fixture harness (`/yusuf-os-harness.html?scenario=…&lang=…&route=…`),
+which mounts the real provider and real components over deterministic fixtures. **Not production
+state**; the harness is excluded from `vite build` output (verified).
+
+| Check | Result |
+|---|---|
+| Desktop 1440×900 | Fits viewport, no page scroll, no horizontal overflow, core centred |
+| Tablet 1024×768 | Constellation retained, operational |
+| Narrow tablet 768 | Constellation `display:none` (transformed, not shrunk), roster + attention intact |
+| Mobile 390×844 | No horizontal overflow, all nav targets 44×44, all surfaces reachable |
+| Constellation 0/1/3/6/10/24 + long names | 0 node overlaps, 0 clipped labels, 0 label collisions at every size |
+| Arabic RTL | `dir=rtl`, rail moves to the right edge, drawer opens from the left, caret mirrored, no English leakage |
+| Reduced motion | 2 animated elements neutralized to 1e-06s; state still readable |
+| Approval lifecycle | All 6 states distinct; APPROVED renders blue "not yet executed", CONSUMED green |
+| Approval review | Capability, L3 risk, target, digest, policy explanation, BLOCK verdict, single-use, no always-allow control; only "Approve once" / "Reject" |
+| Audit states | UNCHECKED purple + "never been verified", STALE amber + "older chain tip", BROKEN red |
+| Dialog a11y | Focus enters on open, Escape closes, focus returns to opener; `:focus-visible` = 2px solid outline |
+| Tab order | rail → core → attention → roster |
+
+**Screenshots: not captured.** The browser pane cannot composite frames in this environment, so
+`computer{action:"screenshot"}` times out. Evidence above is geometric/DOM measurement instead. No
+screenshot was fabricated.
+
+
 ## Last re-run (Gate G session, live) [VERIFIED_BY_TEST — 2026-08-18]
 
 ```bash

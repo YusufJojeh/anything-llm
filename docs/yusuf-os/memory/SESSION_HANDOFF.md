@@ -1,5 +1,52 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-18 — Gate G live visual acceptance (Claude Code, Opus 5)
+
+**What was done:** Closed Gate G's one open evidence gap — live visual acceptance of the
+*unlocked* Command Center — and fixed the four real defects it found.
+
+**How, given the token constraint.** Reaching the real unlocked `/os` requires presenting the
+control token in the browser, which this agent does not do. Instead a **dev-only fixture harness**
+(`frontend/yusuf-os-harness.html` + `src/features/yusufOS/__dev__/harness.jsx`) mounts the *real*
+provider, the *real* `CommandCenter` and every real child component, with `fetch` intercepted to
+return the same deterministic fixtures the Vitest suite uses. It is not routed, not linked, not in
+the production bundle (verified against `dist/`), and renders a permanent on-screen
+"FIXTURE HARNESS — NOT REAL SYSTEM STATE" banner. No token was written, typed, logged or committed.
+
+**Four real defects found and fixed — every one of them invisible to the unit tests:**
+
+1. **The console did not fit the viewport.** At 1440×900 the page scrolled to 1067px: the operator
+   column's natural height drove the row, and the square constellation grew to match. Fixed with a
+   viewport-height desktop layout whose operator column scrolls internally. Page now 900px at 900px.
+2. **`AgentDetailPanel` crashed the whole application** on any run-detail response missing `run`.
+   It dereferenced the response unconditionally, and with no boundary inside `/os` the throw reached
+   AnythingLLM's root ErrorBoundary and blanked the entire app. Fixed by guarding the shape **and**
+   adding a route-scoped `ErrorBoundary` so one bad panel degrades to an inline error.
+3. **Dialog focus depended on `requestAnimationFrame`,** which never fires in a hidden or throttled
+   tab — the dialog would open with focus stranded outside it. Now focused synchronously in the
+   effect, with rAF kept only as a redundant retry. Regression test added that stubs rAF out.
+4. **The three headline counts were mislabelled** — `PENDING / BLOCKERS / RUNS`, borrowed from
+   unrelated surfaces. Now `Approvals / Blocked / Active runs` with their own keys in both locales.
+
+**Two suspicions checked and cleared rather than "fixed":** duplicated nav accessible names (naive
+`textContent` measurement; the real accessible names are clean) and a missing core state on an empty
+roster (CSS `text-transform` uppercasing; my regex was case-sensitive). Worth noting — two of my
+six candidate findings were measurement error, not product error.
+
+**Evidence:** 78 frontend tests (+1), 20 yusufOS backend suites / 256 tests, frontend lint + build
+clean, `git diff --check` clean. Backend contracts untouched this round.
+
+**Screenshots remain unavailable** — the browser pane cannot composite frames in this environment.
+Substituted geometric measurement (node overlap, label bounding boxes, computed styles, focus
+tracking), which is more precise than eyeballing for the questions asked. See `TEST_BASELINE.md`.
+
+**Still unverified by anyone:** the real unlocked UI against the real control plane and a live SSE
+connection. The harness stubs `EventSource`; SSE semantics are covered by the reducer suite only.
+**Yusuf should still do one manual unlock pass** to confirm real data flows end to end.
+
+**Current blocker:** none. Gate H is not defined. Waiting on explicit authorization.
+
+
 ## 2026-08-18 — Gate G implementation (Claude Code, Opus 5)
 
 **What was done:** Implemented Gate G — the `/os` AI Staff Command Center frontend, built strictly

@@ -219,6 +219,23 @@ describe("dialog behaviour", () => {
     expect(dialog.contains(document.activeElement)).toBe(true);
   });
 
+  test("focus lands in the dialog without waiting for an animation frame", () => {
+    // A hidden or throttled tab never runs requestAnimationFrame. If focus
+    // depended on it, the dialog would open with focus stranded outside.
+    const raf = window.requestAnimationFrame;
+    window.requestAnimationFrame = () => 0;
+    try {
+      renderWithI18n(
+        <Drawer open onClose={() => {}} title="Engineering">
+          <button type="button">first</button>
+        </Drawer>
+      );
+      expect(screen.getByRole("dialog")).toHaveFocus();
+    } finally {
+      window.requestAnimationFrame = raf;
+    }
+  });
+
   test("Escape closes it", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

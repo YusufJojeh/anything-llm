@@ -1,0 +1,34 @@
+<!doctype html>
+<!--
+  YUSUF OS VISUAL HARNESS — DEVELOPMENT ONLY.
+
+  Served by the Vite dev server at /yusuf-os-harness.html. It is NOT an entry
+  point of `vite build` (rollup only takes index.html), so it never reaches a
+  production bundle, and it is not linked from anywhere in the application.
+
+  Every value it renders is a deterministic fixture. See
+  src/features/yusufOS/__dev__/harness.jsx.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Yusuf OS visual harness (fixtures only)</title>
+    <style>
+      html,
+      body,
+      #harness-root {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        background: #07090c;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="harness-root"></div>
+    <script type="module" src="/src/index.css"></script>
+    <script type="module" src="/src/features/yusufOS/__dev__/harness.jsx"></script>
+  </body>
+</html>

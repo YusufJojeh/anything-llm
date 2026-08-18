@@ -42,7 +42,12 @@ export default function AgentDetailPanel({ agent, edges }) {
     (edge) =>
       edge.fromAgentId === agent.agentId || edge.toAgentId === agent.agentId
   );
-  const detail = run.data;
+  // Guarded rather than trusted: `run.data` is a server response, and a
+  // response that is missing `run` (an unexpected shape, a truncated body)
+  // must render as an error, not throw out of render and take the console
+  // down with it.
+  const detail = run.data && run.data.run ? run.data : null;
+  const detailUnusable = run.phase === PHASES.READY && runId && !detail;
 
   return (
     <div className="flex flex-col gap-6">
@@ -103,8 +108,10 @@ export default function AgentDetailPanel({ agent, edges }) {
           </p>
         ) : run.phase === PHASES.LOADING ? (
           <LoadingBlock rows={3} />
-        ) : run.phase === PHASES.ERROR ? (
-          <ErrorBlock error={run.error} />
+        ) : run.phase === PHASES.ERROR || detailUnusable ? (
+          <ErrorBlock
+            error={run.error || { code: "MALFORMED_RESPONSE", message: null }}
+          />
         ) : detail ? (
           <>
             <dl className="grid grid-cols-2 gap-4">

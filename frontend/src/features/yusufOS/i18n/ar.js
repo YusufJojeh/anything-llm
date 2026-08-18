@@ -65,6 +65,9 @@ export default {
   },
   core: {
     title: "نواة النظام",
+    countApprovals: "موافقات",
+    countBlocked: "متوقّف",
+    countActiveRuns: "تشغيلات نشطة",
     open: "عرض تفاصيل النظام",
     selected: "نواة النظام محدَّدة",
     state: {

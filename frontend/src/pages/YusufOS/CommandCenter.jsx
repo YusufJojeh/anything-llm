@@ -76,9 +76,9 @@ function CoreSummary({ coreState, summary, onOpen }) {
         style={{ borderColor: "var(--yos-border-faint)" }}
       >
         {[
-          ["yusufOS:approval.pending", summary.pendingApprovals],
-          ["yusufOS:task.blockers", summary.blockedTasks],
-          ["yusufOS:run.title", summary.activeRuns],
+          ["yusufOS:core.countApprovals", summary.pendingApprovals],
+          ["yusufOS:core.countBlocked", summary.blockedTasks],
+          ["yusufOS:core.countActiveRuns", summary.activeRuns],
         ].map(([key, value]) => (
           <div key={key} className="flex flex-col gap-0.5">
             <dt
@@ -144,7 +144,7 @@ export default function CommandCenter() {
   const loading = phase === PHASES.LOADING && !dashboard;
 
   return (
-    <div className="flex min-h-full flex-col gap-4 p-4 md:p-6 xl:flex-row">
+    <div className="flex min-h-full flex-col gap-4 p-4 md:p-6 xl:h-full xl:min-h-0 xl:flex-row xl:overflow-hidden">
       {/*
        * The constellation. Hidden below `lg` rather than shrunk: a ring of
        * nodes squeezed into 390px is unreadable, and the roster list below
@@ -152,13 +152,13 @@ export default function CommandCenter() {
        */}
       <section
         aria-labelledby="yos-constellation-heading"
-        className="hidden min-w-0 flex-1 lg:block"
+        className="hidden min-w-0 flex-1 lg:block xl:flex xl:min-h-0 xl:flex-col"
       >
         <h2 id="yos-constellation-heading" className="sr-only">
           {t("yusufOS:constellation.title")}
         </h2>
         <p className="sr-only">{t("yusufOS:constellation.description")}</p>
-        <Panel className="h-full min-h-[520px] overflow-hidden">
+        <Panel className="h-full min-h-[520px] overflow-hidden xl:min-h-0 xl:flex-1">
           {loading ? (
             <LoadingBlock rows={8} />
           ) : (
@@ -185,7 +185,11 @@ export default function CommandCenter() {
         ) : null}
       </section>
 
-      <div className="flex w-full min-w-0 flex-col gap-4 xl:w-[380px] xl:shrink-0">
+      {/*
+       * The operator column scrolls inside itself on desktop so the
+       * constellation stays put; below xl the page scrolls normally.
+       */}
+      <div className="flex w-full min-w-0 flex-col gap-4 xl:w-[380px] xl:min-h-0 xl:shrink-0 xl:overflow-y-auto">
         {loading || !model.summary ? (
           <Panel>
             <LoadingBlock rows={4} />
