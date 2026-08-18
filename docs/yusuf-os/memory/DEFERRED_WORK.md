@@ -1,5 +1,44 @@
 # Deferred Work
 
+## Gate G visual polish notes — 2026-08-18 [APPROVED DIRECTION, NOT AUTHORIZED FOR IMPLEMENTATION]
+
+Yusuf reviewed the fixture Command Center and **approved the core product direction**. These are
+his polish notes for a future frontend refinement pass. **Do not implement any of them without his
+explicit instruction** — they are recorded here so the review is not lost, not as a work queue.
+
+1. **Increase the central core's visual dominance by ~20–30%.**
+   Today the core is r=86 against nodes at r=34 (2.53x) in a 1000-unit viewBox.
+   *Constraint to respect:* the desktop layout is now viewport-height (see the visual-QA fix
+   commit). Growing the core must not reintroduce page scroll at 1440x900 — verify
+   `document.documentElement.scrollHeight === innerHeight` after any change. Growing the core
+   radius alone is cheaper than growing the whole viewBox.
+
+2. **Make constellation spacing adaptive for small rosters** so a 3-agent state does not read as
+   mostly empty. Today `OUTER_RADIUS` is a fixed 385 units regardless of count, which is why 3
+   agents sit 599 units apart edge-to-edge while 24 sit 30 apart.
+   *Constraints to respect:* the layout must stay **deterministic** (same roster always yields the
+   same picture — there is a unit test) and must still tolerate 0/1/3/6/10/24+ without overlap.
+   A count-derived radius is fine; a random or animated one is not.
+
+3. **Reduce the left navigation rail's visual weight.** The Command Center must stay the hero.
+   *Constraint to respect:* nav targets are currently exactly 44x44 at 390px, which is the
+   accessible minimum — reduce visual weight (contrast, chrome, width of the label column) rather
+   than hit-target size.
+
+4. **Give Agent nodes stronger role identity** using the existing Phosphor icon set, status halos
+   and activity indicators.
+   *Constraints to respect:* no fake data and no gaming-HUD styling. An icon may express the
+   Agent's **role** (a code-owned property of the agent key) and its **status** (asserted by the
+   projection). It may not imply activity, progress, load or health that the backend has not
+   asserted — and motion still only appears where the server marks something live.
+
+5. **Keep the right-side Attention Queue as prominent as it is.** Working well; do not dilute it
+   while doing 1-4.
+
+6. **Standing invariant, restated by Yusuf:** no fake agents, no decorative edges, no fake metrics,
+   no fake activity to fill space. Empty stays honestly empty.
+
+
 ## Deferred after Gate G — 2026-08-18
 
 **Deliberately not built in Gate G** (no backend support, or out of scope for a first coherent
