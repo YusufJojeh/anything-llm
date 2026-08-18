@@ -19,6 +19,10 @@ const {
 } = require("../../domain/yusufOS/api/controlPlaneGuard");
 const { handleYusufError } = require("../../domain/yusufOS/api/errorHandler");
 const {
+  YusufOSError,
+  ErrorCodes,
+} = require("../../domain/yusufOS/errors/YusufOSError");
+const {
   validateObject,
   stringValue,
   positiveInt,
@@ -35,6 +39,9 @@ const {
 const {
   EventProjection,
 } = require("../../domain/yusufOS/projections/EventProjection");
+const {
+  DetailProjections,
+} = require("../../domain/yusufOS/projections/DetailProjections");
 
 function asyncRoute(handler) {
   return async (request, response) => {
@@ -46,15 +53,33 @@ function asyncRoute(handler) {
   };
 }
 
-function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
+// Public identifiers are uuids everywhere the Command Center can see them.
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Registers the Yusuf OS control-plane routes.
+ *
+ * `basePath` exists so the identical handler set can also be mounted under
+ * `/api/yusuf-os-ui`, which is guarded by the browser session bootstrap
+ * instead of the bearer header (see `domain/yusufOS/api/uiSession.js`). The
+ * handlers, validation and projections are the same code either way — only
+ * the authentication mechanism in front of them differs.
+ */
+function yusufOSEndpoints(
+  app,
+  { db = prisma, preGuarded = false, basePath = "/yusuf-os" } = {}
+) {
   if (!app) return;
   const guard = preGuarded ? [] : [yusufRequestContext, yusufControlPlaneGuard];
   const audit = new AuditService(db);
   const settings = new SecuritySettings(db);
   const approvals = new ApprovalService(db);
+  const details = new DetailProjections(db);
+  const path = (suffix) => `${basePath}${suffix}`;
 
   app.get(
-    "/yusuf-os/bootstrap",
+    path("/bootstrap"),
     guard,
     asyncRoute(async (_request, response) => {
       response.status(200).json({
@@ -75,7 +100,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.get(
-    "/yusuf-os/agents",
+    path("/agents"),
     guard,
     asyncRoute(async (_request, response) => {
       response.status(200).json({ agents: await YusufAgent.list({}, db) });
@@ -83,7 +108,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.post(
-    "/yusuf-os/agents",
+    path("/agents"),
     guard,
     asyncRoute(async (request, response) => {
       const body = validateObject(reqBody(request), {
@@ -119,7 +144,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.get(
-    "/yusuf-os/projects",
+    path("/projects"),
     guard,
     asyncRoute(async (_request, response) => {
       response.status(200).json({ projects: await YusufProject.list({}, db) });
@@ -127,7 +152,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.post(
-    "/yusuf-os/projects",
+    path("/projects"),
     guard,
     asyncRoute(async (request, response) => {
       const body = validateObject(reqBody(request), {
@@ -150,7 +175,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.get(
-    "/yusuf-os/tasks",
+    path("/tasks"),
     guard,
     asyncRoute(async (request, response) => {
       const page = pagination(request.query);
@@ -163,7 +188,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.post(
-    "/yusuf-os/tasks",
+    path("/tasks"),
     guard,
     asyncRoute(async (request, response) => {
       const body = validateObject(reqBody(request), {
@@ -204,7 +229,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.get(
-    "/yusuf-os/tasks/:id",
+    path("/tasks/:id"),
     guard,
     asyncRoute(async (request, response) => {
       const id = positiveInt(request.params.id, "id");
@@ -223,7 +248,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.get(
-    "/yusuf-os/runs",
+    path("/runs"),
     guard,
     asyncRoute(async (request, response) => {
       const page = pagination(request.query);
@@ -236,7 +261,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.get(
-    "/yusuf-os/runs/:id",
+    path("/runs/:id"),
     guard,
     asyncRoute(async (request, response) => {
       const run = await db.yusuf_agent_runs.findUnique({
@@ -256,7 +281,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.get(
-    "/yusuf-os/intents/:id",
+    path("/intents/:id"),
     guard,
     asyncRoute(async (request, response) => {
       const intent = await db.yusuf_action_intents.findUnique({
@@ -277,7 +302,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.get(
-    "/yusuf-os/approvals",
+    path("/approvals"),
     guard,
     asyncRoute(async (request, response) => {
       const page = pagination(request.query);
@@ -301,7 +326,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.get(
-    "/yusuf-os/approvals/:id",
+    path("/approvals/:id"),
     guard,
     asyncRoute(async (request, response) => {
       const approval = await db.yusuf_approval_requests.findUnique({
@@ -322,7 +347,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.post(
-    "/yusuf-os/approvals/:id/decisions",
+    path("/approvals/:id/decisions"),
     guard,
     asyncRoute(async (request, response) => {
       const body = validateObject(reqBody(request), {
@@ -370,7 +395,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.get(
-    "/yusuf-os/audit-events",
+    path("/audit-events"),
     guard,
     asyncRoute(async (request, response) => {
       const page = pagination(request.query);
@@ -383,7 +408,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.post(
-    "/yusuf-os/audit/verify",
+    path("/audit/verify"),
     guard,
     asyncRoute(async (_request, response) => {
       response.status(200).json({ integrity: await audit.verify() });
@@ -396,7 +421,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   // rest of the control plane.
 
   app.get(
-    "/yusuf-os/dashboard",
+    path("/dashboard"),
     guard,
     asyncRoute(async (request, response) => {
       const projection = new DashboardProjection(db);
@@ -409,7 +434,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.get(
-    "/yusuf-os/events",
+    path("/events"),
     guard,
     asyncRoute(async (request, response) => {
       const events = new EventProjection(db);
@@ -422,7 +447,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
   );
 
   app.post(
-    "/yusuf-os/audit-integrity/check",
+    path("/audit-integrity/check"),
     guard,
     asyncRoute(async (_request, response) => {
       // Deliberately a command, not part of the dashboard read: verifying the
@@ -448,7 +473,7 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
    * it is strictly server-to-client projection data.
    */
   app.get(
-    "/yusuf-os/events/stream",
+    path("/events/stream"),
     guard,
     asyncRoute(async (request, response) => {
       const events = new EventProjection(db);
@@ -537,6 +562,65 @@ function yusufOSEndpoints(app, { db = prisma, preGuarded = false } = {}) {
       }, 15000);
       // The socket may have dropped while the first pump was still querying.
       if (closed) shutdown();
+    })
+  );
+
+  // --- Gate G: uuid-addressed drilldown projections (read-only) ------------
+  // The Gate F dashboard identifies entities by uuid, but the pre-existing
+  // detail routes only accept the internal numeric key, so nothing on the
+  // dashboard was actually openable. These are additive: the numeric routes
+  // above keep their exact Gate F behaviour and response shape.
+
+  const uuidParam = (value, field) => {
+    const candidate = String(value || "");
+    if (!UUID_PATTERN.test(candidate))
+      throw new YusufOSError(
+        ErrorCodes.VALIDATION_ERROR,
+        `${field} must be a uuid.`,
+        { status: 422 }
+      );
+    return candidate;
+  };
+
+  app.get(
+    path("/agents/roster"),
+    guard,
+    asyncRoute(async (_request, response) => {
+      response.status(200).json(await details.roster());
+    })
+  );
+
+  app.get(
+    path("/tasks/:taskId/detail"),
+    guard,
+    asyncRoute(async (request, response) => {
+      response
+        .status(200)
+        .json(await details.task(uuidParam(request.params.taskId, "taskId")));
+    })
+  );
+
+  app.get(
+    path("/runs/:runId/detail"),
+    guard,
+    asyncRoute(async (request, response) => {
+      response
+        .status(200)
+        .json(await details.run(uuidParam(request.params.runId, "runId")));
+    })
+  );
+
+  app.get(
+    path("/approvals/:approvalId/review"),
+    guard,
+    asyncRoute(async (request, response) => {
+      response
+        .status(200)
+        .json(
+          await details.approvalReview(
+            uuidParam(request.params.approvalId, "approvalId")
+          )
+        );
     })
   );
 }

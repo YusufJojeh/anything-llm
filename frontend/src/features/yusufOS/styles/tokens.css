@@ -1,0 +1,190 @@
+/*
+ * Yusuf OS design tokens.
+ *
+ * Scoped to `.yos-root` so nothing here can leak into the AnythingLLM chat
+ * experience at `/`. AnythingLLM's theme system is variable-driven and these
+ * follow the same mechanism (CSS custom properties consumed through Tailwind
+ * arbitrary values), rather than inventing a second styling universe.
+ *
+ * `/os` is deliberately pinned to one dark operational treatment: this is an
+ * operations console, and a status palette that has been contrast-checked once
+ * is safer than one that has to work against a light surface too. Every status
+ * carries an icon and a text label as well, so nothing depends on colour.
+ */
+
+.yos-root {
+  color-scheme: dark;
+
+  /* --- surface hierarchy ------------------------------------------------ */
+  --yos-canvas: #07090c;
+  --yos-surface: #0c0f14;
+  --yos-surface-raised: #11151b;
+  --yos-surface-overlay: #151a22;
+  --yos-surface-hover: #1a212b;
+
+  /* --- line work -------------------------------------------------------- */
+  --yos-border: #1e242e;
+  --yos-border-strong: #2b3441;
+  --yos-border-faint: #161b23;
+
+  /* --- text hierarchy --------------------------------------------------- */
+  --yos-text: #e7ebf1;
+  --yos-text-secondary: #a3adbc;
+  --yos-text-muted: #75808f;
+
+  /* --- identity --------------------------------------------------------- */
+  --yos-accent: #6aa9e0;
+  --yos-accent-strong: #8cc2f0;
+  --yos-focus: #8cc2f0;
+
+  /*
+   * Status semantics. `-graphic` is for dots, rings, strokes and fills;
+   * `-text` is the AA-contrast variant for text on --yos-surface. Nothing in
+   * the product picks a status colour ad hoc — every component resolves
+   * through these, via `statusSemantics.js`.
+   */
+  --yos-healthy-graphic: #35a878;
+  --yos-healthy-text: #5fd3a1;
+  --yos-active-graphic: #4a90d9;
+  --yos-active-text: #7db8ee;
+  --yos-waiting-graphic: #6f7c8f;
+  --yos-waiting-text: #a3adbc;
+  --yos-approval-graphic: #c98b28;
+  --yos-approval-text: #e9b657;
+  --yos-warning-graphic: #c98b28;
+  --yos-warning-text: #e9b657;
+  --yos-blocked-graphic: #b8574a;
+  --yos-blocked-text: #ef8f80;
+  --yos-error-graphic: #b8574a;
+  --yos-error-text: #ef8f80;
+  --yos-offline-graphic: #4a545f;
+  --yos-offline-text: #8b95a2;
+  --yos-unknown-graphic: #6b5f96;
+  --yos-unknown-text: #a99ad6;
+
+  /* --- spacing / radius / motion ---------------------------------------- */
+  --yos-radius-sm: 4px;
+  --yos-radius: 8px;
+  --yos-radius-lg: 14px;
+  --yos-glow: 0 0 0 1px var(--yos-border-strong), 0 18px 48px -24px #000;
+  --yos-motion-slow: 5200ms;
+  --yos-motion-medium: 2400ms;
+  --yos-motion-fast: 160ms;
+
+  background-color: var(--yos-canvas);
+  color: var(--yos-text);
+}
+
+/* Focus is always visible and always the same shape. */
+.yos-root :focus-visible {
+  outline: 2px solid var(--yos-focus);
+  outline-offset: 2px;
+  border-radius: var(--yos-radius-sm);
+}
+
+/*
+ * Motion is semantic: an ambient pulse means "the system is nominal", a
+ * faster one means "something is waiting for you". None of it is decorative,
+ * and none of it is the only carrier of a state.
+ */
+@keyframes yos-ambient {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.035);
+  }
+}
+
+@keyframes yos-attention {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.09);
+  }
+}
+
+@keyframes yos-working {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes yos-edge-flow {
+  from {
+    stroke-dashoffset: 28;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.yos-pulse-ambient {
+  animation: yos-ambient var(--yos-motion-slow) ease-in-out infinite;
+}
+.yos-pulse-attention {
+  animation: yos-attention var(--yos-motion-medium) ease-in-out infinite;
+}
+.yos-spin-working {
+  animation: yos-working 9s linear infinite;
+  transform-origin: center;
+}
+.yos-edge-active {
+  stroke-dasharray: 5 9;
+  animation: yos-edge-flow 1.7s linear infinite;
+}
+
+/*
+ * Reduced motion removes every animation. The state remains fully readable
+ * because it was never encoded in the movement — the ring, icon and text
+ * label carry it. The active-edge dash pattern is kept as a *static* dash so
+ * "this edge is carrying live work" survives without movement.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .yos-root *,
+  .yos-root *::before,
+  .yos-root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .yos-pulse-ambient,
+  .yos-pulse-attention {
+    opacity: 0.6;
+  }
+  .yos-edge-active {
+    stroke-dasharray: 5 9;
+  }
+}
+
+/* Forced colors: keep structure, focus and actionable affordances legible. */
+@media (forced-colors: active) {
+  .yos-root .yos-panel,
+  .yos-root .yos-node {
+    border: 1px solid CanvasText;
+  }
+  .yos-root :focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
+
+.yos-panel {
+  background-color: var(--yos-surface);
+  border: 1px solid var(--yos-border);
+  border-radius: var(--yos-radius-lg);
+}
+
+/* Utility used by list rows so hit targets stay >= 44px on touch. */
+.yos-touch-target {
+  min-block-size: 44px;
+}

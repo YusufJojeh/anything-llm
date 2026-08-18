@@ -1,6 +1,6 @@
 # Current Gate
 
-_Last updated: 2026-08-17 (Gate F implementation pass). Gate F complete; Gate G not started._
+_Last updated: 2026-08-18 (Gate G implementation pass). Gates B-G complete; Gate H not started._
 
 ## Gate E — First Governed AI Staff Runtime — status: COMPLETE
 
@@ -47,12 +47,30 @@ findings that were fixed. Surface:
 
 All behind the existing localhost + bearer-token control-plane guard.
 
-## Next gate: Gate G — Command Center frontend [PLANNED, not started]
+## Gate G — AI Staff Command Center frontend — status: COMPLETE
 
-**Objective:** build the `/os` experience against the Gate F projections. **Read
-`docs/yusuf-os/memory/FRONTEND_VISION.md` first** — the approved direction is a relationship-
-centric AI Staff Command Center (agent constellation with real delegation/handoff/review edges),
-not a CRUD dashboard, with an equally-capable non-graph accessible view, RTL, and reduced-motion
-support. No fake data: every value must come from a Gate F projection.
+The first frontend gate. `/os` is a relationship-centric AI Staff Command Center built strictly
+against the Gate F projections; `/` is untouched. See `GATE_HISTORY.md` for the full record.
+
+- **Feature module** `frontend/src/features/yusufOS/` (api / realtime / state / components /
+  i18n / styles) plus routes under `frontend/src/pages/YusufOS/`. No new state library, no graph
+  library — the constellation is arithmetic on a unit circle rendered as plain SVG.
+- **Routes:** `/os`, `/os/agents`, `/os/tasks`, `/os/tasks/:taskId`, `/os/approvals`,
+  `/os/approvals/:approvalId`, `/os/runs`, `/os/runs/:runId`, `/os/projects`, `/os/system`.
+- **Browser auth bootstrap** (`server/domain/yusufOS/api/uiSession.js`): the control token is
+  exchanged once, over loopback, for an httpOnly + SameSite=Strict server-side session with a
+  double-submit CSRF token. Same secret, same comparison, same loopback rule as the bearer
+  guard; `/api/yusuf-os/*` is completely unchanged.
+- **Additive uuid-addressed drilldown projections** (`projections/DetailProjections.js`) closing
+  a real Gate F contract gap — see `KNOWN_RISKS.md`.
+- **Snapshot-first + SSE reconciliation**: HTTP `/dashboard` is authoritative; the stream only
+  decides *when to refetch*. Duplicates, out-of-order, gaps, resets, unknown schema versions,
+  reconnects and visibility restores all resolve to "reload the snapshot".
+- **No fake data**: real zero, unknown, LOADING, EMPTY and ERROR are five distinct states, and
+  UNCHECKED/STALE audit verdicts never render as healthy.
+
+## Next gate: Gate H — not defined [not started]
 
 **Blockers before starting:** none technical; **waiting on Yusuf's explicit instruction.**
+Candidate deferred work is listed in `DEFERRED_WORK.md` (real LLM provider wiring, the remaining
+`/os` modules, RFC 9457 error migration).

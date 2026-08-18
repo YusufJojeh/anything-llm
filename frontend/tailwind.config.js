@@ -5,6 +5,7 @@ export default {
     relative: true,
     files: [
       "./src/components/**/*.{js,jsx}",
+      "./src/features/**/*.{js,jsx}",
       "./src/hooks/**/*.js",
       "./src/models/**/*.js",
       "./src/pages/**/*.{js,jsx}",

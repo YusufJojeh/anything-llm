@@ -1,4 +1,27 @@
-# Deferred Work — by gate
+# Deferred Work
+
+## Deferred after Gate G — 2026-08-18
+
+**Deliberately not built in Gate G** (no backend support, or out of scope for a first coherent
+vertical slice):
+
+- `/os` modules with no backing state yet: career, marketing, founder, knowledge, evidence, cost,
+  integrations, schedules, models, settings, and a browsable audit log.
+- The **Command Bar** ("Ask / Command Yusuf OS"). A conceptual place is reserved in the shell but
+  nothing is rendered — there is no backend command surface, and a fake one would be exactly the
+  chatbot UI Gate G exists to avoid.
+- **Agent lifecycle mutations from the UI** (create/edit/enable/disable agents, cancel tasks,
+  trigger runs, flip the kill switch). Gate G is read-only apart from the one existing approval
+  decision route. Adding a mutation means adding it to the control plane first, with its own
+  policy path and tests.
+- **RFC 9457 error migration** — still deferred per Gate F. The frontend is built against the
+  current stable `{ error: { code, message, details, requestId } }` shape.
+- **Screenshot / visual-regression testing.** No baseline exists and the session environment could
+  not composite frames.
+- **A cross-browser matrix.** Validated on the bundled Chromium only.
+- **Frontend tests outside `features/yusufOS/`.** The Vitest config is deliberately scoped; the
+  rest of the monorepo still has no test baseline.
+ — by gate
 
 Do not build these unprompted; they belong to specific future gates and building early would
 outrun the security architecture meant to gate them.

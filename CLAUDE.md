@@ -31,18 +31,26 @@ Policy → (approval if required) → Execution Coordinator → Verification →
 
 ## Current gate
 
-See `docs/yusuf-os/memory/CURRENT_GATE.md` for the authoritative current state. As of 2026-08-17:
-Gates B, C, D, E and **F** are complete and verified (546 tests green). Gate E added the first
-governed AI staff runtime — Chief of Staff / Engineering / Reviewer with isolated capabilities,
-durable handoffs, independent review verdicts, and a deterministic completion gate. Gate F added
-the read-only Command Center backend projections (`/dashboard`, `/events`, SSE `/events/stream`)
-— **no UI**. Gate G (the `/os` Command Center frontend) has **not** started. Do not begin Gate G
-without Yusuf's explicit instruction, and read `docs/yusuf-os/memory/FRONTEND_VISION.md` first so
-the approved Command Center direction is preserved.
+See `docs/yusuf-os/memory/CURRENT_GATE.md` for the authoritative current state. As of 2026-08-18:
+Gates B through **G** are complete and verified (559 server tests + 77 frontend tests green).
+Gate E added the first governed AI staff runtime; Gate F added the read-only Command Center
+backend projections; **Gate G added the `/os` AI Staff Command Center frontend** — an agent
+constellation with real handoff edges, an Attention Queue, task/run/approval drilldowns, System
+Health, snapshot-first SSE reconciliation, an accessible non-graph equivalent, English + Arabic
+with RTL, and a browser session bootstrap that never lets the browser hold the control token.
+`/` is unchanged. **No gate H is defined** — do not start one without Yusuf's explicit
+instruction. Read `docs/yusuf-os/memory/FRONTEND_VISION.md` before any `/os` change; its
+principles are still the acceptance criteria.
 
-**Review lesson (Gate E/F):** self-review is materially weaker than independent review. Both gates
-claimed a clean bill of health from self-audit and an independent pass then found real High/Medium
-issues. Run an independent security review before reporting P0/P1 = 0.
+**Review lesson (Gates E/F/G):** self-review is materially weaker than independent review. Three
+gates running, the implementation looked finished and every check was green, and a deliberate
+independent pass still found real issues each time. Run it before reporting a clean bill of
+health.
+
+**Frontend note:** Yusuf OS UI lives only in `frontend/src/features/yusufOS/` and
+`frontend/src/pages/YusufOS/`. Yusuf OS HTTP calls go through
+`features/yusufOS/api/client.js` and nowhere else. Frontend tests:
+`cd frontend && npx vitest run --config vitest.config.js`.
 
 ## Ground rules
 

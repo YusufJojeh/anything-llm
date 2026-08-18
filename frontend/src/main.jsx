@@ -432,6 +432,105 @@ const router = createBrowserRouter([
           };
         },
       },
+      // Yusuf OS Command Center. Mounted at /os as its own nested route tree;
+      // the existing "/" chat experience is untouched. Authentication is the
+      // Yusuf control plane's own (localhost + control token), not
+      // AnythingLLM's, so this is deliberately not a PrivateRoute.
+      {
+        path: "/os",
+        lazy: async () => {
+          const { default: YusufOSRoot } = await import("@/pages/YusufOS");
+          return { element: <YusufOSRoot /> };
+        },
+        children: [
+          {
+            index: true,
+            lazy: async () => {
+              const { default: CommandCenter } = await import(
+                "@/pages/YusufOS/CommandCenter"
+              );
+              return { element: <CommandCenter /> };
+            },
+          },
+          {
+            path: "agents",
+            lazy: async () => {
+              const { default: Agents } = await import(
+                "@/pages/YusufOS/Agents"
+              );
+              return { element: <Agents /> };
+            },
+          },
+          {
+            path: "tasks",
+            lazy: async () => {
+              const { default: Tasks } = await import("@/pages/YusufOS/Tasks");
+              return { element: <Tasks /> };
+            },
+          },
+          {
+            path: "tasks/:taskId",
+            lazy: async () => {
+              const { default: TaskDetail } = await import(
+                "@/pages/YusufOS/TaskDetail"
+              );
+              return { element: <TaskDetail /> };
+            },
+          },
+          {
+            path: "approvals",
+            lazy: async () => {
+              const { default: Approvals } = await import(
+                "@/pages/YusufOS/Approvals"
+              );
+              return { element: <Approvals /> };
+            },
+          },
+          {
+            path: "approvals/:approvalId",
+            lazy: async () => {
+              const { default: ApprovalReview } = await import(
+                "@/pages/YusufOS/ApprovalReview"
+              );
+              return { element: <ApprovalReview /> };
+            },
+          },
+          {
+            path: "runs",
+            lazy: async () => {
+              const { default: Runs } = await import("@/pages/YusufOS/Runs");
+              return { element: <Runs /> };
+            },
+          },
+          {
+            path: "runs/:runId",
+            lazy: async () => {
+              const { default: RunDetail } = await import(
+                "@/pages/YusufOS/RunDetail"
+              );
+              return { element: <RunDetail /> };
+            },
+          },
+          {
+            path: "projects",
+            lazy: async () => {
+              const { default: Projects } = await import(
+                "@/pages/YusufOS/Projects"
+              );
+              return { element: <Projects /> };
+            },
+          },
+          {
+            path: "system",
+            lazy: async () => {
+              const { default: System } = await import(
+                "@/pages/YusufOS/System"
+              );
+              return { element: <System /> };
+            },
+          },
+        ],
+      },
       // Catch-all route for 404s
       {
         path: "*",

@@ -1,9 +1,10 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-17, Gate F implementation pass._
+_Last verified: 2026-08-18, Gate G implementation pass._
 
-**Branch:** `feature/yusuf-os-core`. Five local checkpoint commits (Gate B docs, Gate C core,
-Claude memory, Gate D LocalGit, Gate E agent runtime), all unpushed. `origin` =
+**Branch:** `feature/yusuf-os-core`. Seven local checkpoint commits (Gate B docs, Gate C core,
+Claude memory, Gate D LocalGit, Gate E agent runtime, Gate F projections, Gate G frontend), all
+unpushed. `origin` =
 `github.com/YusufJojeh/anything-llm` (push only with explicit approval). `upstream` =
 `github.com/Mintplex-Labs/anything-llm` (fetch only, push disabled).
 
@@ -24,18 +25,24 @@ Claude memory, Gate D LocalGit, Gate E agent runtime), all unpushed. `origin` =
   (`project.write_file`, `project.run_command` via a server-owned typed command registry — no
   raw shell).
 
-**What has passed:** 50/50 server suites, **546/546 tests**, lint clean, `git diff --check`
-clean, Prisma schema valid with an empty `migrate diff`. All re-run live this session.
+- **Gate G (the `/os` AI Staff Command Center frontend)** — the first UI. An agent constellation
+  drawn from the real roster with real `yusuf_handoffs` edges, a system core whose semantic state
+  is derived only from asserted values, an Attention Queue, agent/task/run/approval drilldowns, a
+  System Health surface, and snapshot-first SSE reconciliation. Plus the browser session
+  bootstrap that lets a browser reach the control plane without ever holding the control token.
 
-**Next gate:** Gate G — the `/os` Command Center **frontend**, built against Gate F's
-projections. **Not started.** Read `FRONTEND_VISION.md` before any UI work. Do not begin without
-Yusuf's explicit instruction.
+**What has passed:** 51/51 server suites, **559/559 tests**; 5/5 frontend suites, **77/77 tests**;
+frontend lint + build clean, server lint clean, `git diff --check` clean. All re-run live this
+session.
+
+**Next gate:** not defined. Do not begin anything without Yusuf's explicit instruction.
 
 **Must not be rebuilt:** the Gate C kernel (still unmodified in `runtime/`, `policy/`,
 `approvals/`, `execution/ExecutionCoordinator.js`, `audit/`), the Gate D LocalGit adapter, and
 the Gate E agent runtime. Extend; don't replace.
 
-**Currently deferred (do not assume built):** any frontend/`/os` UI (see `FRONTEND_VISION.md`),
+**Currently deferred (do not assume built):** the `/os` modules beyond the ten routes above
+(career, marketing, founder, knowledge, evidence, cost, integrations, schedules, audit browser),
 real LLM provider wiring for agent reasoning (core runtime uses a deterministic model client so
 CI needs no API key), shell adapter, browser/Open Computer, GitHub API/real network push,
 Gmail/LinkedIn/WhatsApp/Calendar, governed MCP side effects, governed SQL, the full specialist

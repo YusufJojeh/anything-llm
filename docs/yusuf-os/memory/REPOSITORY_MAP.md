@@ -60,8 +60,22 @@ bare remote, no network).
 `server/endpoints/yusufOS/index.js` — mounted at `/api/yusuf-os/*` in `server/index.js`
 (pre-guarded by `yusufControlPlaneGuard` before the legacy body parsers). Routes: bootstrap,
 agents, projects, tasks, runs, intents/:id, approvals (list/get/decide), audit-events,
-audit/verify. All read/write through `db.yusuf_*` Prisma tables directly except where a model
-wrapper exists.
+audit/verify, plus the Gate F projections (`dashboard`, `events`, `events/stream`,
+`audit-integrity/check`) and the Gate G uuid-addressed drilldowns (`agents/roster`,
+`tasks/:id/detail`, `runs/:id/detail`, `approvals/:id/review`). All read/write through
+`db.yusuf_*` Prisma tables directly except where a model wrapper exists.
+
+`yusufOSEndpoints` takes a `basePath`, and the **same handler set** is mounted twice in
+`server/index.js`:
+- `/api/yusuf-os/*` behind `yusufControlPlaneGuard` (loopback + `Authorization: Bearer`);
+- `/api/yusuf-os-ui/*` behind `yusufUiSessionGuard` (loopback + browser session cookie + CSRF).
+
+`server/domain/yusufOS/api/uiSession.js` — the browser bootstrap: `POST/GET/DELETE
+/api/yusuf-os-ui/session`. Exchanges the same `YUSUF_OS_CONTROL_TOKEN` for an httpOnly,
+SameSite=Strict, in-process session. Sessions never persist; a restart re-locks.
+
+`server/domain/yusufOS/projections/` — `DashboardProjection.js`, `EventProjection.js` (Gate F),
+`DetailProjections.js` (Gate G roster/task/run/approval-review).
 
 ## Yusuf OS tests
 
@@ -102,10 +116,31 @@ flags threaded through workspace-agent and ephemeral-agent construction.
 `server/utils/agents/imported.js` — fail-closed approval when no human approval channel exists;
 `trustClassification: "LOCAL_PLUGIN_UNGOVERNED"` tag.
 
-## Future `/os` frontend
+## `/os` frontend (Gate G)
 
-Does not exist yet. Deliberately kept separate from the rest of `frontend/` per Gate B
-(`docs/yusuf-os/gate-b/api-realtime-frontend.md`). See `ROADMAP.md` for the intended shape.
+Kept isolated from the rest of `frontend/` per Gate B
+(`docs/yusuf-os/gate-b/api-realtime-frontend.md` §7).
+
+`frontend/src/features/yusufOS/`
+- `api/client.js` — control-plane client (relative `/api/yusuf-os-ui` base, CSRF header,
+  normalized errors). **The only place a Yusuf OS HTTP call is made.**
+- `realtime/eventReducer.js` — pure SSE reconciliation reducer.
+- `state/` — `YusufOSProvider.jsx` (snapshot + stream + connection + session),
+  `commandCenterModel.js` (projection → view model), `statusSemantics.js` (the single status
+  vocabulary), `constellationLayout.js` (deterministic radial layout, no graph library).
+- `components/` — `AgentConstellation` (SVG), `AgentRoster` (the accessible equivalent),
+  `AttentionQueue`, `AgentDetailPanel`, `SystemHealth`, `Drawer`, `UnlockScreen`, `OSShell`,
+  `ConnectionIndicator`, `primitives.jsx`.
+- `i18n/` — `en.js` / `ar.js` in a dedicated `yusufOS` namespace (keeps `common` verifiable
+  across its other locales); `styles/tokens.css` — the `.yos-root` token layer.
+- `__tests__/` — Vitest suite, config at `frontend/vitest.config.js`.
+
+`frontend/src/pages/YusufOS/` — route components; registered as a nested `/os` tree in
+`frontend/src/main.jsx`. **`/` and every existing route are unchanged.**
+
+Modified upstream frontend files (narrow diffs only): `frontend/src/main.jsx` (the `/os` route
+tree), `frontend/tailwind.config.js` (scan `src/features/**`), `frontend/vite.config.js` (dev
+proxy for `/api/yusuf-os-ui`), `frontend/package.json` (test scripts + dev-only test deps).
 
 ## Gate E additions (agent runtime)
 

@@ -1,5 +1,35 @@
 # Known Risks
 
+## Gate G (frontend) risks — 2026-08-18
+
+- **[MEDIUM] A same-origin XSS anywhere in AnythingLLM could drive the Yusuf OS gateway.** The
+  browser session cookie is httpOnly (unreadable from JS) and SameSite=Strict, and mutations need
+  a CSRF token held only in the `/os` bundle's memory — so *cross-site* attacks are closed. But an
+  attacker executing script on `localhost:3000` itself is same-origin and could both read that
+  token from memory and ride the cookie. Mitigations in place: short idle expiry (30 min),
+  absolute expiry (12 h), sessions are in-process only so a restart re-locks, an explicit Lock
+  control, and no Yusuf OS surface uses `dangerouslySetInnerHTML`. This is an inherent property of
+  putting *any* browser UI in front of the control plane and is now the main reason the AnythingLLM
+  app's own XSS posture matters to Yusuf OS.
+- **[LOW] The unlocked Command Center was never visually validated live.** Reaching it requires
+  typing the control token into a browser field, which the implementing agent does not do.
+  Everything below the unlock screen is proven by the 77 frontend tests and the 13 backend gateway
+  tests, not by a rendered page. **Yusuf should do one manual pass** at 1440 / 1024 / 768 / 390,
+  in Arabic, and with `prefers-reduced-motion: reduce`, before treating the visual layer as
+  verified. Screenshots and viewport emulation were also unavailable in the session environment.
+- **[LOW] The constellation's pointer hit-targets are not keyboard-reachable.** Deliberate: the
+  synchronized `AgentRoster` list is the accessible equivalent and carries the same data,
+  selection and actions. The SVG is `aria-hidden`. If the graph ever becomes the only place a
+  capability lives, this stops being acceptable.
+- **[LOW] `/os` is not behind AnythingLLM's `PrivateRoute`.** Deliberate — the Gate B contract is
+  explicit that AnythingLLM's single-user auth is not valid authority for Yusuf OS. Reaching `/os`
+  without a session shows only the unlock screen and fetches nothing.
+- **[INFO] Gate F contract gap, now closed additively.** The dashboard emitted uuids while the
+  detail routes accepted only numeric primary keys, so nothing on the dashboard was openable. New
+  `/tasks/:id/detail`, `/runs/:id/detail` and `/approvals/:id/review` projections close it with a
+  regression test; the numeric routes are unchanged.
+
+
 Carried from Gate C's residual-risk record plus Gate D additions, re-assessed 2026-08-17. None
 are P0/P1 as of this session — treat as things to watch, not things to unprompted-fix. (Two
 P1-equivalent issues *were* found during Gate D's own review and are documented as fixed in

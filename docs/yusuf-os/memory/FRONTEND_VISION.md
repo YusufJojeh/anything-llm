@@ -1,4 +1,19 @@
-# Frontend Vision [DOCUMENTED_DECISION — approved product direction, NOT implemented]
+# Frontend Vision [APPROVED PRODUCT DIRECTION — first slice implemented in Gate G]
+
+> **Status as of 2026-08-18.** Gate G implemented the first slice of everything below at `/os`.
+> The principles in this file are **not superseded by the implementation** — they are the
+> acceptance criteria every future `/os` change is still measured against. What exists today:
+>
+> - Central Yusuf OS core with a semantic state derived only from asserted values, agent nodes
+>   from the real roster, and edges drawn **only** from persisted `yusuf_handoffs` rows.
+> - Attention Queue ("needs Yusuf"), agent detail, task/run drilldown, approval review with the
+>   full lifecycle, and System Health from the Gate F projection.
+> - The synchronized `AgentRoster` list as a genuinely equal non-graph path, not a fallback.
+> - English + Arabic with real RTL, reduced-motion support, and a dark operational token layer.
+> - Routes: `/os`, `/os/agents`, `/os/tasks[/:id]`, `/os/approvals[/:id]`, `/os/runs[/:id]`,
+>   `/os/projects`, `/os/system`. The rest of the route list below is still deferred.
+>
+> See `GATE_HISTORY.md` (Gate G) for the record and `KNOWN_RISKS.md` for what was not proven.
 
 Gate E deliberately implemented **no frontend**. This file exists so the approved product
 direction survives the backend-first gates and is not later replaced by a generic dashboard.
@@ -57,6 +72,9 @@ Backing tables: `yusuf_handoffs` (edges), `yusuf_review_verdicts` (verdict histo
 infers truth from Agent prose, and it never computes a status the backend didn't assert.
 
 ## Planned routes (do not scaffold empty ones early)
+
+*Implemented in Gate G:* `/os`, `/os/agents`, `/os/tasks`, `/os/approvals`, `/os/projects`,
+`/os/runs`, `/os/system`. The remainder below are still deferred until their backing gate lands.
 
 `/os`, `/os/agents`, `/os/tasks`, `/os/approvals`, `/os/projects`, `/os/knowledge`,
 `/os/evidence`, `/os/runs`, `/os/schedules`, `/os/integrations`, `/os/models`, `/os/cost`,

@@ -19,7 +19,18 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    host: "localhost"
+    host: "localhost",
+    proxy: {
+      // Yusuf OS browser gateway. Kept same-origin on purpose: its session
+      // cookie is httpOnly + SameSite=Strict, and proxying is safer than
+      // enabling credentialed CORS. `xfwd` stays off (the default) because the
+      // control plane rejects any request carrying forwarding headers.
+      "/api/yusuf-os-ui": {
+        target: "http://localhost:3001",
+        changeOrigin: false,
+        ws: false
+      }
+    }
   },
   define: {
     "process.env": process.env

@@ -1,5 +1,50 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-18 — Gate G implementation (Claude Code, Opus 5)
+
+**What was done:** Implemented Gate G — the `/os` AI Staff Command Center frontend, built strictly
+against the Gate F projections. `/` is untouched. Full record in `GATE_HISTORY.md`.
+
+**Three things worth carrying forward:**
+
+1. **The frontend found a real Gate F contract defect that no backend test could have.** The
+   dashboard emits uuids; every detail route accepted only the internal numeric key. Nothing on
+   the dashboard was openable. This is the same class of bug the Gate F SSE smoke test caught —
+   *each projection looked correct in isolation, and the pair was unusable.* Fixed additively with
+   uuid-addressed drilldown projections and a dashboard→drilldown regression test.
+
+2. **The browser could not hold the control token, and weakening the guard was not an option.**
+   The answer was a bootstrap, not a relaxation: the token is exchanged once over loopback for an
+   httpOnly + SameSite=Strict in-process session with idle *and* absolute expiry and a
+   double-submit CSRF token that lives only in page memory. Same secret, same `timingSafeEqual`,
+   same loopback rule. `/api/yusuf-os/*` was not touched. The residual — a same-origin XSS in
+   AnythingLLM could ride that session — is recorded in `KNOWN_RISKS.md` and is inherent to
+   putting any browser UI in front of the control plane.
+
+3. **The independent review pass earned its keep again, for the third gate running.** The
+   implementation looked finished and lint/tests/build were all green. The review still found six
+   real defects, the worst two being translated sentences assembled from fragments (grammatically
+   wrong in Arabic) and an empty approval backlog rendering as the real lifecycle state
+   `CONSUMED`. Do not skip this step because everything is green.
+
+**Tests:** 51 server suites / **559 tests**; 5 frontend suites / **77 tests** (a new baseline —
+Gate A found none). Frontend lint + build clean, server lint clean, `git diff --check` clean.
+Zero Gate C–F regression.
+
+**What remains:** Gate H is not defined. See `DEFERRED_WORK.md`.
+
+**Current blocker:** none. Waiting on Yusuf's explicit authorization before any further gate.
+
+**Exact next action for the next session:** *before* building anything on top of `/os`, do the
+manual visual pass recorded in `KNOWN_RISKS.md` — unlock `/os` and check 1440 / 1024 / 768 / 390,
+Arabic, and `prefers-reduced-motion: reduce`. The implementing agent could not: reaching the
+unlocked UI requires typing the control token into a browser field, and screenshots were
+unavailable in that environment. Everything below the unlock screen is proven by tests, not by a
+rendered page.
+
+**Do not repeat:** re-deriving Gates B–G. The memory set is current as of this session.
+
+
 ## 2026-08-17 — Gate F implementation (Claude Code, Opus 5)
 
 **What was done:** Implemented Gate F — read-only Command Center backend projections per

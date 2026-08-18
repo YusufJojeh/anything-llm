@@ -51,6 +51,10 @@ const {
   yusufControlPlaneGuard,
   yusufBodyParserError,
 } = require("./domain/yusufOS/api/controlPlaneGuard");
+const {
+  yusufUiSessionGuard,
+  yusufUiSessionEndpoints,
+} = require("./domain/yusufOS/api/uiSession");
 const { httpLogger } = require("./middleware/httpLogger");
 const app = express();
 const apiRouter = express.Router();
@@ -78,6 +82,16 @@ app.use(
   bodyParser.json({ limit: "256kb" }),
   bodyParser.text({ limit: "256kb" }),
   yusufBodyParserError
+);
+// Gate G: the same handler set behind the browser session bootstrap instead of
+// the bearer header. The body is parsed before the guard because the unlock
+// route needs to read it; the guard still runs before any Yusuf OS handler.
+app.use(
+  "/api/yusuf-os-ui",
+  yusufRequestContext,
+  bodyParser.json({ limit: "256kb" }),
+  yusufBodyParserError,
+  yusufUiSessionGuard
 );
 app.use(bodyParser.text({ limit: FILE_LIMIT }));
 app.use(bodyParser.json({ limit: FILE_LIMIT }));
@@ -122,6 +136,11 @@ outlookAgentEndpoints(apiRouter);
 googleAgentSkillEndpoints(apiRouter);
 memoryEndpoints(apiRouter);
 yusufOSEndpoints(apiRouter, { preGuarded: true });
+yusufUiSessionEndpoints(apiRouter);
+yusufOSEndpoints(apiRouter, {
+  preGuarded: true,
+  basePath: "/yusuf-os-ui",
+});
 // Externally facing embedder endpoints
 embeddedEndpoints(apiRouter);
 

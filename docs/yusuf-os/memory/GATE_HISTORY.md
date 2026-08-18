@@ -1,5 +1,95 @@
 # Gate History
 
+## Gate G — AI Staff Command Center frontend — 2026-08-18 — PASS
+
+The first frontend gate. `/os` implemented against the Gate F projections; `/` untouched.
+
+### What was built
+
+**Frontend feature module** `frontend/src/features/yusufOS/`:
+- `api/client.js` — control-plane client. Uses a **relative** base (`/api/yusuf-os-ui`),
+  deliberately ignoring `VITE_API_BASE`, so the session cookie stays same-origin instead of
+  requiring credentialed CORS. A Vite dev proxy covers development; `xfwd` stays off because the
+  control plane rejects forwarding headers.
+- `state/statusSemantics.js` — the single status vocabulary. Backend enum → tone, with three
+  independent carriers (colour, icon, translated label). An unrecognised status resolves to
+  `unknown` everywhere at once rather than reading as healthy in one component.
+- `state/commandCenterModel.js` — projection → view model. Enforces "no fake data": real zero and
+  unknown are different values, an edge whose endpoint is missing from the roster is dropped and
+  counted rather than drawn, and core state is derived in strict precedence with security
+  conditions outranking activity.
+- `state/constellationLayout.js` — deterministic radial layout, 0..N agents, wraps to a second
+  ring past nine. No graph library.
+- `realtime/eventReducer.js` — the SSE contract. Duplicates, out-of-order arrival, sequence gaps,
+  server resets, unknown schema versions, connection loss and visibility restore all resolve to
+  "refetch the snapshot". The stream never becomes a source of truth.
+- `state/YusufOSProvider.jsx` — snapshot-first load, then stream; one debounced refetch per
+  reconciliation trigger.
+- `components/` — constellation, roster (the accessible equivalent), attention queue, agent
+  detail, system health, drawer, unlock screen, shell, primitives.
+- `i18n/` — English + Arabic in a dedicated `yusufOS` namespace, so `common` stays verifiable
+  across its ~24 locales.
+
+**Routes** (`frontend/src/pages/YusufOS/`): `/os`, `/os/agents`, `/os/tasks`, `/os/tasks/:taskId`,
+`/os/approvals`, `/os/approvals/:approvalId`, `/os/runs`, `/os/runs/:runId`, `/os/projects`,
+`/os/system`.
+
+**Backend additions (additive, read-only except the session routes):**
+- `server/domain/yusufOS/api/uiSession.js` — the browser bootstrap. Control token exchanged once
+  over loopback for an httpOnly + SameSite=Strict in-memory session with idle *and* absolute
+  expiry, plus a double-submit CSRF token held only in page memory. Same secret, same
+  `timingSafeEqual`, same loopback rule as the bearer guard. `/api/yusuf-os/*` unchanged.
+- `server/domain/yusufOS/projections/DetailProjections.js` — uuid-addressed roster, task, run and
+  approval-review projections. Curated shapes, not row dumps: no canonical payload/target JSON,
+  no principal identifiers, all prose redacted and clamped.
+- `yusufOSEndpoints` gained a `basePath` option so the identical handler set is mounted at
+  `/api/yusuf-os-ui` behind the session guard.
+
+### The contract defect this gate found
+
+The Gate F dashboard identifies every task, run, approval and intent by **uuid**, but the
+pre-existing detail routes (`GET /tasks/:id`, `/runs/:id`, `/approvals/:id`) only accept the
+internal **numeric** primary key. Nothing on the dashboard was actually openable. Fixed additively
+with `/tasks/:id/detail`, `/runs/:id/detail`, `/approvals/:id/review` and a regression test that
+walks dashboard → drilldown for a real delegated task. The numeric routes keep their exact Gate F
+behaviour.
+
+### Independent review findings (found after the implementation looked finished)
+
+1. **Translated sentences assembled from fragments.** `t("... {{time}}")` was rendered next to a
+   separate `<Timestamp>` element in three places. English produced a dangling clause; Arabic put
+   the time in the wrong position entirely. Fixed with `formatDateTime()` interpolated *into* the
+   sentence.
+2. **A button caption used as a field label.** System Health labelled the "verified through
+   sequence" value with the *Verify audit chain* button string.
+3. **An empty approval backlog rendered as `CONSUMED`.** Reusing the approval lifecycle
+   vocabulary made a real security state mean something it does not. Now "nothing pending".
+4. **The System Health nav icon was an undo arrow** — semantically wrong and direction-sensitive.
+5. **The drawer's close control was labelled "Clear selection"** instead of Close.
+6. **Agent detail did not re-read on stream events**, so an open panel could go stale.
+
+All six fixed. Two suspicions were checked in the real browser and cleared rather than assumed:
+Tailwind does emit the `rtl:` variant this build relies on
+(`.rtl\:rotate-180:where([dir="rtl"], ...)`), and every status text token passes WCAG AA against
+the panel surface (lowest 4.79:1).
+
+### Evidence
+
+- Server: **51 suites / 559 tests** (was 50/546 — +1 suite, +13 tests). Zero Gate C–F regression.
+- Frontend: **5 suites / 77 tests**, a new baseline (Gate A found none).
+- Frontend lint clean, frontend build clean, server lint clean, `git diff --check` clean.
+- Live: server boots with both mounts, gateway locked by default (`/dashboard` → 401 with
+  `locked: true`), `/os` renders through the real Vite proxy with zero console errors, `/`
+  verified intact and free of Yusuf OS styling or direction leakage.
+
+### What was NOT proven
+
+Unlocked Command Center surfaces were not visually validated live: reaching them requires typing
+the control token into a browser field, which this agent does not do. Screenshots and viewport
+emulation were also unavailable (the browser pane could not composite frames). See
+`KNOWN_RISKS.md`.
+
+
 ## Gate A — Repository Discovery [REPORTED_NOT_REVERIFIED]
 
 Status: Complete (prior to this branch's visible history in `docs/`/`.engineering-intelligence/`).

@@ -1,5 +1,41 @@
 # Test Baseline
 
+## Last re-run (Gate G session, live) [VERIFIED_BY_TEST — 2026-08-18]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server
+```
+→ **51 suites, 559 tests, 0 failed.** (Gate F baseline was 50 / 546; Gate G adds
+`server/__tests__/yusufOS/integration/commandCenterGateway.test.js`, 13 tests.)
+
+**Frontend baseline — new in Gate G.** Gate A found no frontend test infrastructure at all.
+Vitest was chosen over a second Jest setup because Vite is already the bundler, so it reuses the
+same transform pipeline and the same `@` alias with no Babel config. Scoped to the Yusuf OS
+feature only — the rest of the monorepo is not retroactively placed under a runner it never had.
+
+```bash
+cd frontend && npx vitest run --config vitest.config.js
+```
+→ **5 suites, 77 tests, 0 failed.** Covers projection mapping, edge filtering, core-state
+precedence, attention ordering, SSE duplicate/out-of-order/gap/reset/schema/reconnect handling,
+constellation layout for 0..24 agents, status semantics, agent status rendering, the full
+approval lifecycle vocabulary, LOADING vs EMPTY vs unknown, dialog semantics/focus trap/focus
+return, and Arabic + bidi isolation.
+
+```bash
+cd frontend && npx eslint src        # clean
+cd frontend && npx vite build        # clean
+cd server   && npx eslint .          # clean
+git diff --check                     # exit 0
+```
+
+New devDependencies (frontend, dev-only): `vitest`, `jsdom`, `@testing-library/react`,
+`@testing-library/user-event`, `@testing-library/jest-dom`. Installed with `yarn` — `npm install`
+fails on a **pre-existing** peer conflict in this repo (`@lobehub/ui` wants React 19, the app is
+on React 18), unrelated to Gate G.
+
+
 ## Last re-run (this session, live) [VERIFIED_BY_TEST — 2026-08-17, after Gate D]
 
 Run from repo root (not `server/` — `server/package.json` has no jest script/devDependency; the
