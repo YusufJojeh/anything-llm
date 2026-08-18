@@ -1,5 +1,31 @@
 # Current Gate
 
+## Current phase: Phase I — governed browser mutations [NOT STARTED]
+
+**Status:** next automatic phase. Not begun.
+**Objective:** semantic browser mutation capabilities behind Durable Approval.
+**Blockers:** none for building against fixtures. Real validation needs a browser Yusuf has
+attached (`HUMAN_ACTION_REQUIRED.md` §2).
+
+## Phase H — Browser Broker (read-only) — status: COMPLETE
+
+**Objective:** safely observe authenticated sites through Yusuf's own browser session.
+
+**Implemented:** ADR-011 attachment decision (CDP attach to an operator-launched Chrome behind
+three opt-ins); exact-host origin allowlist; page sanitizer that separates hidden text, counts
+injection markers, redacts secrets and stamps `UNTRUSTED_WEB_CONTENT`; CDP + fixture drivers; six
+typed read-only capabilities; wired into tool binding and System Health.
+
+**Remaining:** none for read-only. The CDP path has not been run against a real browser.
+
+**Human-only blockers:** browser opt-in + origin allowlist choice (`HUMAN_ACTION_REQUIRED.md` §2);
+the still-open `/os` manual validation (§1).
+
+**Next automatic phase:** Phase I, then J (Knowledge/Evidence/Memory).
+
+---
+
+
 _Last updated: 2026-08-18 (Gate G implementation pass). Gates B-G complete; Gate H not started._
 
 ## Gate E — First Governed AI Staff Runtime — status: COMPLETE

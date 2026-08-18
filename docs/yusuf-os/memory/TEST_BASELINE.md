@@ -1,5 +1,29 @@
 # Test Baseline
 
+## Phase H (Browser Broker) [VERIFIED_BY_TEST — 2026-08-18]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server
+```
+→ **53 suites, 607 tests, 0 failed** (was 51 / 559; Phase H adds 45, plus one new Gate F assertion
+for the broker appearing in adapter health).
+
+New files:
+- `server/__tests__/yusufOS/unit/browserOriginAndSanitizer.test.js` — 23 tests: exact-host
+  allowlisting against lookalike/subdomain/scheme attacks, hidden-vs-visible text separation,
+  injection-marker signalling, secret redaction, clamping, digest stability, and account identity
+  that never carries a credential.
+- `server/__tests__/yusufOS/security/browserBrokerSecurity.test.js` — 22 adversarial tests through
+  the adapter, including TOCTOU tab navigation, disabled broker, empty allowlist, vanished tab,
+  URL-token leakage, page-changed-between-reads, and the reachable-but-ungranted invariant.
+
+**All Phase H tests run on the fixture driver** — no browser, no network, no account. The CDP
+attachment path is therefore *unproven in the field*; see `KNOWN_RISKS.md`.
+
+Frontend unchanged this phase: 7 suites / 129 tests.
+
+
 ## Gate G.1 visual polish [VERIFIED — 2026-08-18]
 
 ```bash

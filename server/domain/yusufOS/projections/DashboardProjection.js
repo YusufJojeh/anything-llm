@@ -11,6 +11,7 @@ const { redactString } = require("../security/redaction");
 const { auditKeyConfigured } = require("../audit/AuditService");
 const { LocalGitAdapter } = require("../adapters/localGit/LocalGitAdapter");
 const { ProjectAdapter } = require("../adapters/project/ProjectAdapter");
+const { BrowserAdapter } = require("../adapters/browser/BrowserAdapter");
 
 const PROJECTION_VERSION = 1;
 const DEFAULT_TASK_LIMIT = 50;
@@ -298,6 +299,9 @@ class DashboardProjection {
     const adapters = [
       new LocalGitAdapter({ db: this.db }),
       new ProjectAdapter({ db: this.db }),
+      // Reports UNAVAILABLE until the operator opts the broker in, which is the
+      // honest answer rather than omitting it from System Health entirely.
+      new BrowserAdapter(),
     ];
     const value = [];
     for (const adapter of adapters) {

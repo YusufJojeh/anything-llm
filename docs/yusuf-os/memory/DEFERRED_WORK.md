@@ -1,5 +1,19 @@
 # Deferred Work
 
+## Deferred after Phase H — 2026-08-18
+
+- **Phase I (governed browser mutations)** — not started. Requires semantic capabilities
+  (`gmail.send_reply`, not `browser.click`), approval binding to account+origin+payload+page
+  identity, wrong-account refusal, and double-submit/idempotency handling. The Phase H content
+  digest and `verifiedBySession` flag were built to be the preflight inputs for it.
+- **Granting browser capabilities to an Agent** — deferred with the Agent that needs them. No role
+  allowlist contains one today.
+- **Real-browser validation of the CDP driver** — see `HUMAN_ACTION_REQUIRED.md` §2.
+- **Phases J-W** (Knowledge/Evidence/Memory, Monitoring, Career, Marketing, Founder, Research,
+  Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, security and reliability
+  hardening, release/ops, end-to-end scenarios) — not started.
+
+
 ## Gate G visual polish notes — 2026-08-18 [IMPLEMENTED in Gate G.1, see GATE_HISTORY.md]
 
 Yusuf reviewed the fixture Command Center, approved the core product direction, and later

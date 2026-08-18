@@ -1,5 +1,25 @@
 # Known Risks
 
+## Phase H (Browser Broker) risks — 2026-08-18
+
+- **[MEDIUM] The CDP driver is unproven against a real browser.** `puppeteer-core` is not installed
+  and no origin allowlist is configured, so every Phase H test runs on the fixture driver. The
+  governance layer (origin policy, sanitizer, adapter) is genuinely exercised; the *attachment* code
+  is not. Two specifics to check on first real use: `page.target()._targetId` is a private puppeteer
+  field that may change across versions, and `Network.getCookies` behaviour should be confirmed to
+  return only existence as assumed. Do not treat Phase H as field-proven until it has attached once.
+- **[MEDIUM] Prompt injection is mitigated, not solved.** Hidden text is separated, injection
+  phrasings are counted, and everything is stamped `UNTRUSTED_WEB_CONTENT` — but a sufficiently
+  novel phrasing inside *visible* text will still reach a model as content. The real defence is that
+  page content can never be authority: it cannot approve, change policy, assert identity or alter a
+  prompt, and the Gate E output contracts reject authority-bearing model fields. The marker list is
+  a signal, never a filter, and is commented as such so nobody later mistakes it for one.
+- **[LOW] Origin allowlist is exact-host.** A legitimate subdomain (`gist.github.com`) must be
+  listed explicitly. Deliberate: suffix matching is what lets `github.com.attacker.net` through.
+- **[INFO] The broker is reachable but ungranted.** No Agent can invoke it yet because no role's
+  code-owned allowlist contains a `browser.*` capability. This is intentional and test-enforced.
+
+
 ## Gate G (frontend) risks — 2026-08-18
 
 - **[MEDIUM] A same-origin XSS anywhere in AnythingLLM could drive the Yusuf OS gateway.** The

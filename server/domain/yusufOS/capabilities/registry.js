@@ -228,6 +228,90 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SERVER_KEY",
     hardFlags: [],
   }),
+
+  // --- Phase H: Browser Broker, read-only -------------------------------
+  // Every one of these is `mutation: false`. There is deliberately no click,
+  // type, submit, navigate or evaluate capability: browser mutation is Phase I
+  // and arrives as *semantic* capabilities (gmail.send_reply), never as a
+  // generic clicker. See ADR-011 and adapter-governance.md §2.
+  "browser.list_tabs": definition({
+    key: "browser.list_tabs",
+    domain: "browser",
+    description:
+      "List open browser tabs whose origin is on the Yusuf OS allowlist.",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "browser.get_current_url": definition({
+    key: "browser.get_current_url",
+    domain: "browser",
+    description:
+      "Read the origin and path of an allowlisted tab. Query and fragment are stripped.",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "browser.get_active_account_identity": definition({
+    key: "browser.get_active_account_identity",
+    domain: "browser",
+    description:
+      "Report whether an allowlisted origin has an authenticated session. Never a credential.",
+    operationClass: "ANALYZE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "browser.read_visible_text": definition({
+    key: "browser.read_visible_text",
+    domain: "browser",
+    description:
+      "Read sanitized visible text from an allowlisted page as untrusted content.",
+    operationClass: "ANALYZE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "browser.read_structured_page": definition({
+    key: "browser.read_structured_page",
+    domain: "browser",
+    description:
+      "Read sanitized headings, links and landmarks from an allowlisted page.",
+    operationClass: "ANALYZE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "browser.capture_safe_page_state": definition({
+    key: "browser.capture_safe_page_state",
+    domain: "browser",
+    description:
+      "Capture the full sanitized page state, including a content digest, from an allowlisted page.",
+    operationClass: "ANALYZE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
 });
 
 const HARD_FORBIDDEN = Object.freeze([

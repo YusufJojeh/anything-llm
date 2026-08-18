@@ -1,5 +1,68 @@
 # Gate History
 
+## Phase H — Browser Broker (read-only) — 2026-08-18 — PASS
+
+First capability of the autonomous continuation. ADR-005 had left the browser bridge
+"contract-only until a safe attachment mechanism is selected"; Phase H selects it, implements
+read-only observation, and stops there.
+
+### Attachment decision — ADR-011
+
+CDP attach to a browser **the operator launched himself**, behind three independent opt-ins:
+`YUSUF_OS_BROWSER_BROKER_ENABLED=true`, `puppeteer-core` installed (deliberately *not* a declared
+server dependency, so a default install carries no browser-automation surface), and Chrome already
+running with `--remote-debugging-port`. The broker **connects**; it never launches a browser and
+never creates a profile.
+
+### What was built
+
+- `originPolicy.js` — exact-host allowlist, https-only except loopback, unparseable URLs refused,
+  empty allowlist observes nothing, and `safeUrl()` which drops query and fragment because those
+  routinely carry session ids and reset tokens.
+- `pageSanitizer.js` — the security centre. Separates hidden text from visible text rather than
+  silently merging it, counts known injection phrasings as an operator signal (explicitly *not*
+  claimed as a filter), redacts secret-shaped strings with the same `redactString` used for audit
+  metadata, bounds every field, and stamps everything `UNTRUSTED_WEB_CONTENT`.
+- `drivers/` — `CdpBrowserDriver` (real attach) and `FixtureBrowserDriver` (every test). The
+  adapter, origin policy and sanitizer are identical on both paths, so tests exercise the real
+  governance code.
+- `extractPageState.js` — the single fixed read-only routine that runs in-page. It exists precisely
+  so Agents never get to run any JavaScript of their own.
+- `BrowserAdapter.js` — six typed read capabilities. No click, type, submit, navigate or evaluate.
+
+### Two gaps the independent review found after the tests were green
+
+1. **`browser.*` resolved to no adapter**, so the whole phase was unreachable shelf-ware. Wired
+   into `toolBinding.adapterForCapability`.
+2. **The broker was invisible in System Health.** Added to `DashboardProjection`, where it honestly
+   reports `UNAVAILABLE` until the operator opts in.
+
+### Reachable but deliberately not granted
+
+No role's code-owned allowlist includes any `browser.*` capability, so `assertGrantAllowed` still
+refuses every grant. Reachability and authority are separate steps; the Agent that actually needs
+browser reads (Research/Career) will arrive carrying them. A test asserts this stays true.
+
+### Evidence
+
+45 new backend tests (23 unit, 22 adversarial). Adversarial coverage: lookalike origins
+(`github.com.attacker.net`, `evil-github.com`), subdomain escalation, scheme downgrade,
+`javascript:`/`file:`/`data:`, empty allowlist, **TOCTOU** (a tab that navigates after being
+listed), vanished tab, missing tabId, hidden injected instructions, secret-shaped page text, a
+token in the URL, cross-origin frames, page-changed-between-reads, and an account label a page
+merely *claims* versus one the session verifies.
+
+Server suite: **53 suites / 607 tests** (was 51 / 559). Lint clean, `git diff --check` clean.
+
+### Honest limits
+
+- The CDP driver has **never been run against a real browser** — `puppeteer-core` is not installed
+  and no allowlist is configured. Everything proven here is proven against fixtures. Recorded in
+  `KNOWN_RISKS.md`, not glossed.
+- Attachment requires a browser Yusuf has launched, so Yusuf OS cannot claim 24/7 browser
+  capability. That limit is documented rather than engineered around.
+
+
 ## Gate G.1 — Visual fidelity & premium polish — 2026-08-18 — PASS
 
 Visual-only pass over the existing `/os` Command Center. **No architecture change, no new product

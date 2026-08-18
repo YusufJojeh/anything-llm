@@ -5,6 +5,7 @@ const { PolicyEngine } = require("../policy/PolicyEngine");
 const { ExecutionCoordinator } = require("../execution/ExecutionCoordinator");
 const { LocalGitAdapter } = require("../adapters/localGit/LocalGitAdapter");
 const { ProjectAdapter } = require("../adapters/project/ProjectAdapter");
+const { BrowserAdapter } = require("../adapters/browser/BrowserAdapter");
 const localGitBuilders = require("../adapters/localGit/requestBuilders");
 const projectBuilders = require("../adapters/project/requestBuilders");
 const { getAgentDefinition } = require("./definitions");
@@ -50,6 +51,11 @@ const CAPABILITY_BUILDERS = Object.freeze({
 function adapterForCapability(capabilityKey, db) {
   if (capabilityKey.startsWith("git.")) return new LocalGitAdapter({ db });
   if (capabilityKey.startsWith("project.")) return new ProjectAdapter({ db });
+  // Phase H. The adapter is wired so the capability is *reachable*; no role's
+  // code-owned allowlist grants it yet, so `assertGrantAllowed` still refuses
+  // every grant. Reachability and authority are deliberately separate steps —
+  // the Agent that needs browser reads (Research/Career) arrives with them.
+  if (capabilityKey.startsWith("browser.")) return new BrowserAdapter();
   throw new YusufOSError(
     ErrorCodes.POLICY_DENIED,
     `No governed adapter is registered for ${capabilityKey}.`,

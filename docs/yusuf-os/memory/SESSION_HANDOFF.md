@@ -1,5 +1,47 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-18 — Phase H: Browser Broker, read-only (Claude Code, Opus 5) — autonomous continuation
+
+**What was done:** First phase of the autonomous continuation. ADR-005 had deliberately left the
+browser bridge "contract-only until a safe attachment mechanism is selected" — Phase H selects it
+(ADR-011), implements read-only observation, and stops before mutation. Full record in
+`GATE_HISTORY.md`.
+
+**Three things worth carrying forward:**
+
+1. **The attachment decision is the security decision.** CDP attach to a browser *Yusuf launched*,
+   behind three opt-ins, with `puppeteer-core` deliberately left out of `package.json` so a default
+   install has no browser-automation surface at all. The broker connects; it never launches a
+   browser, never makes a profile, and never reads cookies or storage.
+
+2. **The independent review earned its keep again — fourth phase running.** Tests were green and
+   the phase looked finished, and the review found the capability resolved to *no adapter* (so it
+   was unreachable shelf-ware) and was *invisible in System Health*. Both fixed. Do not skip this
+   step because the suite is green.
+
+3. **Reachable ≠ granted, and that separation is now test-enforced.** No role's code-owned
+   allowlist contains a `browser.*` capability, so `assertGrantAllowed` refuses every grant. The
+   Agent that needs browser reads will arrive carrying them.
+
+**Evidence:** 53 server suites / **607 tests** (was 51/559). Lint clean, `git diff --check` clean.
+Frontend untouched (7 suites / 129 tests).
+
+**Honest limit:** every Phase H test runs on the fixture driver. The CDP attachment path has
+**never been run against a real browser**, and two specifics need checking on first real use — a
+private puppeteer field (`target()._targetId`) and the `Network.getCookies` existence assumption.
+Recorded in `KNOWN_RISKS.md`.
+
+**Human-only blockers** now tracked in `HUMAN_ACTION_REQUIRED.md`: the still-open `/os` manual
+validation (unchanged, not faked), the browser opt-in plus the origin-allowlist choice (a judgement
+only Yusuf can make), and the standing no-push rule.
+
+**Exact next action:** Phase I — governed browser *mutations*. Build against fixtures: semantic
+capabilities only (`gmail.send_reply`, never `browser.click`), approval bound to
+account+origin+payload+page identity, wrong-account refusal, and double-submit handling that
+resolves uncertainty to `FAILED_UNKNOWN` → reconcile rather than blind retry. The Phase H content
+digest and `verifiedBySession` flag exist to be its preflight inputs.
+
+
 ## 2026-08-18 — Gate G.1 visual fidelity & premium polish (Claude Code, Opus 5)
 
 **What was done:** Implemented Gate G.1 — a visual-only pass over `/os`. All six of Yusuf's polish

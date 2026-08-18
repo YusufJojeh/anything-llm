@@ -1,6 +1,6 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-18, Gate G implementation pass._
+_Last verified: 2026-08-18, Phase H (Browser Broker) pass._
 
 **Branch:** `feature/yusuf-os-core`. Seven local checkpoint commits (Gate B docs, Gate C core,
 Claude memory, Gate D LocalGit, Gate E agent runtime, Gate F projections, Gate G frontend), all
@@ -31,7 +31,7 @@ unpushed. `origin` =
   System Health surface, and snapshot-first SSE reconciliation. Plus the browser session
   bootstrap that lets a browser reach the control plane without ever holding the control token.
 
-**What has passed:** 51/51 server suites, **559/559 tests**; 6/6 frontend suites, **109/109 tests**;
+**What has passed:** 53/53 server suites, **607/607 tests**; 7/7 frontend suites, **129/129 tests**;
 frontend lint + build clean, server lint clean, `git diff --check` clean. All re-run live this
 session.
 

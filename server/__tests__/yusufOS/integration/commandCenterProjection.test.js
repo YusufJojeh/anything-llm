@@ -165,11 +165,23 @@ describe("Gate F — Command Center projections", () => {
   test("adapter health reports real availability, not an assumption", async () => {
     const body = await (await request("/dashboard")).json();
     const ids = body.adapterHealth.map((a) => a.adapterId).sort();
-    expect(ids).toEqual(["local-git", "project-local"]);
+    // Phase H added the Browser Broker. It is listed even while disabled — an
+    // adapter the operator cannot see is an adapter they cannot reason about.
+    expect(ids).toEqual(["browser-broker", "local-git", "project-local"]);
     for (const adapter of body.adapterHealth) {
       expect(["AVAILABLE", "UNAVAILABLE"]).toContain(adapter.status);
       expect(adapter.capabilityCount).toBeGreaterThan(0);
     }
+  });
+
+  test("the Browser Broker reports UNAVAILABLE until the operator opts in", async () => {
+    const body = await (await request("/dashboard")).json();
+    const broker = body.adapterHealth.find((a) => a.adapterId === "browser-broker");
+    // Never AVAILABLE by default: attaching to a browser requires an explicit
+    // opt-in, and claiming otherwise would be exactly the fake-healthy state
+    // the projection exists to prevent.
+    expect(broker.status).toBe("UNAVAILABLE");
+    expect(broker.kind).toBe("BROWSER");
   });
 
   test("audit integrity is UNCHECKED until explicitly checked, then reported", async () => {

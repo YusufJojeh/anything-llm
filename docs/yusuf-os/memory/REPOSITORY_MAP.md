@@ -1,4 +1,22 @@
-# Repository Map [VERIFIED_FROM_REPOSITORY, 2026-08-17]
+# Repository Map
+
+## Browser Broker (Phase H)
+
+`server/domain/yusufOS/adapters/browser/`
+- `originPolicy.js` — exact-host allowlist, scheme rules, `safeUrl()` (drops query/fragment). The
+  only place that decides whether a page may be observed.
+- `pageSanitizer.js` — untrusted-content envelope: hidden/visible separation, injection-marker
+  count, secret redaction, bounds, content digest.
+- `BrowserAdapter.js` — six typed read-only capabilities; no click/type/submit/navigate/evaluate.
+- `drivers/CdpBrowserDriver.js` — attaches to an operator-launched Chrome (ADR-011). Optional
+  `puppeteer-core`, loaded lazily.
+- `drivers/FixtureBrowserDriver.js` — deterministic fixtures; every Phase H test runs on it.
+- `drivers/extractPageState.js` — the single fixed in-page read routine.
+
+Wired at `agents/toolBinding.js` (`adapterForCapability`) and `projections/DashboardProjection.js`
+(adapter health). Capabilities registered in `capabilities/registry.js` under the `browser` domain;
+`browser.cookie.export` and `browser.session_token.export` remain HARD_FORBIDDEN.
+ [VERIFIED_FROM_REPOSITORY, 2026-08-17]
 
 ## AnythingLLM upstream runtime (reused, mostly unmodified)
 
