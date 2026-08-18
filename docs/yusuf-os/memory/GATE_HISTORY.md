@@ -1,5 +1,64 @@
 # Gate History
 
+## Gate G.1 — Visual fidelity & premium polish — 2026-08-18 — PASS
+
+Visual-only pass over the existing `/os` Command Center. **No architecture change, no new product
+capability, no backend change** (`git diff HEAD -- server/` is empty).
+
+### What changed
+
+- **Central core +26% dominance.** `CORE_RADIUS` 86 → 108 against an unchanged `NODE_RADIUS` 34,
+  so the core/agent ratio moved 2.53x → 3.18x and the rendered core went 135px → **170px** at
+  1440x900 — inside the same 1000-unit viewBox, so the viewport-fit fix from the previous gate is
+  untouched (page height still exactly 900 at 900). Layered treatment: ambient halo, a status ring
+  that is dashed-and-rotating **only** while the staff is genuinely working, a structural boundary
+  ring, a radial-fill disc, and a three-level type hierarchy (YUSUF OS 30px/700 → CHIEF OF STAFF
+  13px tracked → system state 14px in the status colour) separated by a hairline.
+- **Adaptive constellation spacing** (`constellationLayout.js`). Radius is now chosen from roster
+  size — 1-3 agents share a compact 216-unit orbit, 4-6 sit at 268, 7-9 at 322, and 10+ gain a
+  second ring; a very large roster gains a third. Ring capacity is **derived from the real chord
+  length** between neighbours rather than guessed, so "no overlap" is a property of the algorithm.
+  Three agents now sit 306 units apart instead of 599 — the small-roster emptiness Yusuf flagged.
+- **Agent role identity** (`agentRoles.js`). Code-owned role → two-letter glyph, shown in both the
+  constellation node and the roster row. Roles carry **no colour**: colour stays reserved for
+  status, enforced by a test. Unknown keys get a deterministic fallback glyph, so a growing roster
+  degrades gracefully.
+- **Status halos and a real activity arc.** Every node carries a status ring; an arc appears only
+  when the projection asserts `activeTaskId`/`currentRunId`, and rotates only while `RUNNING`.
+- **Relationship semantics** (`edgeKind`). Derived from the persisted `yusuf_handoffs.reason`, so
+  review and delegation edges are distinguishable without inventing a classification. Direction
+  markers at every edge midpoint; flow animation still only on an `ACCEPTED` handoff.
+- **Quieter rail.** Now shares the canvas surface instead of a raised panel, hairline border,
+  active section marked by a leading rule rather than an admin pill, and icon-only below 2xl —
+  desktop footprint **152px → 57px (-63%)** with 44px hit targets and accessible names intact.
+- **Depth and micro-polish.** Three-level depth tokens, a fixed z-scale, one shared Expo-out
+  easing, a `.yos-canvas` stage treatment with vignette and dashed orbit guides, a shared
+  `.yos-row` hover/selection treatment, and a status *readout* (hairline-divided, tabular numerals,
+  colour only on non-zero counts) replacing the three KPI-style tiles.
+
+### Two real defects found by reading the installed skills, not by looking
+
+- `h-screen` on the shell — wrong on mobile browsers where the URL bar resizes the viewport. Now
+  `h-dvh` (`ui-design`: "NEVER use h-screen, use h-dvh").
+- An arbitrary `z-[60]` in the drawer — replaced with a `--yos-z-overlay` token (`ui-design`:
+  "Z-index MUST use a fixed scale").
+
+### Independent review finding, fixed
+
+The new risk badge duplicated the risk level into the attention row's accessible name ("L3, L3
+approval, ..."). The badge is visual emphasis of text already in the sentence, so it is now
+`aria-hidden`.
+
+### Evidence
+
+Measured in a real browser via the dev-only fixture harness, across 10 scenarios and 4 viewports in
+both languages: **zero node overlaps, zero label collisions, zero clipping** at 1, 3, 6, 10, 24, 40
+and 48 agents and with long names in English *and* Arabic (labels truncate at 18 chars with an
+ellipsis). RTL keeps the rail on the right, opens the drawer from the left and mirrors directional
+icons. All four animated elements neutralize to ~0 under reduced motion with state still readable.
+Frontend **109 tests** (was 78), lint clean, production build clean and free of harness code.
+
+
 ## Gate G — AI Staff Command Center frontend — 2026-08-18 — PASS
 
 The first frontend gate. `/os` implemented against the Gate F projections; `/` untouched.

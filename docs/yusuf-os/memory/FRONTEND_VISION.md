@@ -13,7 +13,13 @@
 > - Routes: `/os`, `/os/agents`, `/os/tasks[/:id]`, `/os/approvals[/:id]`, `/os/runs[/:id]`,
 >   `/os/projects`, `/os/system`. The rest of the route list below is still deferred.
 >
-> See `GATE_HISTORY.md` (Gate G) for the record and `KNOWN_RISKS.md` for what was not proven.
+> **Gate G.1 (2026-08-18)** then raised the visual fidelity: the core is 26% more dominant, orbit
+> radius adapts to roster size so a three-Agent staff reads as deliberate rather than empty, Agents
+> carry code-owned role glyphs and status halos, relationship edges are distinguishable by their
+> persisted reason, and the navigation rail was reduced to a 57px utility so the constellation is
+> unambiguously the product.
+>
+> See `GATE_HISTORY.md` (Gates G and G.1) for the record and `KNOWN_RISKS.md` for what was not proven.
 
 Gate E deliberately implemented **no frontend**. This file exists so the approved product
 direction survives the backend-first gates and is not later replaced by a generic dashboard.

@@ -49,17 +49,20 @@ function Rail() {
   return (
     <nav
       aria-label={t("yusufOS:nav.label")}
-      className="flex shrink-0 flex-row items-center gap-1 border-b px-2 py-2 md:flex-col md:items-stretch md:gap-1.5 md:border-b-0 md:border-e md:px-2 md:py-4"
+      // The rail is a utility, not the product. It shares the canvas surface
+      // instead of sitting on a raised panel, which is what made it read as a
+      // conventional admin sidebar.
+      className="flex shrink-0 flex-row items-center gap-1 border-b px-2 py-2 md:flex-col md:items-stretch md:gap-0.5 md:border-b-0 md:border-e md:px-1.5 md:py-4"
       style={{
-        borderColor: "var(--yos-border)",
-        backgroundColor: "var(--yos-surface)",
+        borderColor: "var(--yos-border-faint)",
+        backgroundColor: "var(--yos-canvas)",
       }}
     >
       <span
         aria-hidden="true"
-        className="mb-0 me-2 hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[13px] font-bold md:mb-4 md:me-0 md:flex"
+        className="mb-0 me-2 hidden size-8 shrink-0 items-center justify-center rounded-full text-[12px] font-bold tracking-[0.08em] md:mb-5 md:me-0 md:flex"
         style={{
-          backgroundColor: "var(--yos-surface-hover)",
+          border: "1px solid var(--yos-border-strong)",
           color: "var(--yos-accent-strong)",
         }}
       >
@@ -71,12 +74,14 @@ function Rail() {
             <NavLink
               to={to}
               end={end}
-              className="yos-touch-target group flex min-w-[44px] items-center justify-center gap-2 rounded-lg px-2 md:justify-start md:px-2.5"
+              className="yos-touch-target group flex min-w-[44px] items-center justify-center gap-2 rounded px-2 transition-colors md:justify-start md:px-2"
               style={({ isActive }) => ({
-                backgroundColor: isActive
-                  ? "var(--yos-surface-hover)"
-                  : "transparent",
                 color: isActive ? "var(--yos-text)" : "var(--yos-text-muted)",
+                boxShadow: isActive
+                  ? "inset 2px 0 0 0 var(--yos-accent)"
+                  : "inset 2px 0 0 0 transparent",
+                transitionDuration: "var(--yos-motion-hover)",
+                transitionTimingFunction: "var(--yos-ease)",
               })}
             >
               <Icon size={18} aria-hidden="true" className="shrink-0" />
@@ -84,10 +89,10 @@ function Rail() {
                * The label is always in the accessible name; it is only
                * visually hidden on the narrow rail, never removed.
                */}
-              <span className="hidden text-xs font-medium lg:inline">
+              <span className="hidden text-[11px] font-medium tracking-[0.02em] 2xl:inline">
                 {t(`yusufOS:nav.${key}`)}
               </span>
-              <span className="sr-only lg:hidden">
+              <span className="sr-only 2xl:hidden">
                 {t(`yusufOS:nav.${key}`)}
               </span>
             </NavLink>
@@ -97,14 +102,14 @@ function Rail() {
       <button
         type="button"
         onClick={lock}
-        className="yos-touch-target flex min-w-[44px] items-center justify-center gap-2 rounded-lg px-2 md:mt-3 md:justify-start md:px-2.5"
+        className="yos-touch-target flex min-w-[44px] items-center justify-center gap-2 rounded px-2 md:mt-3 md:justify-start md:px-2"
         style={{ color: "var(--yos-text-muted)" }}
       >
-        <Lock size={16} aria-hidden="true" className="shrink-0" />
-        <span className="hidden text-xs font-medium lg:inline">
+        <Lock size={15} aria-hidden="true" className="shrink-0" />
+        <span className="hidden text-[11px] font-medium 2xl:inline">
           {t("yusufOS:nav.lock")}
         </span>
-        <span className="sr-only lg:hidden">{t("yusufOS:nav.lock")}</span>
+        <span className="sr-only 2xl:hidden">{t("yusufOS:nav.lock")}</span>
       </button>
     </nav>
   );
@@ -143,21 +148,21 @@ export default function OSShell() {
 
   if (session === SESSION.CHECKING)
     return (
-      <div className="yos-root min-h-screen">
+      <div className="yos-root min-h-dvh">
         <LoadingBlock rows={4} />
       </div>
     );
 
   if (session !== SESSION.UNLOCKED)
     return (
-      <div className="yos-root min-h-screen" dir={rtl ? "rtl" : "ltr"}>
+      <div className="yos-root min-h-dvh" dir={rtl ? "rtl" : "ltr"}>
         <UnlockScreen />
       </div>
     );
 
   return (
     <div
-      className="yos-root flex min-h-screen flex-col md:flex-row xl:h-screen xl:min-h-0 xl:overflow-hidden"
+      className="yos-root flex min-h-dvh flex-col md:flex-row xl:h-dvh xl:min-h-0 xl:overflow-hidden"
       dir={rtl ? "rtl" : "ltr"}
     >
       <a
@@ -174,7 +179,7 @@ export default function OSShell() {
       <div className="flex min-w-0 flex-1 flex-col xl:min-h-0">
         <header
           className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 md:px-6"
-          style={{ borderColor: "var(--yos-border)" }}
+          style={{ borderColor: "var(--yos-border-faint)" }}
         >
           <div className="flex flex-col">
             <p

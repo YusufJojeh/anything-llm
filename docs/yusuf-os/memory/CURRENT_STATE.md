@@ -31,7 +31,7 @@ unpushed. `origin` =
   System Health surface, and snapshot-first SSE reconciliation. Plus the browser session
   bootstrap that lets a browser reach the control plane without ever holding the control token.
 
-**What has passed:** 51/51 server suites, **559/559 tests**; 5/5 frontend suites, **77/77 tests**;
+**What has passed:** 51/51 server suites, **559/559 tests**; 6/6 frontend suites, **109/109 tests**;
 frontend lint + build clean, server lint clean, `git diff --check` clean. All re-run live this
 session.
 

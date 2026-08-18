@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useYusufOS, PHASES } from "@/features/yusufOS/state/YusufOSProvider";
 import { coreStateTone } from "@/features/yusufOS/state/commandCenterModel";
-import { toneStyle } from "@/features/yusufOS/state/statusSemantics";
+import { toneStyle, TONES } from "@/features/yusufOS/state/statusSemantics";
 import AgentConstellation from "@/features/yusufOS/components/AgentConstellation";
 import AgentRoster from "@/features/yusufOS/components/AgentRoster";
 import AttentionQueue from "@/features/yusufOS/components/AttentionQueue";
@@ -42,16 +42,16 @@ function CoreSummary({ coreState, summary, onOpen }) {
         className="flex w-full flex-col items-start gap-2 text-start"
       >
         <span
-          className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+          className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.16em]"
           style={{ color: style.text }}
         >
-          <StatusIcon tone={tone} size={13} />
+          <StatusIcon tone={tone} size={15} />
           {coreState
             ? t(`yusufOS:core.state.${coreState}`)
             : t("yusufOS:state.unknown")}
         </span>
         <span
-          className="text-sm leading-relaxed"
+          className="text-pretty text-sm leading-relaxed"
           style={{ color: "var(--yos-text-secondary)" }}
         >
           {coreState ? t(`yusufOS:core.detail.${coreState}`) : null}
@@ -67,29 +67,46 @@ function CoreSummary({ coreState, summary, onOpen }) {
       </button>
 
       {/*
-       * Real counts only. Every one of these is a length or a number the
-       * dashboard projection asserted — none are derived percentages and none
-       * are shown while the value is unknown.
+       * A status readout, not KPI cards: three real counts on one hairline-
+       * divided strip. Every value is a length the dashboard projection
+       * asserted — no derived percentages, and nothing shown while unknown.
        */}
       <dl
-        className="mt-4 grid grid-cols-3 gap-3 border-t pt-3"
+        className="mt-4 grid grid-cols-3 border-t pt-3"
         style={{ borderColor: "var(--yos-border-faint)" }}
       >
         {[
-          ["yusufOS:core.countApprovals", summary.pendingApprovals],
-          ["yusufOS:core.countBlocked", summary.blockedTasks],
-          ["yusufOS:core.countActiveRuns", summary.activeRuns],
-        ].map(([key, value]) => (
-          <div key={key} className="flex flex-col gap-0.5">
+          [
+            "yusufOS:core.countApprovals",
+            summary.pendingApprovals,
+            TONES.APPROVAL,
+          ],
+          ["yusufOS:core.countBlocked", summary.blockedTasks, TONES.BLOCKED],
+          ["yusufOS:core.countActiveRuns", summary.activeRuns, TONES.ACTIVE],
+        ].map(([key, value, tone], position) => (
+          <div
+            key={key}
+            className="flex flex-col gap-1 px-3 first:ps-0 last:pe-0"
+            style={
+              position > 0
+                ? { borderInlineStart: "1px solid var(--yos-border-faint)" }
+                : undefined
+            }
+          >
             <dt
-              className="text-[10px] uppercase tracking-[0.1em]"
+              className="text-[10px] uppercase tracking-[0.11em]"
               style={{ color: "var(--yos-text-muted)" }}
             >
               {t(key)}
             </dt>
             <dd
-              className="text-xl font-semibold tabular-nums"
-              style={{ color: "var(--yos-text)" }}
+              className="text-2xl font-semibold leading-none tabular-nums"
+              // A zero is deliberately quiet; a non-zero count carries its
+              // status colour so the eye lands on what is actually happening.
+              style={{
+                color:
+                  value > 0 ? toneStyle(tone).text : "var(--yos-text-muted)",
+              }}
             >
               <Count value={value} />
             </dd>
@@ -158,7 +175,7 @@ export default function CommandCenter() {
           {t("yusufOS:constellation.title")}
         </h2>
         <p className="sr-only">{t("yusufOS:constellation.description")}</p>
-        <Panel className="h-full min-h-[520px] overflow-hidden xl:min-h-0 xl:flex-1">
+        <div className="yos-canvas h-full min-h-[520px] overflow-hidden xl:min-h-0 xl:flex-1">
           {loading ? (
             <LoadingBlock rows={8} />
           ) : (
@@ -172,7 +189,7 @@ export default function CommandCenter() {
               onSelectCore={openCore}
             />
           )}
-        </Panel>
+        </div>
         {model.orphanedEdges.length ? (
           <p
             className="mt-2 px-1 text-[11px]"

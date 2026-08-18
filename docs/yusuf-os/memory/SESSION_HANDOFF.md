@@ -1,5 +1,42 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-18 — Gate G.1 visual fidelity & premium polish (Claude Code, Opus 5)
+
+**What was done:** Implemented Gate G.1 — a visual-only pass over `/os`. All six of Yusuf's polish
+notes are now done (see `DEFERRED_WORK.md` for the table). **No architecture, no product capability,
+no backend change** — `git diff HEAD -- server/` is empty. Full record in `GATE_HISTORY.md`.
+
+**Three things worth carrying forward:**
+
+1. **Reading the installed skills found two defects that looking at the screen never would.** The
+   `ui-design` skill's rules surfaced `h-screen` (wrong whenever a mobile URL bar resizes the
+   viewport — now `h-dvh`) and an arbitrary `z-[60]` (now a `--yos-z-overlay` token). Neither is
+   visible in a screenshot. Read the skills, don't just cite them.
+
+2. **The layout guarantee is now a property of the algorithm, not of the sizes someone tested.**
+   Ring capacity is derived from the real chord length between neighbours, so "no overlap" holds at
+   40 and 48 agents as well as at 3 — and the tests assert the invariant, not specific coordinates.
+
+3. **I previously reported `ui-ux-pro-max` as not installed. That was wrong** — it lives in the
+   session skills directory, not the plugin cache, and my search only covered the cache. It *is*
+   installed and was used this gate. Search both locations.
+
+**Evidence:** 109 frontend tests (was 78), lint clean, production build clean with the dev harness
+verified absent from `dist/`. Live measurement across 10 scenarios x 4 viewports x 2 languages:
+zero overlaps, zero clipping, RTL correct, reduced motion correct, accessible names intact under
+the new icon-only rail.
+
+**Screenshots still unavailable** — the browser pane cannot composite frames in this environment.
+Geometry and computed styles were measured instead; nothing was fabricated.
+
+**Gate G remains BLOCKED on live real-control-plane validation.** G.1 did not change that: nobody
+has yet seen `/os` unlocked against real projections with a live SSE connection.
+
+**Exact next action:** Yusuf unlocks `/os` locally and confirms real projections render, the
+connection reaches LIVE, and Task/Approval/Run drilldowns work. On that confirmation, close Gate G
+as GO_NEXT_GATE. Do not start a further gate before then.
+
+
 ## 2026-08-18 — Gate G live visual acceptance (Claude Code, Opus 5)
 
 **What was done:** Closed Gate G's one open evidence gap — live visual acceptance of the

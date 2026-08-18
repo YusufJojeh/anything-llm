@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { CaretRight } from "@phosphor-icons/react";
 import { StatusChip, UntrustedText, EmptyState } from "./primitives";
 import { toneStyle } from "../state/statusSemantics";
+import { roleFor } from "../state/agentRoles";
 
 /**
  * The accessible, non-graph equivalent of the constellation.
@@ -42,25 +43,30 @@ export default function AgentRoster({
         const relations = relationsFor(agent.agentId);
         const selected = agent.agentId === selectedAgentId;
         const style = toneStyle(agent.tone);
+        const role = roleFor(agent.agentId);
         return (
           <li key={agent.agentId}>
             <button
               type="button"
               onClick={() => onSelectAgent(agent.agentId)}
               aria-pressed={selected}
-              className="yos-touch-target flex w-full items-center gap-3 border-b px-4 py-3 text-start transition-colors"
-              style={{
-                borderColor: "var(--yos-border-faint)",
-                backgroundColor: selected
-                  ? "var(--yos-surface-hover)"
-                  : "transparent",
-              }}
+              data-selected={selected ? "true" : "false"}
+              className="yos-row yos-touch-target flex w-full items-center gap-3 border-b px-4 py-3 text-start"
+              style={{ borderColor: "var(--yos-border-faint)" }}
             >
+              {/* Role glyph, matching the constellation node. Identity, not
+                  status — the status ring around it carries the state. */}
               <span
                 aria-hidden="true"
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: style.graphic }}
-              />
+                className="flex size-8 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-bold"
+                style={{
+                  border: `1.5px solid ${style.graphic}`,
+                  color: "var(--yos-text-secondary)",
+                  backgroundColor: "var(--yos-surface-raised)",
+                }}
+              >
+                {role.glyph}
+              </span>
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="flex flex-wrap items-center gap-2">
                   <UntrustedText

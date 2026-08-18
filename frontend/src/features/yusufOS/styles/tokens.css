@@ -62,6 +62,26 @@
   --yos-unknown-graphic: #6b5f96;
   --yos-unknown-text: #a99ad6;
 
+  /* --- depth ------------------------------------------------------------
+   * Layering is what separates an operations console from a flat admin page.
+   * Three levels only, so "raised" always means the same thing.
+   */
+  --yos-depth-1: 0 1px 0 0 rgb(255 255 255 / 0.02) inset;
+  --yos-depth-2:
+    0 1px 0 0 rgb(255 255 255 / 0.03) inset,
+    0 12px 32px -20px rgb(0 0 0 / 0.9);
+  --yos-depth-3:
+    0 1px 0 0 rgb(255 255 255 / 0.04) inset,
+    0 28px 64px -28px rgb(0 0 0 / 0.95);
+
+  /* Fixed z-scale. Nothing in this feature may use an arbitrary z value. */
+  --yos-z-raised: 10;
+  --yos-z-sticky: 20;
+  --yos-z-overlay: 60;
+
+  /* Expo-out: decisive start, long settle. One easing for the whole feature. */
+  --yos-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
   /* --- spacing / radius / motion ---------------------------------------- */
   --yos-radius-sm: 4px;
   --yos-radius: 8px;
@@ -70,6 +90,7 @@
   --yos-motion-slow: 5200ms;
   --yos-motion-medium: 2400ms;
   --yos-motion-fast: 160ms;
+  --yos-motion-hover: 140ms;
 
   background-color: var(--yos-canvas);
   color: var(--yos-text);
@@ -182,6 +203,36 @@
   background-color: var(--yos-surface);
   border: 1px solid var(--yos-border);
   border-radius: var(--yos-radius-lg);
+  box-shadow: var(--yos-depth-2);
+}
+
+/* The constellation canvas sits deeper than the operator panels, so the eye
+   reads it as the stage rather than another card. */
+.yos-canvas {
+  background:
+    radial-gradient(
+      120% 90% at 50% 42%,
+      color-mix(in srgb, var(--yos-surface) 82%, transparent) 0%,
+      var(--yos-canvas) 68%
+    );
+  border: 1px solid var(--yos-border-faint);
+  border-radius: var(--yos-radius-lg);
+  box-shadow: var(--yos-depth-3);
+}
+
+/* Row hover/selection: a hairline that moves, not a colour wash. */
+.yos-row {
+  transition:
+    background-color var(--yos-motion-hover) var(--yos-ease),
+    box-shadow var(--yos-motion-hover) var(--yos-ease);
+  box-shadow: inset 2px 0 0 0 transparent;
+}
+.yos-row:hover {
+  background-color: var(--yos-surface-hover);
+}
+.yos-row[data-selected="true"] {
+  background-color: var(--yos-surface-hover);
+  box-shadow: inset 2px 0 0 0 var(--yos-accent);
 }
 
 /* Utility used by list rows so hit targets stay >= 44px on touch. */

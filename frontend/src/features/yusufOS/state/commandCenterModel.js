@@ -89,6 +89,23 @@ export function buildAgents(dashboard, roster) {
  * and no "related agents" heuristic — if two agents have no persisted
  * relationship, no line is drawn between them.
  */
+/**
+ * Classifies an edge from the handoff reason the backend actually stored.
+ *
+ * `gate` is `yusuf_handoffs.reason` — a server-owned value like
+ * `DELEGATED_FOR_IMPLEMENTATION` or `REQUESTED_REVIEW`. Reading a category out
+ * of it lets delegation and review look different without inventing anything;
+ * an unrecognised reason stays `HANDOFF` rather than being forced into a bucket.
+ */
+export function edgeKind(gate) {
+  const value = String(gate || "").toUpperCase();
+  if (value.includes("REVIEW")) return "REVIEW";
+  if (value.includes("DELEG")) return "DELEGATION";
+  if (value.includes("ESCALAT")) return "ESCALATION";
+  if (value.includes("DEPEND")) return "DEPENDENCY";
+  return "HANDOFF";
+}
+
 export function buildEdges(dashboard, agents) {
   const known = new Set(agents.map((agent) => agent.agentId));
   return (dashboard?.activeHandoffs || [])
@@ -102,6 +119,7 @@ export function buildEdges(dashboard, agents) {
       toAgentId: handoff.toAgentId,
       taskId: handoff.taskId,
       gate: handoff.gate,
+      kind: edgeKind(handoff.gate),
       status: handoff.status || null,
       tone: toneFor("handoff", handoff.status),
       // Motion is only permitted on an edge the backend says is live.

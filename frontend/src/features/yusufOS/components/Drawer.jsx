@@ -82,7 +82,10 @@ export default function Drawer({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex">
+    <div
+      className="fixed inset-0 flex"
+      style={{ zIndex: "var(--yos-z-overlay)" }}
+    >
       <button
         type="button"
         aria-label={t("yusufOS:common.dismiss")}

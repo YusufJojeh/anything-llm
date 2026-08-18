@@ -1,10 +1,19 @@
 # Deferred Work
 
-## Gate G visual polish notes — 2026-08-18 [APPROVED DIRECTION, NOT AUTHORIZED FOR IMPLEMENTATION]
+## Gate G visual polish notes — 2026-08-18 [IMPLEMENTED in Gate G.1, see GATE_HISTORY.md]
 
-Yusuf reviewed the fixture Command Center and **approved the core product direction**. These are
-his polish notes for a future frontend refinement pass. **Do not implement any of them without his
-explicit instruction** — they are recorded here so the review is not lost, not as a work queue.
+Yusuf reviewed the fixture Command Center, approved the core product direction, and later
+authorized Gate G.1 to implement these notes. **All six are now done** — kept here with their
+original constraints because those constraints still bind any future change to these surfaces.
+
+| Note | Outcome |
+|---|---|
+| 1. Core dominance +20-30% | **Done** — 2.53x → 3.18x core/node radius; 135px → 170px rendered |
+| 2. Adaptive small-roster spacing | **Done** — banded orbit radius; 3 agents 599 → 306 units apart |
+| 3. Quieter navigation rail | **Done** — canvas surface, hairline active rule, 152px → 57px |
+| 4. Stronger Agent role identity | **Done** — code-owned role glyphs + status halos + real activity arc |
+| 5. Attention Queue unchanged in hierarchy | **Done** — polish only; risk level now leads the row |
+| 6. No fake data to fill space | **Held** — still zero invented agents, edges, metrics or activity |
 
 1. **Increase the central core's visual dominance by ~20–30%.**
    Today the core is r=86 against nodes at r=34 (2.53x) in a 1000-unit viewBox.

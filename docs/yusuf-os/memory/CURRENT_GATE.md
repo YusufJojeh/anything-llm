@@ -69,6 +69,16 @@ against the Gate F projections; `/` is untouched. See `GATE_HISTORY.md` for the 
 - **No fake data**: real zero, unknown, LOADING, EMPTY and ERROR are five distinct states, and
   UNCHECKED/STALE audit verdicts never render as healthy.
 
+## Gate G.1 — Visual fidelity & premium polish — status: COMPLETE
+
+Visual-only refinement of the existing `/os` surfaces; no architecture or capability change and no
+backend diff. Central core +26% dominance, roster-adaptive constellation spacing, code-owned Agent
+role glyphs, status halos and a projection-backed activity arc, relationship semantics derived from
+the persisted handoff reason, a rail cut from 152px to 57px, and a depth/typography/motion token
+pass. See `GATE_HISTORY.md`.
+
+**Gate G itself is still blocked on live real-control-plane validation** — see `KNOWN_RISKS.md`.
+
 ## Next gate: Gate H — not defined [not started]
 
 **Blockers before starting:** none technical; **waiting on Yusuf's explicit instruction.**

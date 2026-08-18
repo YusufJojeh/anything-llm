@@ -1,5 +1,35 @@
 # Test Baseline
 
+## Gate G.1 visual polish [VERIFIED — 2026-08-18]
+
+```bash
+cd frontend && npx vitest run --config vitest.config.js
+```
+→ **6 suites, 109 tests, 0 failed** (was 5 / 78). New coverage: adaptive ring radii per roster
+band, ring capacity derived from chord geometry, no-overlap and in-canvas invariants at 1/3/6/9/10/
+16/24/40/48 agents, third-ring escalation, inter-ring angular offset, core-vs-node dominance ratio,
+layout determinism, edge midpoint/angle, role glyph stability and colour-free role identity, and
+`edgeKind` classification from the persisted handoff reason.
+
+Live browser measurement (dev fixture harness, 10 scenarios x 4 viewports x 2 languages):
+
+| Measure | Result |
+|---|---|
+| Core dominance | 135px → **170px** at 1440x900; core/node radius 2.53x → **3.18x** |
+| Desktop viewport fit | page height exactly 900 at 1440x900 — no page scroll |
+| Nav rail footprint | **152px → 57px** desktop; 44px targets and accessible names intact |
+| 3-agent spacing | 599 → **306** units apart (deliberate formation, not empty) |
+| Overlap / clipping | **0 / 0** at 1, 3, 6, 10, 24 agents and long names, EN and AR |
+| Arabic RTL | rail right, drawer opens left, icons mirrored, no overflow, no page scroll |
+| Reduced motion | 4 animated elements → ~0s; state and relationships still readable |
+| Production build | harness absent from `dist/` (verified by file and content grep) |
+
+**Not measured:** screenshots (the browser pane still cannot composite frames) and `:focus-visible`
+under programmatic focus (Chrome only applies it to keyboard interaction — the CSS rule itself was
+verified separately). Tablet at 1024x768 does scroll vertically; the fixed-height console layout
+starts at the `xl` breakpoint by design.
+
+
 ## Live visual QA (Gate G closeout) [VERIFIED_IN_BROWSER — 2026-08-18]
 
 Run against the dev-only fixture harness (`/yusuf-os-harness.html?scenario=…&lang=…&route=…`),

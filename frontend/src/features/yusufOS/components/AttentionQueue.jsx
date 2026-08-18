@@ -52,21 +52,39 @@ export default function AttentionQueue({ items, loading }) {
             <li key={item.id}>
               <Link
                 to={item.href}
-                className="yos-touch-target flex items-start gap-3 border-b px-4 py-3 transition-colors hover:bg-[var(--yos-surface-hover)]"
+                className="yos-row yos-touch-target flex items-start gap-3 border-b px-4 py-3.5"
                 style={{ borderColor: "var(--yos-border-faint)" }}
               >
                 <span
                   aria-hidden="true"
-                  className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                  className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full"
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${style.graphic} 18%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${style.graphic} 16%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${style.graphic} 34%, transparent)`,
                   }}
                 >
-                  <StatusIcon tone={item.tone} size={13} />
+                  <StatusIcon tone={item.tone} size={14} />
                 </span>
-                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  {/* Risk level leads on an approval: it is the first thing
+                      that changes how Yusuf reads the row. */}
+                  {item.values.riskLevel ? (
+                    <span
+                      // Visual emphasis only: the risk level is already part of
+                      // the translated sentence below, so announcing it twice
+                      // would just make the row noisier to listen to.
+                      aria-hidden="true"
+                      className="w-fit rounded px-1.5 py-0.5 text-[10px] font-bold tracking-[0.08em]"
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${style.graphic} 18%, transparent)`,
+                        color: style.text,
+                      }}
+                    >
+                      {item.values.riskLevel}
+                    </span>
+                  ) : null}
                   <UntrustedText
-                    className="text-sm font-medium"
+                    className="text-pretty text-sm font-medium leading-snug"
                     style={{ color: "var(--yos-text)" }}
                   >
                     {t(`yusufOS:attention.kind.${item.kind}`, item.values)}
