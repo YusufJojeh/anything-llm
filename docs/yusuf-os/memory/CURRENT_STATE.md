@@ -1,6 +1,9 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-18, Phase H (Browser Broker) pass._
+_Last verified: 2026-08-20, Phase J (Knowledge/Evidence/Memory split) pass. See `CURRENT_GATE.md`
+for the full record; Phases H, I, the Organization model, and J have all landed since the line
+below was last true — read `CURRENT_GATE.md` top-to-bottom rather than trusting this summary's
+detail below, which is not fully re-verified this pass._
 
 **Branch:** `feature/yusuf-os-core`. Seven local checkpoint commits (Gate B docs, Gate C core,
 Claude memory, Gate D LocalGit, Gate E agent runtime, Gate F projections, Gate G frontend), all
@@ -31,11 +34,19 @@ unpushed. `origin` =
   System Health surface, and snapshot-first SSE reconciliation. Plus the browser session
   bootstrap that lets a browser reach the control plane without ever holding the control token.
 
-**What has passed:** 53/53 server suites, **607/607 tests**; 7/7 frontend suites, **129/129 tests**;
-frontend lint + build clean, server lint clean, `git diff --check` clean. All re-run live this
-session.
+**What has passed (as of Phase J):** 58/58 server suites, **705/705 tests** (see `TEST_BASELINE.md`
+for the exact command and per-phase deltas); frontend counts not re-verified this phase (no
+frontend change). Server lint clean, `git diff --check` clean.
 
-**Next gate:** not defined. Do not begin anything without Yusuf's explicit instruction.
+**Also built since the line above was last fully verified:** Phase H (read-only Browser Broker),
+Phase I (`browser.submit_form`, the first governed browser mutation), the Organization model
+(code-owned Department/AutonomyLevel labels, never consulted by Policy/Approval), and Phase J
+(Knowledge/Evidence/Memory split — see `CURRENT_GATE.md`).
+
+**Next gate:** Phase K (Monitoring), per the CAVEMAN MODE implementation order — not started, no
+design doc exists yet. Everything after it (Career, Marketing, Founder, Research, Sales/Inbox,
+Integrations, Model routing/cost, Command Center expansion, hardening, release/ops) is likewise
+unstarted; see `DEFERRED_WORK.md`.
 
 **Must not be rebuilt:** the Gate C kernel (still unmodified in `runtime/`, `policy/`,
 `approvals/`, `execution/ExecutionCoordinator.js`, `audit/`), the Gate D LocalGit adapter, and
