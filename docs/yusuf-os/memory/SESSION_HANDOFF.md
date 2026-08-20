@@ -1,5 +1,41 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-21 — Phase R: Model runtime / ModelRouter (Claude Code, Sonnet 5)
+
+**What was done:** built a provider-neutral `ModelRouter` under `server/domain/yusufOS/models/`
+(one directory, no parallel tree) with `OllamaProvider` (generic tag-aware discovery, read-only,
+never auto-pulls) and `OpenAIProvider` (env-key-only, never logs/persists the key), five
+deterministic routing policies, and a `CONFIDENCE` tri-state (KNOWN/ESTIMATED/UNAVAILABLE) that did
+not previously exist in this codebase. Wired `RoutedModelClient` into `agents/ModelClient.js` as
+the one production `ModelClient` implementation, and
+`AgentRunCoordinator.recordModelCompletion()` to persist the full routing envelope onto the
+**existing** `yusuf_agent_runs` columns — no schema migration needed, the extra metadata rides in
+the existing `modelRef` JSON text column. Gave Reviewer's `modelPolicy` an
+`explicitProvider`/`explicitModel` override so it can be independently pinned from Engineering's.
+
+Separately, while reading `ExecutionCoordinator.execute()` closely for this phase, found and fixed
+a real orphan gap: `availability()`/`preflight()` run before the claim transaction and before any
+receipt exists; if either threw, the error propagated straight out with the `ActionIntent` stuck at
+`AUTHORIZED`/`WAITING_APPROVAL` forever, with nothing to reconcile against (no receipt exists to
+reconcile). Added `terminalizePreClaimFailure()` to close it cleanly to `FAILED`, and cross-adapter
+regression tests (Career, Inbox) for it plus the already-correct post-claim `prepare()`-throws
+path.
+
+**Honest limitation to flag to Yusuf directly:** there is still no live agentic reasoning loop in
+this codebase — `ChiefOfStaff`/`AgentRunCoordinator` manage task/run state but nothing yet calls a
+model to decide what an Agent should do next. This phase built the model-routing plumbing that such
+a loop would use, correctly and with real test coverage, but did not itself add that loop — doing
+so was out of a single phase's reasonable scope and risked half-building both things. See
+`DEFERRED_WORK.md`.
+
+**Tests:** 76 suites / 956 tests green (was 70/913). Ollama live smoke skipped (no local daemon
+reachable in this environment); OpenAI live smoke skipped (no `OPENAI_API_KEY` set).
+
+**Next likely phase (not started, no gate H implied by this note):** wiring an actual reasoning
+loop that calls `RoutedModelClient` and acts on its output through the existing
+`toolBinding.invokeCapability` path — needs Yusuf's explicit direction before starting, per
+`CLAUDE.md`.
+
 ## 2026-08-20 — Phase Q: Application submission seam (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
 
 **What was done:** After Phase P, asked Yusuf directly (via AskUserQuestion, since "Integrations"

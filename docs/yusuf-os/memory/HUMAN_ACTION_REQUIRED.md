@@ -7,6 +7,28 @@ Do not add ordinary engineering questions to this file.
 
 ---
 
+## N. `OPEN_MANUAL_VALIDATION` — live Ollama / OpenAI model runtime [OPEN since 2026-08-21]
+
+**Why it is human-only:** proving `ModelRouter` against a real provider requires either a local
+Ollama daemon actually running on this machine, or a real `OPENAI_API_KEY` set in the environment
+— both are things only Yusuf can provision (installing/running Ollama, or supplying a billed API
+key). The implementing agent does not create accounts or enter credentials.
+
+**What is already proven without it:** every routing policy, provider health/error path, secret-
+leakage resistance, and cost/usage confidence rule is covered by deterministic mocked tests
+(`server/__tests__/yusufOS/modelRouting/`). Both providers' live smoke tests exist and are gated to
+skip gracefully when their dependency is absent — they did skip in this session.
+
+**What is NOT proven:** a real completion round-trip against an actual Ollama daemon or the real
+OpenAI API, including real latency/usage numbers and real HTTP error bodies for auth/rate-limit
+cases.
+
+**To close this:** either run Ollama locally (`ollama serve`, with at least one model pulled) or
+set a real `OPENAI_API_KEY` in the environment, then re-run
+`npx jest server/__tests__/yusufOS/modelRouting`.
+
+---
+
 ## 1. `OPEN_MANUAL_VALIDATION` — real unlocked `/os` [OPEN since 2026-08-18]
 
 **Why it is human-only:** reaching the unlocked Command Center requires typing the

@@ -1,5 +1,33 @@
 # Deferred Work
 
+## Deferred after Phase R (Model runtime / ModelRouter) — 2026-08-21
+
+Phase R is **done** — see `CURRENT_GATE.md`. Still deferred:
+
+- **No live agentic loop calls a `ModelClient` for a real completion yet.** `RoutedModelClient` and
+  `AgentRunCoordinator.recordModelCompletion()` are production-ready but currently have no caller —
+  `ChiefOfStaff`/`AgentRunCoordinator` orchestrate task/run state without yet invoking a model to
+  decide anything. Wiring an actual reasoning loop (prompt assembly with `wrapUntrusted`, calling
+  `RoutedModelClient.complete()`, parsing a structured tool-call response, invoking
+  `toolBinding.invokeCapability`) is future work, not something this phase could respect scope and
+  still add.
+- **`OllamaProvider.describeModel()` (`/api/show`) is implemented but unused by `ModelRouter`.** It
+  exists for future capability-aware routing (e.g. refusing a model known to lack tool-calling) but
+  nothing calls it yet.
+- **`DashboardProjection.js`'s existing `estimatedCostMicros: ... || 0` aggregate-sum pattern was
+  noticed, not touched.** It sums cost across many runs for a display total, so a null term
+  behaving as 0 in a SUM is a different (and arguably correct) concern from the per-run
+  UNAVAILABLE-must-never-become-0 rule this phase enforces on individual `AgentRun` rows. Flagging
+  it here rather than changing dashboard aggregation behavior outside this phase's stated scope.
+- **A real per-model, per-token OpenAI price table is a rough approximation** (`gpt-4o-mini` only,
+  in `OpenAIProvider.js`'s `PRICE_MICROS_PER_TOKEN`). Any other requested model reports cost as
+  UNAVAILABLE rather than guessing — correct by this phase's own rule, but means most models
+  currently show no cost at all. Expanding the table is a config change, not an architecture one.
+- **Ollama/OpenAI live smoke were not exercised against a real endpoint in this session** — no
+  local Ollama daemon was reachable and no `OPENAI_API_KEY` was set in this environment. Both live
+  smoke tests are written and will run automatically the next time either is available; this is not
+  a gap in the test code, just an environment fact worth re-checking before relying on it.
+
 ## Deferred after Phase Q (Application submission seam) — 2026-08-20
 
 Phase Q is **done** — see `CURRENT_GATE.md`. Still deferred:

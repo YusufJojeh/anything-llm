@@ -1,5 +1,82 @@
 # Current Gate
 
+## Phase R — Model runtime (ModelRouter) — status: COMPLETE
+
+**Objective:** at Yusuf's explicit direction, give Yusuf OS a provider-neutral model runtime
+instead of hard-coding a provider — route AgentRun completions across a local Ollama daemon and
+OpenAI, record honest telemetry, and close a real orphan gap in `ExecutionCoordinator` found while
+reading `execute()` closely for this phase.
+
+**Implemented (`server/domain/yusufOS/models/` — the one directory name for this concern):**
+- `constants.js` — `CONFIDENCE` tri-state (`KNOWN`/`ESTIMATED`/`UNAVAILABLE`), `ROUTING_POLICIES`
+  (`LOCAL_ONLY`/`LOCAL_FIRST`/`OPENAI_FIRST`/`EXPLICIT_MODEL`/`FALLBACK_CHAIN`), `PROVIDER_KINDS`,
+  `PROVIDER_HEALTH`. Verified this vocabulary did not already exist anywhere in the codebase before
+  adding it.
+- `OllamaProvider.js` — read-only HTTP against `http://localhost:11434` (overridable via
+  `YUSUF_OS_OLLAMA_BASE_URL`), generic tag-aware discovery via `GET /api/tags` (`"name"` /
+  `"name:tag"` both resolve the same way — no gemma4-only branch), `POST /api/show` metadata,
+  never issues a pull/create/delete request, structured health
+  (`HEALTHY`/`UNREACHABLE`/`TIMEOUT`/`ERROR`). Cost is always `UNAVAILABLE` for this provider by
+  construction — Ollama never reports a fabricated monetary cost.
+- `OpenAIProvider.js` — reads `process.env.OPENAI_API_KEY` only, no fallback to any other env var
+  name used elsewhere in this repo. The key is read once per call, used only for the
+  `Authorization` header, and never appears in any returned object, error, log, or audit record
+  (asserted by test). Ground-truth provider/model is taken from what OpenAI's own response body
+  says served the call, never from the request. 401/429/404/timeout/malformed-JSON map to distinct
+  error codes.
+- `ModelRouter.js` — resolves a deterministic ordered attempt list per policy and executes it.
+  `LOCAL_ONLY`'s attempt list structurally contains only Ollama (nothing to fall through to, even
+  under a simulated Ollama failure). `FALLBACK_CHAIN` de-duplicates attempted provider kinds so it
+  can never retry one already tried. Every field on the returned envelope (provider/model/usage/
+  cost) is taken from what the router itself observed from the provider response.
+- `agents/ModelClient.js` gained `RoutedModelClient` — the one production `ModelClient`
+  implementation; every real completion goes through `ModelRouter`, no other path to a provider.
+  `DeterministicModelClient` (unchanged) remains what the existing deterministic test suite uses,
+  so the mocked suite carries no live-network dependency.
+- `agents/AgentRunCoordinator.js` gained `recordModelCompletion()`, which persists
+  provider/model/policy/fallbackOccurred/latencyMs/usage/cost onto the **existing**
+  `yusuf_agent_runs` columns (`modelRef`, `tokenUsage`, `estimatedCostMicros`) — extends the
+  existing AgentRun record rather than forking a parallel one, and required **no schema
+  migration**: the extra routing metadata (policy/fallbackOccurred/latencyMs/usageConfidence/
+  costConfidence) is packed into the existing `modelRef` JSON text column. `estimatedCostMicros` is
+  left `null` (never coerced to 0) whenever cost confidence is `UNAVAILABLE`.
+- `agents/definitions.js` — Engineering's `modelPolicy` gained `routingPolicy: "FALLBACK_CHAIN"`;
+  Reviewer's `modelPolicy` gained `explicitProvider`/`explicitModel` (unset by default) so Yusuf
+  can pin the Reviewer to a model/provider independent of Engineering's without touching the
+  boundary.
+- `errors/YusufOSError.js` gained `ErrorCodes.MODEL_UNAVAILABLE`.
+- **ExecutionCoordinator preflight-orphan gap, closed fully:** `availability()`/`preflight()` run
+  *before* the claim transaction and before any receipt exists. Previously, either throwing
+  propagated straight out of `execute()` with no receipt and no intent-state transition, stranding
+  the `ActionIntent` at `AUTHORIZED`/`WAITING_APPROVAL` forever — indistinguishable from "not yet
+  attempted". `terminalizePreClaimFailure()` now moves it to `FAILED` (never `FAILED_UNKNOWN`,
+  which stays reserved for genuine post-effect uncertainty per the RECONCILE semantics in
+  `ARCHITECTURE_INVARIANTS.md`) with an audit record (`execution.preclaim_failed`) and the
+  associated run transitioned too. The other case named in scope — `adapter.prepare()` throwing
+  *after* the claim (receipt already exists) — was already handled correctly pre-Phase-R; a
+  regression test now locks that behavior in alongside the new fix.
+- Regression tests: `server/__tests__/yusufOS/integration/executionPreClaimOrphan.test.js` covers
+  both the Career and Inbox adapters for the pre-claim `availability()`/`preflight()`-throws path.
+
+**Honest scope note — what this phase did *not* do:** there is still no live agentic loop in this
+codebase that calls a `ModelClient` for a real (non-test) completion — `AgentRunCoordinator` and
+`ChiefOfStaff` orchestrate task/run state but do not yet invoke a model to decide what to do next.
+`RoutedModelClient`/`recordModelCompletion()` are the production-ready plumbing for when that loop
+exists; they are not yet wired into a call site that runs today. `DashboardProjection.js`'s
+pre-existing `estimatedCostMicros: ... || 0` aggregate-sum pattern (informational display total,
+not a per-run field) was noticed but intentionally left alone — out of this phase's scope, noted in
+`DEFERRED_WORK.md`.
+
+**Tests:** 76 suites / 956 tests green (baseline 70/913 for this session; +6 new suites, +43 new
+tests). One test (`OpenAIProvider.test.js` live smoke) is skipped — no `OPENAI_API_KEY` set in this
+environment. Ollama live smoke ran and skipped gracefully — no local daemon reachable at
+`http://localhost:11434` in this environment.
+**Independent review:** re-read `ModelRouter.js`/providers/`ExecutionCoordinator.js` skeptically
+after the implementation looked done; found and fixed the `FALLBACK_CHAIN`+missing-API-key test
+assertion being wrong (not a code bug — the router was already correct: no attempt was made, so
+`fallbackOccurred` should be `false`, not `true`). No P0/P1 found in the shipped code itself this
+pass.
+
 ## Phase Q — Application submission seam — status: COMPLETE
 
 **Objective:** at Yusuf's explicit direction ("attempt the end-to-end scenario now"), close the

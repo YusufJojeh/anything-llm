@@ -1,9 +1,17 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-20, Phase Q (Application submission seam) pass. See `CURRENT_GATE.md` for
-the full record; Phases H, I, the Organization model, J, K, L, M, N, O, P, and Q have all landed
+_Last verified: 2026-08-21, Phase R (Model runtime / ModelRouter) pass. See `CURRENT_GATE.md` for
+the full record; Phases H, I, the Organization model, J, K, L, M, N, O, P, Q, and R have all landed
 since the line below was last true — read `CURRENT_GATE.md` top-to-bottom rather than trusting
 this summary's detail below, which is not fully re-verified this pass._
+
+**Phase R added:** a provider-neutral model runtime (`server/domain/yusufOS/models/`) — Ollama
+(local, auto-discovered, never auto-pulls) and OpenAI (env-key-only) behind one `ModelRouter`, with
+`RoutedModelClient` as the sanctioned production `ModelClient` and telemetry persisted onto the
+existing `AgentRun` record. Model routing is explicitly outside the security boundary (not a
+governed side effect); cost is informational only. No live agentic loop calls it yet — see
+`DEFERRED_WORK.md`. Also closed a real `ExecutionCoordinator` pre-claim orphan gap found while
+reading it for this phase.
 
 **Branch:** `feature/yusuf-os-core`. Seven local checkpoint commits (Gate B docs, Gate C core,
 Claude memory, Gate D LocalGit, Gate E agent runtime, Gate F projections, Gate G frontend), all

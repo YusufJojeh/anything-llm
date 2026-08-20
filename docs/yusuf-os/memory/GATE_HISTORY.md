@@ -1,5 +1,40 @@
 # Gate History
 
+## Phase R — Model runtime (ModelRouter) — 2026-08-21 — PASS (no P0/P1)
+
+Built the provider-neutral `ModelRouter` (`server/domain/yusufOS/models/`) with `OllamaProvider`
+and `OpenAIProvider`, five deterministic routing policies, and a new `CONFIDENCE` tri-state
+(KNOWN/ESTIMATED/UNAVAILABLE). Wired `RoutedModelClient` as the production `ModelClient`
+implementation and `AgentRunCoordinator.recordModelCompletion()` to persist the routing envelope
+onto the existing `yusuf_agent_runs` record — extended, not forked, and required no schema
+migration. Also closed a real orphan gap in `ExecutionCoordinator.execute()`: a pre-claim
+`availability()`/`preflight()` throw previously stranded the `ActionIntent` at
+`AUTHORIZED`/`WAITING_APPROVAL` with no receipt and nothing to reconcile; it now terminalizes
+cleanly to `FAILED`.
+
+### What was built
+- `models/constants.js`, `models/OllamaProvider.js`, `models/OpenAIProvider.js`,
+  `models/ModelRouter.js`.
+- `agents/ModelClient.js` — `RoutedModelClient`.
+- `agents/AgentRunCoordinator.js` — `recordModelCompletion()`.
+- `agents/definitions.js` — Engineering `routingPolicy`, Reviewer
+  `explicitProvider`/`explicitModel`.
+- `errors/YusufOSError.js` — `MODEL_UNAVAILABLE`.
+- `execution/ExecutionCoordinator.js` — `terminalizePreClaimFailure()`.
+
+### One correction made during independent review
+- A new `ModelRouter` test asserted `fallbackOccurred: true` for the case where OpenAI was never
+  eligible (no API key) under `OPENAI_FIRST` and Ollama served the request on the first attempt.
+  On review this was the test's own expectation that was wrong, not the router: `fallbackOccurred`
+  means "an earlier eligible attempt failed and a later one served it", not "a non-preferred
+  provider served it". Fixed the test assertion; the router's logic was correct as originally
+  written.
+
+### Result
+76 suites / 956 tests green (was 70/913 baseline this session). No P0/P1 found in the shipped
+implementation. Ollama and OpenAI live smoke tests exist and are gated correctly (both skipped in
+this environment — no local daemon, no `OPENAI_API_KEY`).
+
 ## Phase Q — Application submission seam — 2026-08-20 — PASS (no findings)
 
 Closes the two real gaps toward the end-to-end job-application scenario Yusuf described, chosen

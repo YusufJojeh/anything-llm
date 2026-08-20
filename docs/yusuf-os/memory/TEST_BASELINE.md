@@ -1,5 +1,40 @@
 # Test Baseline
 
+## Phase R (Model runtime / ModelRouter) [VERIFIED_BY_TEST — 2026-08-21]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server/__tests__/yusufOS server --maxWorkers=2
+```
+→ **76 suites, 956 tests, 0 failed, 1 skipped** (was 70 / 913 — this phase adds a new domain,
+`server/domain/yusufOS/models/`).
+
+New tests (`server/__tests__/yusufOS/modelRouting/`, `.../integration/executionPreClaimOrphan.test.js`):
+- `ModelRouter.test.js` — LOCAL_ONLY never reaches OpenAI (even mid-call failure); zero/one/many
+  Ollama models; generic gemma4 tag match present/missing; FALLBACK_CHAIN never retries an
+  already-tried provider kind, and exhausts cleanly if both fail; OpenAI missing key falls through
+  cleanly under OPENAI_FIRST; usage/cost fabrication resistance (router only echoes what
+  `complete()` returned); provider/model spoofing resistance; malicious model output stays inert
+  string data; unknown policy rejected.
+- `OllamaProvider.test.js` — unreachable/timeout/zero-models/multi-model/malformed-`/api/tags`
+  mocked cases; generic tag discovery; never issues pull/create/delete; KNOWN usage when eval
+  counts present, UNAVAILABLE (never 0) when absent; cost always UNAVAILABLE; one live smoke test
+  that skips gracefully if no daemon is reachable.
+- `OpenAIProvider.test.js` — missing key/401/429/404/timeout/malformed-JSON; secret leakage
+  assertions (the key value never appears in the returned envelope or a thrown error); provider/
+  model spoofing resistance; KNOWN usage + ESTIMATED cost for a priced model, UNAVAILABLE cost for
+  an unpriced one; malicious output stays inert; one live smoke test gated on `OPENAI_API_KEY`
+  already being set (skipped in this environment).
+- `RoutedModelClient.test.js` — every completion delegates to `ModelRouter`; Reviewer's
+  `explicitProvider`/`explicitModel` config forces `EXPLICIT_MODEL` routing independent of
+  Engineering's `FALLBACK_CHAIN` default.
+- `recordModelCompletion.test.js` — persists the full routing envelope onto `yusuf_agent_runs`;
+  `UNAVAILABLE` cost persists as `null`, never coerced to 0.
+- `executionPreClaimOrphan.test.js` — Career and Inbox adapters, `availability()`/`preflight()`
+  throwing before the claim transaction terminalizes to `FAILED` (never `FAILED_UNKNOWN`) with no
+  orphaned intent and no receipt row created; the pre-existing post-claim `prepare()`-throws path
+  is also locked in as a regression.
+
 ## Phase Q (Application submission seam) [VERIFIED_BY_TEST — 2026-08-20]
 
 ```bash
