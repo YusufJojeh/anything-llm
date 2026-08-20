@@ -75,9 +75,20 @@ describe("Gate E — agent capability isolation", () => {
     [AGENT_KEYS.CAREER, "project.write_file"],
     [AGENT_KEYS.CAREER, "git.commit_local"],
     [AGENT_KEYS.CAREER, "git.push_feature_branch"],
-    [AGENT_KEYS.CAREER, "browser.submit_form"],
     [AGENT_KEYS.CAREER, "memory.write"],
     [AGENT_KEYS.CAREER, "monitoring.record_check"],
+    // browser.submit_form is now a real, intentional grant to Career (Phase Q,
+    // docs/yusuf-os/gate-b/application-submission.md) — the "Approval ->
+    // Browser -> Submission verification" step of the end-to-end scenario.
+    // Deliberately NOT in this refusal table.
+    [AGENT_KEYS.REVIEWER, "career.prepare_application"],
+    [AGENT_KEYS.ENGINEERING, "career.prepare_application"],
+    [AGENT_KEYS.CHIEF_OF_STAFF, "career.prepare_application"],
+    [AGENT_KEYS.MONITORING, "career.prepare_application"],
+    [AGENT_KEYS.MARKETING, "career.prepare_application"],
+    [AGENT_KEYS.FOUNDER, "career.prepare_application"],
+    [AGENT_KEYS.RESEARCH, "career.prepare_application"],
+    [AGENT_KEYS.INBOX, "career.prepare_application"],
     [AGENT_KEYS.REVIEWER, "marketing.update_status"],
     [AGENT_KEYS.ENGINEERING, "marketing.update_status"],
     [AGENT_KEYS.CHIEF_OF_STAFF, "marketing.update_status"],
@@ -161,12 +172,15 @@ describe("Gate E — agent capability isolation", () => {
     }
   });
 
-  test("Career holds no project, git, browser, or memory-write capability at the role-definition level", () => {
+  test("Career holds no project, git, or memory-write capability, and its only browser capability is the governed browser.submit_form", () => {
     const career = getAgentDefinition(AGENT_KEYS.CAREER);
     for (const capability of career.allowedCapabilities) {
+      if (capability === "browser.submit_form") continue;
       expect(capability.match(/^(project\.|git\.|browser\.|monitoring\.)/)).toBeNull();
       expect(capability).not.toBe("memory.write");
     }
+    expect(career.allowedCapabilities).toContain("browser.submit_form");
+    expect(career.allowedCapabilities).toContain("career.prepare_application");
   });
 
   test("Marketing holds no project, git, browser, or memory-write capability at the role-definition level", () => {

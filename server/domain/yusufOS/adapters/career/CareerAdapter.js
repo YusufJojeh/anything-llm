@@ -7,6 +7,7 @@ const CAPABILITIES = Object.freeze([
   "career.read_opportunities",
   "career.record_opportunity",
   "career.update_status",
+  "career.prepare_application",
 ]);
 const RESOURCE_TYPE = "CAREER_OPPORTUNITY";
 const LIST_SCAN_LIMIT = 500;
@@ -15,8 +16,8 @@ function certainFailure(message) {
   return Object.assign(new Error(message), { effectCertain: true });
 }
 
-function entryDigest({ company, role, source, status, notes }) {
-  return canonicalHash({ company, role, source, status, notes });
+function entryDigest({ company, role, source, status, notes, applicationNotes }) {
+  return canonicalHash({ company, role, source, status, notes, applicationNotes });
 }
 
 function toReadResult(row) {
@@ -27,6 +28,7 @@ function toReadResult(row) {
     source: row.source,
     status: row.status,
     notes: row.notes,
+    applicationNotes: row.applicationNotes,
     createdByPrincipalType: row.createdByPrincipalType,
     createdByPrincipalId: row.createdByPrincipalId,
     digest: row.digest,
@@ -119,7 +121,7 @@ class CareerAdapter extends GovernedAdapter {
             typeof payload.role !== "string"
           )
             throw certainFailure("company and role are required.");
-          const digest = entryDigest(payload);
+          const digest = entryDigest({ ...payload, applicationNotes: null });
           const row = await this.db.yusuf_career_opportunities.create({
             data: {
               uuid: target.uuid,
@@ -128,6 +130,7 @@ class CareerAdapter extends GovernedAdapter {
               source: payload.source || null,
               status: payload.status,
               notes: payload.notes || null,
+              applicationNotes: null,
               createdByPrincipalType: prepared.intent.requestedByPrincipalType,
               createdByPrincipalId: prepared.intent.requestedByPrincipalId,
               digest,
@@ -166,10 +169,42 @@ class CareerAdapter extends GovernedAdapter {
             source: existing.source,
             status: target.status,
             notes,
+            applicationNotes: existing.applicationNotes,
           });
           const row = await this.db.yusuf_career_opportunities.update({
             where: { uuid: target.uuid },
             data: { status: target.status, notes, digest },
+          });
+          return {
+            outcome: "SUCCEEDED",
+            externalReference: `career:${row.uuid}`,
+            result: { uuid: row.uuid, status: row.status, digest: row.digest },
+          };
+        }
+        case "career.prepare_application": {
+          const existing = await this.db.yusuf_career_opportunities.findUnique({
+            where: { uuid: target.uuid },
+          });
+          if (!existing)
+            throw certainFailure(`Unknown career opportunity: ${target.uuid}`);
+          // Re-checked against the current row — never trusted from the
+          // request builder's earlier check, same defense-in-depth placement
+          // as every other governed write in this domain.
+          if (existing.status !== "RESEARCHING")
+            throw certainFailure(
+              `An application can only be drafted while an opportunity is still RESEARCHING (current status: ${existing.status}).`
+            );
+          const digest = entryDigest({
+            company: existing.company,
+            role: existing.role,
+            source: existing.source,
+            status: existing.status,
+            notes: existing.notes,
+            applicationNotes: payload.applicationNotes,
+          });
+          const row = await this.db.yusuf_career_opportunities.update({
+            where: { uuid: target.uuid },
+            data: { applicationNotes: payload.applicationNotes, digest },
           });
           return {
             outcome: "SUCCEEDED",

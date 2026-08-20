@@ -327,6 +327,7 @@ class InboxAdapter extends GovernedAdapter {
             source: opportunity.source,
             status: target.status,
             notes: opportunity.notes,
+            applicationNotes: opportunity.applicationNotes,
           });
           const row = await this.db.yusuf_career_opportunities.update({
             where: { uuid: target.uuid },

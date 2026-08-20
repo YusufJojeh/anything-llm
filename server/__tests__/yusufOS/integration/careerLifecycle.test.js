@@ -236,10 +236,13 @@ describe("Phase L — Career governed lifecycle", () => {
     expect(JSON.parse(byUuid.sanitizedResult).uuid).toBe(uuid);
   });
 
-  test("Career has no project, git, browser, or memory-write tool", async () => {
+  test("Career has no project, git, or memory-write tool, and its only browser tool is browser.submit_form", async () => {
     const toolset = buildAgentToolset({ agentKey: AGENT_KEYS.CAREER, db });
-    for (const key of Object.keys(toolset.tools))
+    for (const key of Object.keys(toolset.tools)) {
+      if (key === "browser.submit_form") continue;
       expect(key.match(/^(project\.|git\.|browser\.|memory\.write)/)).toBeNull();
+    }
+    expect(Object.keys(toolset.tools)).toContain("browser.submit_form");
   });
 
   test("re-recording the same company/role produces a second distinct row, not an upsert", async () => {
@@ -260,5 +263,88 @@ describe("Phase L — Career governed lifecycle", () => {
       runtimeContext: c2,
     });
     expect(await db.yusuf_career_opportunities.count()).toBe(2);
+  });
+
+  test("Phase Q: preparing an application stores a local draft without changing status", async () => {
+    const task = await makeTask(fixture.career);
+    const toolset = buildAgentToolset({ agentKey: AGENT_KEYS.CAREER, db });
+    const { context: c1 } = await seedRun(fixture.career, task);
+    const created = await invokeCapability({
+      toolset,
+      capabilityKey: "career.record_opportunity",
+      args: { company: "Acme", role: "Engineer" },
+      runtimeContext: c1,
+    });
+    const { uuid } = JSON.parse(created.sanitizedResult);
+
+    const { context: c2 } = await seedRun(fixture.career, task);
+    const prepared = await invokeCapability({
+      toolset,
+      capabilityKey: "career.prepare_application",
+      args: { uuid, applicationNotes: "Cover letter draft: excited about this role." },
+      runtimeContext: c2,
+    });
+    expect(prepared.verificationStatus).toBe("VERIFIED");
+    const row = await db.yusuf_career_opportunities.findUnique({ where: { uuid } });
+    expect(row.status).toBe("RESEARCHING");
+    expect(row.applicationNotes).toBe(
+      "Cover letter draft: excited about this role."
+    );
+  });
+
+  test("Phase Q: an application cannot be prepared once the opportunity has moved past RESEARCHING", async () => {
+    const task = await makeTask(fixture.career);
+    const toolset = buildAgentToolset({ agentKey: AGENT_KEYS.CAREER, db });
+    const { context: c1 } = await seedRun(fixture.career, task);
+    const created = await invokeCapability({
+      toolset,
+      capabilityKey: "career.record_opportunity",
+      args: { company: "Acme", role: "Engineer" },
+      runtimeContext: c1,
+    });
+    const { uuid } = JSON.parse(created.sanitizedResult);
+
+    const { context: c2 } = await seedRun(fixture.career, task);
+    await invokeCapability({
+      toolset,
+      capabilityKey: "career.update_status",
+      args: { uuid, status: "APPLIED" },
+      runtimeContext: c2,
+    });
+
+    const { context: c3 } = await seedRun(fixture.career, task);
+    await expect(
+      invokeCapability({
+        toolset,
+        capabilityKey: "career.prepare_application",
+        args: { uuid, applicationNotes: "too late" },
+        runtimeContext: c3,
+      })
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    const row = await db.yusuf_career_opportunities.findUnique({ where: { uuid } });
+    expect(row.applicationNotes).toBeNull();
+  });
+
+  test("Phase Q: an empty applicationNotes is rejected before any write", async () => {
+    const task = await makeTask(fixture.career);
+    const toolset = buildAgentToolset({ agentKey: AGENT_KEYS.CAREER, db });
+    const { context: c1 } = await seedRun(fixture.career, task);
+    const created = await invokeCapability({
+      toolset,
+      capabilityKey: "career.record_opportunity",
+      args: { company: "Acme", role: "Engineer" },
+      runtimeContext: c1,
+    });
+    const { uuid } = JSON.parse(created.sanitizedResult);
+
+    const { context: c2 } = await seedRun(fixture.career, task);
+    await expect(
+      invokeCapability({
+        toolset,
+        capabilityKey: "career.prepare_application",
+        args: { uuid, applicationNotes: "" },
+        runtimeContext: c2,
+      })
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 });

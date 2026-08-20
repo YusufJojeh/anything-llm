@@ -1029,6 +1029,7 @@ model yusuf_career_opportunities {
   source                 String?
   status                 String
   notes                  String?
+  applicationNotes       String?
   createdByPrincipalType String
   createdByPrincipalId   String
   digest                 String

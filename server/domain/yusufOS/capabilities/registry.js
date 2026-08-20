@@ -463,6 +463,26 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SERVER_KEY",
     hardFlags: [],
   }),
+  // Phase Q, docs/yusuf-os/gate-b/application-submission.md. A local-only
+  // draft, distinct from career.update_status: it never changes status by
+  // itself, so an opportunity can carry prepared application content while
+  // still sitting at RESEARCHING until a real submission (browser.submit_form,
+  // L3, requires approval) actually succeeds and update_status moves it to
+  // APPLIED. This is the "Needs Yusuf" checkpoint the end-to-end scenario
+  // describes — nothing external happens from this capability alone.
+  "career.prepare_application": definition({
+    key: "career.prepare_application",
+    domain: "career",
+    description:
+      "Store a local-only application draft (notes) on an existing career opportunity. Never submits anything and never changes status.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
 
   // --- Phase M: Marketing --------------------------------------------------
   // Durable tracking of marketing content Yusuf is producing. Internal-effect

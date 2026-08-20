@@ -122,9 +122,56 @@ async function buildUpdateStatusRequest(args = {}, db = prisma) {
   };
 }
 
+const MAX_APPLICATION_NOTES_BYTES = 8 * 1024;
+
+// Phase Q: purely local. Requires the opportunity to still be RESEARCHING —
+// once it has moved past that (APPLIED or later), a fresh draft belongs on a
+// fresh opportunity, same non-clearable-history reasoning as update_status's
+// notes field. Never touches status itself.
+async function buildPrepareApplicationRequest(args = {}, db = prisma) {
+  assertNonEmptyString(args.uuid, "uuid");
+  if (
+    typeof args.applicationNotes !== "string" ||
+    args.applicationNotes.length === 0
+  )
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      "applicationNotes must be a non-empty string.",
+      { status: 422 }
+    );
+  if (Buffer.byteLength(args.applicationNotes, "utf8") > MAX_APPLICATION_NOTES_BYTES)
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      "applicationNotes exceeds the governed Career entry size limit.",
+      { status: 422 }
+    );
+  const row = await db.yusuf_career_opportunities.findUnique({
+    where: { uuid: args.uuid },
+  });
+  if (!row)
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Unknown career opportunity: ${args.uuid}`,
+      { status: 422 }
+    );
+  if (row.status !== CAREER_OPPORTUNITY_STATUSES.RESEARCHING)
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      `An application can only be drafted while an opportunity is still RESEARCHING (current status: ${row.status}).`,
+      { status: 422 }
+    );
+  return {
+    resource: { type: RESOURCE_TYPE, id: args.uuid, version: row.digest },
+    target: { uuid: args.uuid, status: row.status },
+    payload: { applicationNotes: args.applicationNotes },
+    environment: "LOCAL",
+  };
+}
+
 module.exports = {
   RESOURCE_TYPE,
   buildReadRequest,
   buildRecordOpportunityRequest,
   buildUpdateStatusRequest,
+  buildPrepareApplicationRequest,
 };

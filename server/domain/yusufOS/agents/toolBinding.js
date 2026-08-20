@@ -83,6 +83,8 @@ const CAPABILITY_BUILDERS = Object.freeze({
     careerBuilders.buildRecordOpportunityRequest(args),
   "career.update_status": (args, db) =>
     careerBuilders.buildUpdateStatusRequest(args, db),
+  "career.prepare_application": (args, db) =>
+    careerBuilders.buildPrepareApplicationRequest(args, db),
   "marketing.read_content": (args) => marketingBuilders.buildReadRequest(args),
   "marketing.record_content": (args) =>
     marketingBuilders.buildRecordContentRequest(args),

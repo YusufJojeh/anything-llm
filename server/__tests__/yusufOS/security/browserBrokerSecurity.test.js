@@ -18,6 +18,7 @@ const {
   AGENT_DEFINITIONS,
   isCapabilityAllowedForAgent,
 } = require("../../../domain/yusufOS/agents/definitions");
+const { AGENT_KEYS } = require("../../../domain/yusufOS/constants");
 const {
   adapterForCapability,
 } = require("../../../domain/yusufOS/agents/toolBinding");
@@ -364,9 +365,13 @@ describe("Browser Broker — governed mutation (Phase I)", () => {
     expect(Object.keys(FORMS)).toEqual([]);
   });
 
-  test("no Agent role may hold browser.submit_form yet", () => {
-    for (const agentKey of Object.keys(AGENT_DEFINITIONS))
-      expect(isCapabilityAllowedForAgent(agentKey, "browser.submit_form")).toBe(false);
+  test("only Career holds browser.submit_form (Phase Q's application-submission seam)", () => {
+    for (const agentKey of Object.keys(AGENT_DEFINITIONS)) {
+      const expected = agentKey === AGENT_KEYS.CAREER;
+      expect(isCapabilityAllowedForAgent(agentKey, "browser.submit_form")).toBe(
+        expected
+      );
+    }
   });
 });
 
@@ -381,12 +386,15 @@ describe("Browser Broker — reachable but not yet granted", () => {
     });
   });
 
-  test("no Agent role may hold a browser capability yet", () => {
+  test("no Agent role may hold a browser read capability, and only Career may hold browser.submit_form", () => {
     // Reachability and authority are separate. The code-owned role allowlists
-    // grant none of these, so `assertGrantAllowed` refuses every grant until the
-    // Agent that actually needs browser reads is introduced with them.
+    // grant none of the read capabilities yet. browser.submit_form is the one
+    // deliberate exception (Phase Q, docs/yusuf-os/gate-b/application-submission.md).
     for (const agentKey of Object.keys(AGENT_DEFINITIONS))
-      for (const capability of BROWSER_CAPABILITIES)
-        expect(isCapabilityAllowedForAgent(agentKey, capability)).toBe(false);
+      for (const capability of BROWSER_CAPABILITIES) {
+        const expected =
+          capability === "browser.submit_form" && agentKey === AGENT_KEYS.CAREER;
+        expect(isCapabilityAllowedForAgent(agentKey, capability)).toBe(expected);
+      }
   });
 });
