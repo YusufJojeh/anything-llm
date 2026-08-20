@@ -592,6 +592,110 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SERVER_KEY",
     hardFlags: [],
   }),
+
+  // --- Phase P: Sales/Inbox ---------------------------------------------------
+  // Durable tracking of inbound messages and local-only reply drafting. No
+  // live email provider, no send/reply/archive against a real account — see
+  // docs/yusuf-os/gate-b/sales-inbox.md. gmail.send_reply/archive_thread/
+  // apply_label are explicitly NOT built here.
+  "inbox.list_messages": definition({
+    key: "inbox.list_messages",
+    domain: "inbox",
+    description: "List inbox messages by uuid or status.",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "inbox.read_message": definition({
+    key: "inbox.read_message",
+    domain: "inbox",
+    description: "Read one inbox message by uuid.",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "inbox.record_message": definition({
+    key: "inbox.record_message",
+    domain: "inbox",
+    description:
+      "Ingest a new inbox message locally. Always starts at status NEW. Not a live email fetch.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
+  "inbox.classify_message": definition({
+    key: "inbox.classify_message",
+    domain: "inbox",
+    description:
+      "Assert a closed-enum classification (OPPORTUNITY/INTERVIEW/REJECTION/BOUNCE/OTHER) for a message and optionally link an existing Career opportunity uuid. Never creates a Career row.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
+  "inbox.prepare_reply": definition({
+    key: "inbox.prepare_reply",
+    domain: "inbox",
+    description:
+      "Store a local-only draft reply body. Never sends, replies, or reaches any external provider.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L2,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
+  "inbox.archive_local": definition({
+    key: "inbox.archive_local",
+    domain: "inbox",
+    description:
+      "Mark a message archived in local bookkeeping only. Never a real provider archive action (see gmail.archive_thread, not built this phase).",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
+  // The Career integration seam, enforced in code rather than by agent
+  // instruction: the raw career.update_status capability takes any
+  // opportunity uuid with no awareness of how it was discovered, so Inbox is
+  // never granted it directly (see AGENT_DEFINITIONS.INBOX). This is the
+  // only capability Inbox holds into Career's state machine, and it only
+  // succeeds when the target opportunity is the one actually linked (via
+  // inbox.classify_message) from a message classified INTERVIEW or
+  // REJECTION — enforced independently by both the request builder and the
+  // adapter's execute()-time recheck, not left to the model's own judgment.
+  "inbox.advance_linked_career_status": definition({
+    key: "inbox.advance_linked_career_status",
+    domain: "inbox",
+    description:
+      "Advance the Career opportunity linked to a classified inbox message (classification must be INTERVIEW or REJECTION). Refuses any opportunity uuid not actually linked from that message.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L2,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
 });
 
 const HARD_FORBIDDEN = Object.freeze([

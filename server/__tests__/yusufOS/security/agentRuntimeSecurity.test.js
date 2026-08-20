@@ -120,6 +120,35 @@ describe("Gate E — agent capability isolation", () => {
     [AGENT_KEYS.RESEARCH, "career.update_status"],
     [AGENT_KEYS.RESEARCH, "marketing.update_status"],
     [AGENT_KEYS.RESEARCH, "founder.update_status"],
+    [AGENT_KEYS.REVIEWER, "inbox.classify_message"],
+    [AGENT_KEYS.ENGINEERING, "inbox.classify_message"],
+    [AGENT_KEYS.CHIEF_OF_STAFF, "inbox.classify_message"],
+    [AGENT_KEYS.MONITORING, "inbox.record_message"],
+    [AGENT_KEYS.CAREER, "inbox.record_message"],
+    [AGENT_KEYS.MARKETING, "inbox.record_message"],
+    [AGENT_KEYS.FOUNDER, "inbox.record_message"],
+    [AGENT_KEYS.RESEARCH, "inbox.record_message"],
+    [AGENT_KEYS.INBOX, "project.write_file"],
+    [AGENT_KEYS.INBOX, "git.commit_local"],
+    [AGENT_KEYS.INBOX, "git.push_feature_branch"],
+    [AGENT_KEYS.INBOX, "browser.submit_form"],
+    [AGENT_KEYS.INBOX, "memory.write"],
+    [AGENT_KEYS.INBOX, "monitoring.record_check"],
+    [AGENT_KEYS.INBOX, "marketing.update_status"],
+    [AGENT_KEYS.INBOX, "founder.update_status"],
+    [AGENT_KEYS.INBOX, "research.update_status"],
+    // Inbox is never granted the raw career.update_status capability — that
+    // builder accepts any opportunity uuid with no linkage awareness. The
+    // Career integration seam is instead inbox.advance_linked_career_status
+    // (see docs/yusuf-os/gate-b/sales-inbox.md), which enforces the linkage
+    // and classification precondition server-side. career.record_opportunity
+    // stays refused too: Inbox may move an existing opportunity, never
+    // create one.
+    [AGENT_KEYS.INBOX, "career.update_status"],
+    [AGENT_KEYS.INBOX, "career.record_opportunity"],
+    [AGENT_KEYS.CAREER, "inbox.advance_linked_career_status"],
+    [AGENT_KEYS.REVIEWER, "inbox.advance_linked_career_status"],
+    [AGENT_KEYS.ENGINEERING, "inbox.advance_linked_career_status"],
   ])("granting %s the %s capability is refused", (agentKey, capabilityKey) => {
     expect(() => assertGrantAllowed(agentKey, capabilityKey)).toThrow();
   });
@@ -172,6 +201,23 @@ describe("Gate E — agent capability isolation", () => {
       ).toBeNull();
       expect(capability).not.toBe("memory.write");
     }
+  });
+
+  test("Inbox holds no project, git, browser, career, marketing, founder, research, or memory-write capability, and never the raw career.update_status", () => {
+    const inbox = getAgentDefinition(AGENT_KEYS.INBOX);
+    for (const capability of inbox.allowedCapabilities) {
+      expect(
+        capability.match(
+          /^(project\.|git\.|browser\.|monitoring\.|career\.|marketing\.|founder\.|research\.)/
+        )
+      ).toBeNull();
+      expect(capability).not.toBe("memory.write");
+    }
+    expect(inbox.allowedCapabilities).toContain(
+      "inbox.advance_linked_career_status"
+    );
+    expect(inbox.allowedCapabilities).not.toContain("career.update_status");
+    expect(inbox.allowedCapabilities).not.toContain("career.record_opportunity");
   });
 
   test("a Reviewer toolset exposes no mutation tool, and invoking one is denied", async () => {

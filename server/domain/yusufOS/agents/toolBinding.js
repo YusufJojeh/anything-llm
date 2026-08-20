@@ -18,6 +18,7 @@ const { CareerAdapter } = require("../adapters/career/CareerAdapter");
 const { MarketingAdapter } = require("../adapters/marketing/MarketingAdapter");
 const { FounderAdapter } = require("../adapters/founder/FounderAdapter");
 const { ResearchAdapter } = require("../adapters/research/ResearchAdapter");
+const { InboxAdapter } = require("../adapters/inbox/InboxAdapter");
 const localGitBuilders = require("../adapters/localGit/requestBuilders");
 const projectBuilders = require("../adapters/project/requestBuilders");
 const browserBuilders = require("../adapters/browser/requestBuilders");
@@ -29,6 +30,7 @@ const careerBuilders = require("../adapters/career/requestBuilders");
 const marketingBuilders = require("../adapters/marketing/requestBuilders");
 const founderBuilders = require("../adapters/founder/requestBuilders");
 const researchBuilders = require("../adapters/research/requestBuilders");
+const inboxBuilders = require("../adapters/inbox/requestBuilders");
 const { getAgentDefinition } = require("./definitions");
 const { YusufOSError, ErrorCodes } = require("../errors/YusufOSError");
 
@@ -96,6 +98,18 @@ const CAPABILITY_BUILDERS = Object.freeze({
     researchBuilders.buildRecordItemRequest(args),
   "research.update_status": (args, db) =>
     researchBuilders.buildUpdateStatusRequest(args, db),
+  "inbox.list_messages": (args) => inboxBuilders.buildReadRequest(args),
+  "inbox.read_message": (args) => inboxBuilders.buildReadRequest(args),
+  "inbox.record_message": (args) =>
+    inboxBuilders.buildRecordMessageRequest(args),
+  "inbox.classify_message": (args, db) =>
+    inboxBuilders.buildClassifyMessageRequest(args, db),
+  "inbox.prepare_reply": (args, db) =>
+    inboxBuilders.buildPrepareReplyRequest(args, db),
+  "inbox.archive_local": (args, db) =>
+    inboxBuilders.buildArchiveLocalRequest(args, db),
+  "inbox.advance_linked_career_status": (args, db) =>
+    inboxBuilders.buildAdvanceLinkedCareerStatusRequest(args, db),
 });
 
 function adapterForCapability(capabilityKey, db) {
@@ -118,6 +132,7 @@ function adapterForCapability(capabilityKey, db) {
     return new MarketingAdapter({ db });
   if (capabilityKey.startsWith("founder.")) return new FounderAdapter({ db });
   if (capabilityKey.startsWith("research.")) return new ResearchAdapter({ db });
+  if (capabilityKey.startsWith("inbox.")) return new InboxAdapter({ db });
   throw new YusufOSError(
     ErrorCodes.POLICY_DENIED,
     `No governed adapter is registered for ${capabilityKey}.`,

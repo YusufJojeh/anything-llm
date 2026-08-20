@@ -68,6 +68,14 @@ const RESEARCH = Object.freeze({
   memberAgentKeys: Object.freeze([AGENT_KEYS.RESEARCH]),
 });
 
+const SALES = Object.freeze({
+  key: DEPARTMENT_KEYS.SALES,
+  name: "Sales & Inbox",
+  mission:
+    "Triage inbound messages as durable, honestly-transitioned local records and prepare local-only reply drafts.",
+  memberAgentKeys: Object.freeze([AGENT_KEYS.INBOX]),
+});
+
 const DEPARTMENTS = Object.freeze({
   [DEPARTMENT_KEYS.SYSTEM_CORE]: SYSTEM_CORE,
   [DEPARTMENT_KEYS.ENGINEERING]: ENGINEERING,
@@ -76,6 +84,7 @@ const DEPARTMENTS = Object.freeze({
   [DEPARTMENT_KEYS.MARKETING]: MARKETING,
   [DEPARTMENT_KEYS.FOUNDER]: FOUNDER,
   [DEPARTMENT_KEYS.RESEARCH]: RESEARCH,
+  [DEPARTMENT_KEYS.SALES]: SALES,
 });
 
 function getDepartment(key) {
@@ -102,6 +111,7 @@ module.exports = {
   MARKETING,
   FOUNDER,
   RESEARCH,
+  SALES,
   getDepartment,
   listDepartments,
   departmentForAgent,

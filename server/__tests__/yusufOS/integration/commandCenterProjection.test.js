@@ -92,8 +92,8 @@ describe("Gate F — Command Center projections", () => {
       emergencyStop: false,
       pendingReconciliation: 0,
     });
-    // Eight seeded agents (Phase K adds Monitoring, Phase L adds Career, Phase M adds Marketing, Phase N adds Founder, Phase O adds Research), all idle — not "busy" placeholders.
-    expect(body.agentStatuses).toHaveLength(8);
+    // Nine seeded agents (Phase K adds Monitoring, Phase L adds Career, Phase M adds Marketing, Phase N adds Founder, Phase O adds Research, Phase P adds Inbox), all idle — not "busy" placeholders.
+    expect(body.agentStatuses).toHaveLength(9);
     expect(body.agentStatuses.every((a) => a.status === "IDLE")).toBe(true);
     expect(body.approvalAttentionQueue).toEqual([]);
     expect(body.activeHandoffs).toEqual([]);

@@ -61,6 +61,7 @@ const AGENT_KEYS = Object.freeze({
   MARKETING: "marketing",
   FOUNDER: "founder",
   RESEARCH: "research",
+  INBOX: "inbox",
 });
 
 const DEPARTMENT_KEYS = Object.freeze({
@@ -71,6 +72,7 @@ const DEPARTMENT_KEYS = Object.freeze({
   MARKETING: "marketing",
   FOUNDER: "founder",
   RESEARCH: "research",
+  SALES: "sales",
 });
 
 // Orchestration-only label describing how freely an Agent may plan/delegate
@@ -197,6 +199,26 @@ const RESEARCH_ITEM_STATUSES = Object.freeze({
   ABANDONED: "ABANDONED",
 });
 
+// Phase P. A new inbox message always starts NEW (inbox.record_message
+// refuses any other initial value), same discipline as every prior tracking
+// phase's forced start. See docs/yusuf-os/gate-b/sales-inbox.md.
+const INBOX_MESSAGE_STATUSES = Object.freeze({
+  NEW: "NEW",
+  TRIAGED: "TRIAGED",
+  DRAFTED: "DRAFTED",
+  ARCHIVED_LOCAL: "ARCHIVED_LOCAL",
+});
+
+// Phase P. A closed vocabulary the model asserts a judgment from — the same
+// trust tier as Knowledge's asserted facts, never a state-machine status.
+const INBOX_CLASSIFICATIONS = Object.freeze({
+  OPPORTUNITY: "OPPORTUNITY",
+  INTERVIEW: "INTERVIEW",
+  REJECTION: "REJECTION",
+  BOUNCE: "BOUNCE",
+  OTHER: "OTHER",
+});
+
 const INTENT_STATUSES = Object.freeze({
   INTENT_CREATED: "INTENT_CREATED",
   POLICY_EVALUATED: "POLICY_EVALUATED",
@@ -263,6 +285,8 @@ module.exports = {
   MARKETING_CONTENT_STATUSES,
   FOUNDER_VENTURE_STATUSES,
   RESEARCH_ITEM_STATUSES,
+  INBOX_MESSAGE_STATUSES,
+  INBOX_CLASSIFICATIONS,
   INTENT_STATUSES,
   APPROVAL_STATUSES,
   POLICY_OUTCOMES,

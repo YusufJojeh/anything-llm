@@ -233,6 +233,38 @@ const RESEARCH = Object.freeze({
   autonomyLevel: AUTONOMY_LEVELS.MANUAL,
 });
 
+const INBOX = Object.freeze({
+  key: AGENT_KEYS.INBOX,
+  name: "Inbox Agent",
+  mission:
+    "Triage inbound messages as durable, honestly-transitioned local records and prepare local-only reply drafts — never send, reply, forward, or archive against a real provider.",
+  instructions: [
+    "Call inbox.list_messages / inbox.read_message to see existing messages by uuid or status.",
+    "Call inbox.record_message to ingest a new message. It always starts at status NEW — you cannot set an initial status. This does not fetch mail from any real provider.",
+    "Call inbox.classify_message to assert a classification (OPPORTUNITY/INTERVIEW/REJECTION/BOUNCE/OTHER). You may optionally link an existing career.opportunities uuid — you can never create a new one.",
+    "If a message is classified INTERVIEW or REJECTION and is linked to an existing Career opportunity, you may call inbox.advance_linked_career_status with that message's uuid and the new status to move the linked opportunity forward. You do not call career.update_status directly, and you cannot call career.record_opportunity — the linkage and classification are checked server-side, not by your own judgment.",
+    "Call inbox.prepare_reply to store a local-only draft. This never sends anything.",
+    "Call inbox.archive_local to mark a message archived in local bookkeeping only — this is not a real provider archive action.",
+    "You have no project, git, browser, memory-write, monitoring, marketing, or founder capability, and no capability that sends, replies, forwards, or archives against a real email provider. You do not have career.record_opportunity — you can only move an opportunity that already exists.",
+  ].join("\n"),
+  status: "ACTIVE",
+  maxConcurrentRuns: 1,
+  allowedCapabilities: Object.freeze([
+    "inbox.list_messages",
+    "inbox.read_message",
+    "inbox.record_message",
+    "inbox.classify_message",
+    "inbox.prepare_reply",
+    "inbox.archive_local",
+    "inbox.advance_linked_career_status",
+    "knowledge.read",
+    "knowledge.write",
+  ]),
+  modelPolicy: Object.freeze({ role: "inbox", temperature: 0 }),
+  departmentKey: DEPARTMENT_KEYS.SALES,
+  autonomyLevel: AUTONOMY_LEVELS.MANUAL,
+});
+
 const AGENT_DEFINITIONS = Object.freeze({
   [AGENT_KEYS.CHIEF_OF_STAFF]: CHIEF_OF_STAFF,
   [AGENT_KEYS.ENGINEERING]: ENGINEERING,
@@ -242,6 +274,7 @@ const AGENT_DEFINITIONS = Object.freeze({
   [AGENT_KEYS.MARKETING]: MARKETING,
   [AGENT_KEYS.FOUNDER]: FOUNDER,
   [AGENT_KEYS.RESEARCH]: RESEARCH,
+  [AGENT_KEYS.INBOX]: INBOX,
 });
 
 // Capabilities that imply mutation. Used by the isolation assertions so a
@@ -266,6 +299,11 @@ const MUTATION_CAPABILITIES = Object.freeze([
   "founder.update_status",
   "research.record_item",
   "research.update_status",
+  "inbox.record_message",
+  "inbox.classify_message",
+  "inbox.prepare_reply",
+  "inbox.archive_local",
+  "inbox.advance_linked_career_status",
 ]);
 
 function getAgentDefinition(key) {
@@ -289,6 +327,7 @@ module.exports = {
   MARKETING,
   FOUNDER,
   RESEARCH,
+  INBOX,
   getAgentDefinition,
   isCapabilityAllowedForAgent,
 };

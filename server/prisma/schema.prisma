@@ -1087,6 +1087,25 @@ model yusuf_research_items {
   @@index([status, createdAt])
 }
 
+model yusuf_inbox_messages {
+  id                          Int      @id @default(autoincrement())
+  uuid                        String   @unique
+  sender                      String
+  subject                     String
+  snippet                     String?
+  classification              String?
+  status                      String
+  draftReplyBody              String?
+  linkedCareerOpportunityUuid String?
+  createdByPrincipalType      String
+  createdByPrincipalId        String
+  digest                      String
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @default(now()) @updatedAt
+
+  @@index([status, createdAt])
+}
+
 model yusuf_security_settings {
   id        Int      @id @default(autoincrement())
   key       String   @unique
