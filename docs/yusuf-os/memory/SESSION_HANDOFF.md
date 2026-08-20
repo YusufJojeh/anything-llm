@@ -1,5 +1,56 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-20 — Phase P: Sales/Inbox (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
+
+**What was done:** Yusuf explicitly authorized "CONTINUE SALES/INBOX" with five hard requirements
+(verbatim preserved in the design note and in this session's transcript): split read from
+mutation with sending/replying/forwarding/archiving reserved for a future L3 external-mutation
+phase; build semantic capabilities, not generic mail/browser commands; require identity/thread
+binding before any future send; do not build a second Career database; and require independent
+review to attack the send-specific attack surface even though no send capability exists yet.
+Wrote `docs/yusuf-os/gate-b/sales-inbox.md`, implemented an Inbox Department/Agent that tracks
+inbound messages through a code-owned transition table (`NEW -> TRIAGED -> DRAFTED ->
+ARCHIVED_LOCAL`, with `TRIAGED->TRIAGED` as a reclassification self-loop) and a new
+`yusuf_inbox_messages` table with untrusted-content redaction on every write.
+
+**One thing worth carrying forward — the Career integration seam needed a real fix, not just a
+design decision.** The first draft granted Inbox the existing `career.update_status` capability
+directly, reasoning that requiring a pre-existing link via `inbox.classify_message` was enough.
+Independent review correctly identified this as a P1: `career.update_status`'s request builder has
+no parameter for and no awareness of `linkedCareerOpportunityUuid` — it accepts any opportunity
+uuid the caller supplies, so the "seam" was actually enforced only by the Agent's own instructions,
+not by Policy or a request builder. This is precisely the failure mode Yusuf OS's core invariant
+exists to prevent (no side effect without passing through code-owned validation), and it slipped
+through my own design/implementation pass despite writing this being the *sixth* phase using this
+same tracking-adapter pattern — self-review missed it exactly as the standing lesson predicts.
+Fixed by building a new capability, `inbox.advance_linked_career_status`, that takes an inbox
+*message* uuid rather than an opportunity uuid, so there is structurally no argument through which
+a caller can name an unlinked opportunity — both the request builder and `InboxAdapter.execute()`
+independently re-derive and re-check the message's linkage, classification, and the opportunity's
+transition legality from fresh reads before writing. Two new adversarial tests confirm this holds.
+**Lesson for future cross-domain grants:** when a design note claims "Agent X gains no special or
+looser path into Y's state machine," verify that claim against the actual request builder's
+parameter list, not just against the fact that X was required to link something earlier — a
+capability that accepts a raw target id from the caller, with no server-side re-derivation of how
+that id was obtained, is not actually constrained by an unrelated earlier validation step.
+
+**Independent review found this one real P1** (see above) and confirmed everything else clean: no
+real send/reply/forward/archive surface exists anywhere (confirmed by grep for `gmail.`); no
+model-supplied-status/classification bypass; TOCTOU rechecks hold at both checkpoints; redaction
+reuse is correctly applied to every persisted write, not just claimed; digest consistency;
+structural capability isolation; migration/schema/constants alignment.
+
+**Evidence:** 70 server suites / **903 tests** (was 68/859). Local commit `c7a74bb2`.
+
+**Exact next action:** whatever comes after Sales/Inbox in the CAVEMAN MODE order — check
+`DEFERRED_WORK.md` for the current implementation-order list before assuming; Yusuf's own framing
+suggests Career/Marketing wiring refinement and then a real end-to-end scenario (Job found ->
+Research -> Career -> Evidence check -> Application prepared -> Needs Yusuf -> Approval -> Browser
+-> Submission verification -> Inbox monitors reply -> Career state updated -> Command Center) are
+the intended near-term direction, but this was stated as coming "after Sales/Inbox and
+Career/Marketing," not as the literal next single phase.
+
+
 ## 2026-08-20 — Phase O: Research (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
 
 **What was done:** Yusuf explicitly said "Continue to Phase O (Research), full vertical slice."

@@ -1,5 +1,76 @@
 # Gate History
 
+## Phase P — Sales/Inbox — 2026-08-20 — PASS (one P1 found and fixed)
+
+Gives Yusuf OS durable local-only inbound-message tracking and reply drafting, per Yusuf's explicit
+five-requirement "CONTINUE SALES/INBOX" instruction. Design note:
+`docs/yusuf-os/gate-b/sales-inbox.md` (revised post-review).
+
+### What was built
+
+- **`yusuf_inbox_messages`** (new table, additive migration `20260820180000_add_yusuf_os_inbox`) —
+  `sender`, `subject`, `snippet` (nullable), `classification` (nullable, five-value CHECK),
+  `status` (four-value CHECK), `draftReplyBody` (nullable), `linkedCareerOpportunityUuid`
+  (nullable), `digest`, principal attribution, unique `uuid`. First phase table with two separate
+  CHECK-constrained columns.
+- Six local-only capabilities (`inbox.list_messages`, `inbox.read_message`,
+  `inbox.record_message`, `inbox.classify_message`, `inbox.prepare_reply`, `inbox.archive_local`)
+  plus one cross-domain seam capability (`inbox.advance_linked_career_status`, added during the
+  P1 fix below).
+- Transition table with a self-loop (`TRIAGED->TRIAGED` reclassification), the first phase whose
+  one non-forward edge is a self-loop rather than a true backward edge.
+- Untrusted-content redaction (`redactForPersistence`) applied to every persisted email field —
+  the first adapter to treat its own input as attacker-influenceable text.
+
+### Independent review finding — P1, fixed before commit
+
+**The Career integration seam was not actually enforced in code.** The original design granted
+Inbox the raw `career.update_status` capability (an existing Phase L capability from a different
+domain), reasoning that Inbox could only reach it after linking a Career opportunity via
+`inbox.classify_message`. Independent review determined this reasoning was false:
+`career.update_status`'s request builder takes a target uuid directly from the caller's arguments
+and has no parameter for, and no awareness of, `linkedCareerOpportunityUuid` at all. Nothing
+prevented the Inbox Agent from calling `career.update_status` on any opportunity uuid whatsoever —
+one it never linked, one linked to an unrelated message, or a uuid it merely hallucinated or read
+out of attacker-influenceable email content that happened to exist and have a legal transition.
+The only thing actually stopping this was the free-text instruction in the Agent's mission prompt,
+which is advisory, not enforced — precisely the class of gap the system's core invariant ("no
+agent may cause a side effect without passing through Policy") exists to prevent.
+
+**Fix:** replaced the `career.update_status` grant with a new capability,
+`inbox.advance_linked_career_status`, that takes an **inbox message uuid** as its argument, not a
+career opportunity uuid — structurally removing the caller's ability to name an arbitrary target.
+Both the request builder (`buildAdvanceLinkedCareerStatusRequest`) and `InboxAdapter.execute()`
+independently re-derive, from fresh reads, that: the message exists; its
+`linkedCareerOpportunityUuid` is set; its `classification` is `INTERVIEW` or `REJECTION`; the
+linked opportunity exists; and the requested status is a legal transition for that opportunity —
+before any write to `yusuf_career_opportunities`. Two new adversarial tests confirm this:
+(1) the seam capability has no argument to substitute a different opportunity uuid — it always
+resolves the target from the message's own linkage; (2) advancing a linked opportunity is refused
+when the message's classification is not `INTERVIEW`/`REJECTION` (e.g. `OPPORTUNITY`). Design
+note, `agentRuntimeSecurity.test.js`, and `CURRENT_GATE.md` all updated to match. This is the first
+phase in the L/M/N/O/P run where independent review caught a real security gap rather than
+confirming a clean design, and it happened in the newest, most novel piece of the design (the
+cross-domain grant), not in the repeated tracking-adapter boilerplate — worth remembering for any
+future cross-domain capability grant.
+
+### Everything else reviewed — clean
+
+No real send/reply/forward/archive/label-apply path exists anywhere against a real provider
+(confirmed by grepping for `gmail.` across the repo — the only hits are pre-existing, unrelated
+upstream AnythingLLM UI files, never wired into the Yusuf OS registry or adapters). Server-forced
+initial `NEW` status and `null` classification on `inbox.record_message` cannot be overridden by
+model input. `inbox.classify_message`'s classification enum is closed. TOCTOU rechecks hold at
+both the request-builder and adapter-execute checkpoints for classify/prepare_reply/archive_local.
+Redaction is applied consistently to every persisted write and folded into digest computation.
+`inbox.prepare_reply` requires prior classification and never produces anything resembling a
+"sent" state. Migration/schema/constants CHECK-constraint alignment confirmed exact. Capability
+isolation confirmed structurally via `agentRuntimeSecurity.test.js`, including the explicit
+refusal of `career.record_opportunity` to Inbox (unchanged from the original design) and, after
+the fix, the explicit refusal of the raw `career.update_status` to Inbox as well.
+
+**Result:** 70 suites / 903 tests. Local commit `c7a74bb2`. Memory commit pending (this commit).
+
 ## Phase O — Research — 2026-08-20 — PASS
 
 Gives Yusuf OS a durable, honestly-transitioned record of research questions Yusuf is investigating

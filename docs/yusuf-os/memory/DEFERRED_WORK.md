@@ -1,5 +1,36 @@
 # Deferred Work
 
+## Deferred after Phase P (Sales/Inbox) — 2026-08-20
+
+Phase P is **done** — see `CURRENT_GATE.md`. Still deferred:
+
+- **Any live email connection** — no IMAP/Gmail API/SMTP wiring exists; Inbox tracks messages a
+  human or Agent tells it about, same "no automation yet" shape as Career's job-board integration
+  and Marketing's publishing integration.
+- **`gmail.send_reply`/`gmail.archive_thread`/`gmail.apply_label`** — named in the design note's
+  risk table as forward-looking placeholders only. Building any of them requires satisfying the
+  full send-specific attack checklist pre-recorded in `docs/yusuf-os/gate-b/sales-inbox.md` (wrong-
+  account send, wrong-thread reply, recipient substitution, BCC/CC injection, reply-all expansion,
+  HTML/prompt injection, malicious email content, attachment/path leakage, duplicate send,
+  `FAILED_UNKNOWN` send, message-id spoofing, draft mistaken for sent, model-generated recipients,
+  auto-send from an `AUTONOMOUS` Agent, scheduled-send bypass) plus full identity/thread/recipient/
+  body-digest binding on the approval per Yusuf's requirement 3 — a separate, larger decision, not
+  a small extension of this phase.
+- **No retention on `yusuf_inbox_messages`** — same accepted gap already left on Career/Marketing/
+  Founder/Research/Knowledge/Memory/Monitoring, not re-litigated here.
+- **No Command Center UI surfacing** of inbox messages — backend-only this phase.
+- **A second cross-domain seam capability of this shape** — `inbox.advance_linked_career_status` is
+  the first of its kind (an Agent writing into another domain's table via a narrow, code-enforced
+  capability rather than a raw grant). If a future phase needs a similar seam (e.g. Marketing
+  learning of a lead from Inbox), design it the same way — resolve the target from the *source*
+  record's own validated linkage, never accept the target id as a raw caller-supplied argument —
+  rather than granting the target domain's raw update capability directly.
+- **Everything after Sales/Inbox in the CAVEMAN MODE order** — Integrations, Model routing/cost,
+  Command Center expansion, security/reliability hardening, release/ops, and the end-to-end
+  scenario Yusuf described (Job found -> Research -> Career -> Evidence check -> Application
+  prepared -> Needs Yusuf -> Approval -> Browser -> Submission verification -> Inbox monitors reply
+  -> Career state updated -> Command Center) — not started.
+
 ## Deferred after Phase O (Research) — 2026-08-20
 
 Phase O is **done** — see `CURRENT_GATE.md`. Still deferred:

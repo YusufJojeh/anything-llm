@@ -1,5 +1,55 @@
 # Test Baseline
 
+## Phase P (Sales/Inbox) [VERIFIED_BY_TEST — 2026-08-20]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server --maxWorkers=2
+```
+→ **70 suites, 903 tests, 0 failed** (was 68 / 859; adds 2 suites, 44 tests — includes the two
+extra adversarial seam tests added after independent review's P1 fix, beyond the original count).
+
+New files:
+- `server/__tests__/yusufOS/integration/inboxLifecycle.test.js` — 13 tests through the real
+  governed chain: record always starts at `NEW`/`null` classification; classify moves to `TRIAGED`
+  and records the classification; the `TRIAGED->TRIAGED` self-loop reclassification succeeds;
+  prepare_reply requires prior classification (rejects then succeeds); no send/reply/forward tool
+  name exists in the Inbox toolset; archive_local is terminal; unknown message/linked-Career uuids
+  are rejected before any write; the Career integration seam (Career Agent creates+advances an
+  opportunity, Inbox Agent links it via classify_message, Inbox Agent itself advances it via
+  `inbox.advance_linked_career_status`, asserting `career.record_opportunity` and the raw
+  `career.update_status` are both absent from Inbox's toolset); **two adversarial seam tests added
+  after independent review** — the seam capability has no argument to substitute a different
+  opportunity uuid, and advancing a linked opportunity is refused unless the message's
+  classification is INTERVIEW or REJECTION; reading by status/uuid.
+- `server/__tests__/yusufOS/unit/inboxTransitions.test.js` — 8 tests of the pure `isValidTransition`
+  logic, including a dedicated test separating the one self-loop (`TRIAGED->TRIAGED`) from true
+  backward edges (none exist) — designed in from the start per the Founder-phase test-bug lesson.
+- `organizationModel.test.js` updated: eight Departments now (was seven).
+- `agentRuntimeSecurity.test.js` gained rows refusing other agents `inbox.*`, refusing Inbox any
+  project/git/browser/memory-write/monitoring/marketing/founder/research capability, explicitly
+  refusing Inbox both `career.record_opportunity` **and the raw `career.update_status`** (the
+  post-review correction), and refusing Career/Reviewer/Engineering a grant of
+  `inbox.advance_linked_career_status`, plus a direct role-definition assertion.
+- `commandCenterGateway.test.js`/`commandCenterProjection.test.js` updated from 8 to 9 expected
+  seeded agents (Inbox is now real and seeded by `ensureCoreStaff`).
+- `migrationSafety.test.js` updated to expect the new migration in the applied-migrations list.
+
+New migration: `20260820180000_add_yusuf_os_inbox` — additive `yusuf_inbox_messages` table (two
+separate DB-level `CHECK` constraints: `status` and nullable `classification`).
+
+**Independent review found one real P1, fixed before commit** — see `GATE_HISTORY.md` and
+`CURRENT_GATE.md` for the full account. The original design granted Inbox the raw
+`career.update_status` capability directly; review found the linkage-to-Career enforcement was
+advisory (agent instruction only), not code-enforced. Fixed by replacing the grant with a new,
+narrower `inbox.advance_linked_career_status` capability that takes an inbox message uuid (not an
+opportunity uuid) and independently re-derives/re-checks linkage, classification, and transition
+legality from fresh reads at both the request-builder and adapter-execute checkpoints. Everything
+else reviewed held up clean: no real send/reply/forward/archive surface exists anywhere (confirmed
+by grep); server-forced initial status/null classification; closed classification enum; TOCTOU
+rechecks; redaction reuse confirmed applied to every persisted write; digest consistency;
+structural capability isolation; migration/schema/constants alignment.
+
 ## Phase O (Research) [VERIFIED_BY_TEST — 2026-08-20]
 
 ```bash

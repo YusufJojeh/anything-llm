@@ -1,5 +1,97 @@
 # Current Gate
 
+## Phase P — Sales/Inbox — status: COMPLETE
+
+**Objective:** durable local-only inbound-message tracking and reply drafting, per Yusuf's explicit
+"CONTINUE SALES/INBOX" instruction with five hard requirements (read/mutation split, semantic
+capabilities not generic mail/browser commands, identity/thread binding before any future send,
+no second Career database, adversarial review of the send-specific attack surface even though no
+send capability is built yet).
+**Design note:** `docs/yusuf-os/gate-b/sales-inbox.md` (revised after independent review — see
+below).
+**Implemented:**
+- **`yusuf_inbox_messages`** (new table) — `sender`, `subject`, `snippet`, `classification`
+  (nullable, five-value CHECK), `status` (four-value CHECK), `draftReplyBody`,
+  `linkedCareerOpportunityUuid`, `digest`, principal attribution. First phase table with two
+  separate CHECK-constrained columns on one table.
+- **`inbox.list_messages` / `inbox.read_message`** (READ, L0, ALLOW).
+- **`inbox.record_message`** (LOCAL_WRITE, L1, ALLOW) — always starts at `NEW` with
+  `classification: null` regardless of model input (test-proven). Not a live email fetch.
+- **`inbox.classify_message`** (LOCAL_WRITE, L1, ALLOW) — closed-enum classification
+  (`OPPORTUNITY`/`INTERVIEW`/`REJECTION`/`BOUNCE`/`OTHER`), optional link to an *existing* Career
+  opportunity uuid (validated to exist; never creates one). Consolidates the user-spec-named
+  `detect_interview`/`detect_rejection`/`detect_bounce`/`extract_opportunity` into one capability
+  with a closed enum — a deliberate simplification citing Yusuf's own capability-sprawl warning.
+- **`inbox.prepare_reply`** (LOCAL_WRITE, **L2**, ALLOW) — stores a local-only draft; requires
+  prior classification; never sends anything to any provider.
+- **`inbox.archive_local`** (LOCAL_WRITE, L1, ALLOW) — local bookkeeping only, explicitly not a
+  real provider archive (`_local` suffix deliberately distinguishes it from a future
+  `gmail.archive_thread`).
+- **Transition table** (`inbox/transitions.js`): `NEW -> TRIAGED|ARCHIVED_LOCAL`,
+  `TRIAGED -> TRIAGED(self-loop)|DRAFTED|ARCHIVED_LOCAL`, `DRAFTED -> ARCHIVED_LOCAL`,
+  `ARCHIVED_LOCAL` terminal. First phase whose one non-forward edge is a **self-loop**
+  (reclassification), not a true backward edge — the unit test explicitly separates the two
+  detection classes, designed in from the start after the Founder-phase backward-edge test bug
+  precedent (not discovered empirically this time).
+- **Untrusted-content redaction**: `sender`/`subject`/`snippet`/`draftReplyBody` are wrapped in
+  `redactForPersistence(...)` before both digest computation and persistence — the first adapter
+  to do this, because email content is genuinely external/attacker-influenceable text, unlike
+  every prior phase's Agent/user-asserted fields.
+- **`gmail.send_reply`/`gmail.archive_thread`/`gmail.apply_label`** are named only in the design
+  note's risk table as future placeholders. **Not implemented, not wired, not reachable** —
+  confirmed by grep during independent review.
+- **Inbox Department + Inbox Agent** — `allowedCapabilities`: the six `inbox.*` capabilities above
+  plus `inbox.advance_linked_career_status` (see below), `knowledge.read`, `knowledge.write`. No
+  project/git/browser/memory-write/monitoring/marketing/founder/research capability.
+  `autonomyLevel: MANUAL`.
+**The Career integration seam (corrected after independent review — see below):** Inbox is
+**never** granted `career.record_opportunity` or the raw `career.update_status`. It is granted a
+new, narrow capability, **`inbox.advance_linked_career_status`**, that takes an *inbox message
+uuid* (not a career opportunity uuid) — there is no argument through which a caller can name a
+different opportunity than the one that message is actually linked to. The request builder
+(`buildAdvanceLinkedCareerStatusRequest`) and `InboxAdapter.execute()` both independently
+re-derive and re-check, from fresh reads, that: the message exists, its
+`linkedCareerOpportunityUuid` is set, its `classification` is `INTERVIEW` or `REJECTION`, the
+linked opportunity exists, and the requested status is a legal transition — before writing to
+`yusuf_career_opportunities`. This is the first Agent in Yusuf OS granted a capability that writes
+to a domain other than its own department's table, and the first cross-domain write enforced by
+code rather than by agent instruction.
+**Independent review found one real P1, fixed before commit:** the first draft of this phase
+granted Inbox the raw `career.update_status` capability directly, on the theory that requiring an
+existing linkage via `inbox.classify_message` was sufficient. Review correctly identified that
+`career.update_status`'s request builder accepts *any* opportunity uuid with no awareness of
+`linkedCareerOpportunityUuid` at all — the "seam" was enforced only by the Agent's own
+instructions (advisory prose), not by Policy or a request builder, which is exactly the class of
+thing the system's invariant says must never be trusted. Fixed by replacing the grant with
+`inbox.advance_linked_career_status` as described above, plus two new adversarial tests
+(`inboxLifecycle.test.js`): one confirming the capability has no argument to substitute a
+different opportunity uuid (it always resolves the target from the message's own linkage), and
+one confirming the classification precondition (`OPPORTUNITY` classification cannot trigger a
+career status change). Design note and `agentRuntimeSecurity.test.js` updated to match. Everything
+else reviewed held up clean on the first pass: no real send/reply/forward/archive surface exists
+anywhere (confirmed by grep); server-forced initial status/null classification; closed
+classification enum; TOCTOU rechecks at both checkpoints for classify/prepare_reply/archive_local;
+redaction reuse confirmed applied to every write; digest consistency; capability isolation
+(including the explicit `career.record_opportunity` refusal); migration/schema/constants
+alignment.
+**Tests:** `inboxTransitions.test.js` (8 unit cases, including the self-loop/true-backward-edge
+distinction), `inboxLifecycle.test.js` (13 integration cases, including the corrected Career seam
+test and the two new adversarial seam tests), plus `organizationModel.test.js`,
+`agentRuntimeSecurity.test.js`, and two Command Center suites updated. **70 suites / 903 tests**
+(was 68/897 including a transient unrelated `defaults.test.js` blip, resolved on rerun; up from
+68/859 before Phase P). See `TEST_BASELINE.md`.
+**Remaining:** no live email connection of any kind (IMAP/Gmail API/SMTP) — this phase is durable
+tracking + local drafting only; `gmail.send_reply`/`archive_thread`/`apply_label` named but not
+built (the full send-specific attack checklist from Yusuf's requirement 5 — wrong-account send,
+BCC/CC injection, reply-all expansion, message-id spoofing, etc. — is pre-recorded in the design
+note as the acceptance bar for whichever future phase builds real sends); no retention on
+`yusuf_inbox_messages`; no Command Center UI surfacing.
+**Next automatic phase:** per the CAVEMAN MODE implementation order and Yusuf's own framing
+(Sales/Inbox and Career/Marketing wiring first, then the end-to-end scenario: Job found ->
+Research -> Career -> Evidence check -> Application prepared -> Needs Yusuf -> Approval -> Browser
+-> Submission verification -> Inbox monitors reply -> Career state updated -> Command Center) —
+the specific next phase to be determined by reading `DEFERRED_WORK.md`.
+
 ## Phase O — Research — status: COMPLETE
 
 **Objective:** give Yusuf OS a durable, honest record of research questions Yusuf is investigating —
@@ -43,9 +135,7 @@ migration/schema/constants alignment.
 **Remaining:** no automated web research/search integration (needs Browser Broker + a real search
 integration, a separate later decision); no retention on `yusuf_research_items`; no Command Center
 UI surfacing.
-**Next automatic phase:** per the CAVEMAN MODE implementation order — Sales/Inbox, Integrations,
-Model routing/cost, Command Center expansion, hardening, release/ops — the specific next phase to
-be determined by reading `DEFERRED_WORK.md`.
+**Next automatic phase:** Phase P (Sales/Inbox) — **COMPLETE, see above.**
 
 ## Phase N — Founder — status: COMPLETE
 
