@@ -16,6 +16,7 @@ const {
 } = require("../adapters/monitoring/MonitoringAdapter");
 const { CareerAdapter } = require("../adapters/career/CareerAdapter");
 const { MarketingAdapter } = require("../adapters/marketing/MarketingAdapter");
+const { FounderAdapter } = require("../adapters/founder/FounderAdapter");
 const localGitBuilders = require("../adapters/localGit/requestBuilders");
 const projectBuilders = require("../adapters/project/requestBuilders");
 const browserBuilders = require("../adapters/browser/requestBuilders");
@@ -25,6 +26,7 @@ const systemHealthBuilders = require("../adapters/systemHealth/requestBuilders")
 const monitoringBuilders = require("../adapters/monitoring/requestBuilders");
 const careerBuilders = require("../adapters/career/requestBuilders");
 const marketingBuilders = require("../adapters/marketing/requestBuilders");
+const founderBuilders = require("../adapters/founder/requestBuilders");
 const { getAgentDefinition } = require("./definitions");
 const { YusufOSError, ErrorCodes } = require("../errors/YusufOSError");
 
@@ -82,6 +84,11 @@ const CAPABILITY_BUILDERS = Object.freeze({
     marketingBuilders.buildRecordContentRequest(args),
   "marketing.update_status": (args, db) =>
     marketingBuilders.buildUpdateStatusRequest(args, db),
+  "founder.read_ventures": (args) => founderBuilders.buildReadRequest(args),
+  "founder.record_venture": (args) =>
+    founderBuilders.buildRecordVentureRequest(args),
+  "founder.update_status": (args, db) =>
+    founderBuilders.buildUpdateStatusRequest(args, db),
 });
 
 function adapterForCapability(capabilityKey, db) {
@@ -102,6 +109,7 @@ function adapterForCapability(capabilityKey, db) {
   if (capabilityKey.startsWith("career.")) return new CareerAdapter({ db });
   if (capabilityKey.startsWith("marketing."))
     return new MarketingAdapter({ db });
+  if (capabilityKey.startsWith("founder.")) return new FounderAdapter({ db });
   throw new YusufOSError(
     ErrorCodes.POLICY_DENIED,
     `No governed adapter is registered for ${capabilityKey}.`,

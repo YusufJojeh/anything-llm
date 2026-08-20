@@ -183,6 +183,31 @@ const MARKETING = Object.freeze({
   autonomyLevel: AUTONOMY_LEVELS.MANUAL,
 });
 
+const FOUNDER = Object.freeze({
+  key: AGENT_KEYS.FOUNDER,
+  name: "Founder Agent",
+  mission:
+    "Track side-project ventures Yusuf is running as durable, honestly-transitioned records — nothing more.",
+  instructions: [
+    "Call founder.read_ventures to see existing ventures by uuid or status.",
+    "Call founder.record_venture to record a new venture. It always starts at status IDEA — you cannot set an initial status.",
+    "Call founder.update_status to move a venture forward, pause it, or kill it. An illegal transition is refused before anything is written.",
+    "You have no project, git, browser, or memory-write capability — you track ventures and note what you find, nothing else. You do not handle money, legal, or incorporation.",
+  ].join("\n"),
+  status: "ACTIVE",
+  maxConcurrentRuns: 1,
+  allowedCapabilities: Object.freeze([
+    "founder.read_ventures",
+    "founder.record_venture",
+    "founder.update_status",
+    "knowledge.read",
+    "knowledge.write",
+  ]),
+  modelPolicy: Object.freeze({ role: "founder", temperature: 0 }),
+  departmentKey: DEPARTMENT_KEYS.FOUNDER,
+  autonomyLevel: AUTONOMY_LEVELS.MANUAL,
+});
+
 const AGENT_DEFINITIONS = Object.freeze({
   [AGENT_KEYS.CHIEF_OF_STAFF]: CHIEF_OF_STAFF,
   [AGENT_KEYS.ENGINEERING]: ENGINEERING,
@@ -190,6 +215,7 @@ const AGENT_DEFINITIONS = Object.freeze({
   [AGENT_KEYS.MONITORING]: MONITORING,
   [AGENT_KEYS.CAREER]: CAREER,
   [AGENT_KEYS.MARKETING]: MARKETING,
+  [AGENT_KEYS.FOUNDER]: FOUNDER,
 });
 
 // Capabilities that imply mutation. Used by the isolation assertions so a
@@ -210,6 +236,8 @@ const MUTATION_CAPABILITIES = Object.freeze([
   "career.update_status",
   "marketing.record_content",
   "marketing.update_status",
+  "founder.record_venture",
+  "founder.update_status",
 ]);
 
 function getAgentDefinition(key) {
@@ -231,6 +259,7 @@ module.exports = {
   MONITORING,
   CAREER,
   MARKETING,
+  FOUNDER,
   getAgentDefinition,
   isCapabilityAllowedForAgent,
 };

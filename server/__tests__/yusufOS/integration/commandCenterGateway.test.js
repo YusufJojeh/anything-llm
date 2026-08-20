@@ -239,7 +239,7 @@ describe("Gate G — Command Center gateway and drilldown projections", () => {
     test("the roster exposes agent identity without shipping Agent instruction prose", async () => {
       const { status, body } = await read("/agents/roster");
       expect(status).toBe(200);
-      expect(body.agents).toHaveLength(6);
+      expect(body.agents).toHaveLength(7);
       const chief = body.agents.find(
         (a) => a.agentId === AGENT_KEYS.CHIEF_OF_STAFF
       );

@@ -508,6 +508,48 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SERVER_KEY",
     hardFlags: [],
   }),
+
+  // --- Phase N: Founder ------------------------------------------------------
+  // Durable tracking of side-project ventures Yusuf is running. Pipeline state
+  // only — no financial/investment tracking, no legal automation. See
+  // docs/yusuf-os/gate-b/founder.md.
+  "founder.read_ventures": definition({
+    key: "founder.read_ventures",
+    domain: "founder",
+    description: "Read founder ventures by uuid or status.",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "founder.record_venture": definition({
+    key: "founder.record_venture",
+    domain: "founder",
+    description: "Record a new founder venture. Always starts at status IDEA.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
+  "founder.update_status": definition({
+    key: "founder.update_status",
+    domain: "founder",
+    description:
+      "Transition an existing founder venture's status. Illegal transitions are refused by a code-owned transition table.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
 });
 
 const HARD_FORBIDDEN = Object.freeze([

@@ -59,6 +59,7 @@ const AGENT_KEYS = Object.freeze({
   MONITORING: "monitoring",
   CAREER: "career",
   MARKETING: "marketing",
+  FOUNDER: "founder",
 });
 
 const DEPARTMENT_KEYS = Object.freeze({
@@ -67,6 +68,7 @@ const DEPARTMENT_KEYS = Object.freeze({
   MONITORING: "monitoring",
   CAREER: "career",
   MARKETING: "marketing",
+  FOUNDER: "founder",
 });
 
 // Orchestration-only label describing how freely an Agent may plan/delegate
@@ -171,6 +173,18 @@ const MARKETING_CONTENT_STATUSES = Object.freeze({
   ARCHIVED: "ARCHIVED",
 });
 
+// Phase N. A new venture always starts IDEA (founder.record_venture refuses
+// any other initial value), same discipline as Career/Marketing's forced
+// starts. See docs/yusuf-os/gate-b/founder.md.
+const FOUNDER_VENTURE_STATUSES = Object.freeze({
+  IDEA: "IDEA",
+  VALIDATING: "VALIDATING",
+  BUILDING: "BUILDING",
+  LAUNCHED: "LAUNCHED",
+  PAUSED: "PAUSED",
+  KILLED: "KILLED",
+});
+
 const INTENT_STATUSES = Object.freeze({
   INTENT_CREATED: "INTENT_CREATED",
   POLICY_EVALUATED: "POLICY_EVALUATED",
@@ -235,6 +249,7 @@ module.exports = {
   MONITORING_CHECK_STATUSES,
   CAREER_OPPORTUNITY_STATUSES,
   MARKETING_CONTENT_STATUSES,
+  FOUNDER_VENTURE_STATUSES,
   INTENT_STATUSES,
   APPROVAL_STATUSES,
   POLICY_OUTCOMES,
