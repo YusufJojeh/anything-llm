@@ -1,11 +1,31 @@
 # Current Gate
 
-## Current phase: Phase I — governed browser mutations [NOT STARTED]
+## Phase I — governed browser mutations — status: COMPLETE
 
-**Status:** next automatic phase. Not begun.
 **Objective:** semantic browser mutation capabilities behind Durable Approval.
-**Blockers:** none for building against fixtures. Real validation needs a browser Yusuf has
-attached (`HUMAN_ACTION_REQUIRED.md` §2).
+**Implemented:** `browser.submit_form` — the first governed browser mutation. Registry-mediated
+(`formRegistry.js`, empty in production): an Agent supplies only `formKey` + allowlisted field
+values, never a selector or URL. L3 external mutation through the standard Intent -> Policy ->
+Approval -> ExecutionCoordinator -> Verification -> Audit chain. Wrong-account refusal and
+page-content-drift refusal (`mutationGuards.js`: `assertAccountMatches`, `assertPageUnchanged`)
+both re-checked adapter-side immediately before the click, on top of the framework's generic
+live-preflight recheck. `FAILED_UNKNOWN -> reconcile` on any uncertain driver outcome — no blind
+retry. `#verifySubmission`/`reconcile` independently re-read the page rather than trusting the
+driver's own report. No Agent role grants `browser.*` yet (reachable, not yet authorized).
+**Independent review caught two real bugs before commit** (self-review had missed both, per the
+standing lesson below): field selectors were being dropped before reaching the CDP driver (would
+type into the wrong element or nothing on a real page — the fixture driver's leniency hid it), and
+`assertPageUnchanged` was written and unit-tested but never actually wired into the execute-time
+recheck. Both fixed; the fixture driver now itself enforces the corrected field shape so a
+regression here fails a test again, not just a code review.
+**Tests:** `browserSubmitFormLifecycle.test.js` (13 lifecycle/security scenarios),
+`browserMutationGuards.test.js` (28 pure-function cases), `browserBrokerSecurity.test.js` updated.
+**Remaining:** the CDP path (`CdpBrowserDriver.submitForm`) has not been run against a real
+browser — same caveat as Phase H's read path. Granting `browser.submit_form` to an actual Agent
+role, and registering a real production form in `formRegistry.js`, are separate future decisions
+(`DEFERRED_WORK.md`).
+**Next automatic phase:** Organization model (Department/Agent/Capability/Job/Workflow), then J
+(Knowledge/Evidence/Memory split).
 
 ## Phase H — Browser Broker (read-only) — status: COMPLETE
 

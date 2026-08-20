@@ -37,10 +37,11 @@ Then say so, and the evidence gets recorded in `GATE_HISTORY.md` and Gate G clos
 
 ---
 
-## 2. Browser Broker attachment — opt-in [OPEN, blocks Phase H *use*, not Phase H *completion*]
+## 2. Browser Broker attachment — opt-in [OPEN, blocks Phase H/I *use*, not their *completion*]
 
-Phase H is implemented and tested against fixtures. Attaching to a real browser is deliberately
-off by default and needs three operator actions (ADR-011):
+Phases H (read) and I (`browser.submit_form` mutation) are both implemented and tested against
+fixtures only. Attaching to a real browser is deliberately off by default and needs three operator
+actions (ADR-011):
 
 ```bash
 # 1. install the optional driver (not a declared server dependency)
@@ -59,7 +60,13 @@ chrome --remote-debugging-port=9222
 Until then the broker honestly reports `UNAVAILABLE` in System Health.
 
 **Decision still needed from Yusuf:** which origins belong on the allowlist. The repository cannot
-answer this — it is a judgement about what Yusuf is willing to let an Agent observe.
+answer this — it is a judgement about what Yusuf is willing to let an Agent observe, and for
+Phase I, act on.
+
+**Separate decision, not yet needed:** granting `browser.submit_form` to any Agent role, and
+registering any real production form in `formRegistry.js` (it ships empty). Both are per-
+integration decisions belonging with whichever future phase wires a specific service — nothing
+blocks on them today since no role is authorized to reach the capability yet.
 
 ---
 

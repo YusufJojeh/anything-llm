@@ -1,14 +1,21 @@
 # Deferred Work
 
-## Deferred after Phase H — 2026-08-18
+## Deferred after Phase I — 2026-08-20
 
-- **Phase I (governed browser mutations)** — not started. Requires semantic capabilities
-  (`gmail.send_reply`, not `browser.click`), approval binding to account+origin+payload+page
-  identity, wrong-account refusal, and double-submit/idempotency handling. The Phase H content
-  digest and `verifiedBySession` flag were built to be the preflight inputs for it.
-- **Granting browser capabilities to an Agent** — deferred with the Agent that needs them. No role
-  allowlist contains one today.
-- **Real-browser validation of the CDP driver** — see `HUMAN_ACTION_REQUIRED.md` §2.
+Phase I (governed browser mutations, `browser.submit_form`) is **done** — see `CURRENT_GATE.md`.
+Still deferred:
+
+- **Granting `browser.submit_form` (or any `browser.*` capability) to an Agent** — deferred with
+  the Agent that needs it. No role allowlist contains one today.
+- **Registering a real production form in `formRegistry.js`** — the registry ships empty on
+  purpose; wiring a real service form (Gmail reply, LinkedIn post, a job application) is a
+  per-integration decision that belongs with that integration's own phase and review.
+- **Real-browser validation of the CDP driver**, read path and now `submitForm` alike — see
+  `HUMAN_ACTION_REQUIRED.md` §2. Nothing in Phase I has run against an actual Chrome tab; the
+  independent review that caught the field-selector bug found it by reading the code, not by
+  running it, which is itself a reason real-browser validation still matters before granting.
+- Organization model (Department -> Agent -> Capability -> Job/Workflow/AutonomyLevel) — next
+  automatic phase per `CURRENT_GATE.md`.
 - **Phases J-W** (Knowledge/Evidence/Memory, Monitoring, Career, Marketing, Founder, Research,
   Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, security and reliability
   hardening, release/ops, end-to-end scenarios) — not started.
@@ -115,8 +122,12 @@ Command Center frontend — the relationship-centric agent-constellation UI desc
 ## Later / unscheduled
 
 - Real GitHub API execution (Gate D is local-only).
-- Browser Broker / Open Computer / production browser automation.
-- Gmail, LinkedIn, WhatsApp, Calendar integrations.
+- Open Computer / general-purpose browser automation beyond registry-mediated form submission
+  (Phase I covers `browser.submit_form` only; no click/navigate/evaluate capability exists or is
+  planned).
+- Gmail, LinkedIn, WhatsApp, Calendar integrations (each would register its own `formRegistry.js`
+  entry, or its own dedicated adapter, plus its own review — Phase I built the governance, not the
+  integrations).
 - Governed MCP side effects (currently MCP tools are excluded from governed runtimes, not
   governed within them).
 - Governed SQL execution.

@@ -1,5 +1,76 @@
 # Gate History
 
+## Phase I — governed browser mutations — 2026-08-20 — PASS
+
+The first browser mutation. `browser.submit_form`: an Agent supplies only a `formKey` and
+allowlisted field values, never a selector or URL — the server resolves the exact origin, path,
+submit control and permitted fields from a code-owned registry (`formRegistry.js`, empty by
+default; a form appears there only after code review). Governed as an L3 external mutation through
+the standard chain: Intent -> Policy -> Approval -> ExecutionCoordinator -> Verification -> Audit.
+
+### What was built
+
+- `formRegistry.js` — `resolveForm`/`assertFieldsAllowed`/`assertPageMatchesForm`. Unknown form
+  keys, disallowed/missing/oversized/non-string field values, and origin/path mismatches are all
+  forbidden, not improvised.
+- `mutationGuards.js` — `accountIdentityDigest` (only a session-*verified* identity produces a
+  digest; a page merely claiming an identity can never satisfy a bound constraint),
+  `assertAccountMatches`, `assertPageUnchanged`, and the `effectCertain` classification helpers
+  (`classifyFailure`/`certainFailure`/`uncertainFailure`) that keep an uncertain driver outcome from
+  ever being retried blindly.
+- `requestBuilders.js` — `buildSubmitFormRequest`, which reads the live origin/page/identity at
+  request-build time (mirroring `git.push_feature_branch`'s live remote-fingerprint read) so the
+  eventual approval binds to *this* rendered page and *this* authenticated account.
+- `BrowserAdapter.js` extended: `preflight()` computes the live `targetIdentityDigest`/
+  `resourceVersion` the framework's generic live-preflight recheck compares against what was bound
+  at approval time; `execute()` re-checks origin/path/account/page-content immediately before the
+  click (defense in depth on top of the framework check); `#verifySubmission`/`reconcile`
+  independently re-read the page against the descriptor's verification signal rather than trusting
+  the driver's own report of success.
+- `FixtureBrowserDriver`/`CdpBrowserDriver` both gained `submitForm()`.
+- No Agent role's allowlist was touched — `browser.submit_form` is reachable through
+  `toolBinding.js` but not grantable, same discipline as Phase H.
+
+### Three real bugs the independent review found after tests were green (self-review missed all three)
+
+1. **P0 — field selectors never reached the real driver.** `assertFieldsAllowed` returned only
+   `{name: value}`; `requestBuilders.js` and `BrowserAdapter.execute()` passed that shape straight
+   through; `CdpBrowserDriver.submitForm` did `page.type(rule.selector || name, ...)` where `rule`
+   was the bare string value (no `.selector` property), silently falling back to typing into a
+   selector equal to the field's semantic name. On a real page this either throws or types into the
+   wrong element. The fixture driver's own doc-comment said it "never inspects fields for
+   correctness," which is exactly why 41 passing tests didn't catch it. **Fixed:** selectors now
+   travel as `{selector, value}` end-to-end, attached in `BrowserAdapter.execute()` from the
+   descriptor immediately before the driver call — never trusted from payload. The fixture driver
+   was also tightened to throw if a field arrives without a selector, so this class of regression
+   now fails a test, not just a future review.
+2. **P1 — `assertPageUnchanged` was written and unit-tested but never called from production code.**
+   The adapter's own comment claimed a "final re-check, immediately before the click," but the
+   re-check covered origin/path/account only, not page content — leaving a real window between the
+   framework's one `preflight()` call and the actual click where the rendered page could change
+   without navigating away. **Fixed:** `execute()` now re-reads the page and calls
+   `assertPageUnchanged(prepared.resourceVersion, page.contentDigest)` in that same pre-effect
+   block; `prepare()` was extended to carry `intent.resourceVersion` through for this comparison.
+3. **P2 — a `page.click()` failure was unconditionally tagged `effectCertain: false`,** even though
+   Puppeteer only rejects there when the click never dispatched at all (bad/stale selector) — a
+   certain, pre-effect failure, not an unknown one. **Fixed:** click and navigation are now
+   `Promise.allSettled` separately, so a failed click reports `effectCertain: true` while a
+   navigation timeout after a successful click (which is not itself an error — an AJAX-submitting
+   form need never navigate) is left to independent verification rather than treated as a driver
+   exception at all.
+
+### Reachable but deliberately not granted
+
+No `AgentDefinition` in `agents/definitions.js` lists any `browser.*` capability, confirmed by a
+dedicated regression test in `browserBrokerSecurity.test.js` — identical invariant to Phase H.
+
+**Evidence:** 55 suites / 652 tests (was 53/607), lint clean. See `TEST_BASELINE.md`.
+
+**What remains:** real-browser validation of `CdpBrowserDriver.submitForm` (see
+`HUMAN_ACTION_REQUIRED.md`); granting the capability to an Agent; registering an actual production
+form. See `DEFERRED_WORK.md`.
+
+
 ## Phase H — Browser Broker (read-only) — 2026-08-18 — PASS
 
 First capability of the autonomous continuation. ADR-005 had left the browser bridge

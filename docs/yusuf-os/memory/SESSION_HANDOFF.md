@@ -1,5 +1,55 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-20 — Phase I: governed browser mutations (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
+
+**What was done:** Built on top of the untracked `formRegistry.js`/`mutationGuards.js` draft
+files already present from an earlier interrupted pass, wired `browser.submit_form` end-to-end as
+the first governed browser mutation (L3, registry-mediated, no selector/URL ever model-supplied),
+wrote the integration lifecycle test (13 scenarios) and the pure-function unit test (28 cases),
+ran full regression (55 suites / 652 tests), and committed locally. Full detail in
+`CURRENT_GATE.md`.
+
+**The independent review earned its keep again — fifth phase running that self-review missed
+something real.** Tests were green, lint was clean, and the implementation looked finished. An
+independent `code-reviewer` pass still found:
+- **P0** — field values were passed to the CDP driver as a bare `{name: value}` map with no
+  selector attached; `CdpBrowserDriver.submitForm` fell back to `page.type(name, value)`, typing
+  into a selector equal to the field's *semantic name* rather than the descriptor's actual CSS
+  selector. On a real page this either throws "no element found" (capability completely
+  non-functional) or, worse, types into an unintended element. Invisible to every test because the
+  fixture driver explicitly never inspected `fields` for correctness.
+- **P1** — `mutationGuards.assertPageUnchanged` (the "page changed after approval" guard) was
+  fully written and unit-tested in isolation but never actually called from
+  `BrowserAdapter.execute()`'s pre-effect recheck, leaving a real TOCTOU window between the
+  framework's one preflight call and the driver's click.
+- **P2** — a `page.click()` failure (bad/stale selector) was unconditionally classified
+  `effectCertain: false`, forcing an unnecessary `FAILED_UNKNOWN`/manual-reconcile for a case that
+  is actually a certain, pre-effect failure.
+
+All three fixed: selectors now travel as `{selector, value}` from descriptor to driver end-to-end,
+`assertPageUnchanged` is called in the execute-time recheck against the bound `resourceVersion`
+(now threaded through `prepare()`), and the click/navigation outcomes are classified separately
+via `Promise.allSettled`. **The fixture driver itself was tightened to enforce the corrected field
+shape**, so a future regression here fails a test again, not just a future code review — this is
+the fix, not a patch that only satisfies the reviewer's specific repro.
+
+**Evidence:** 55 server suites / **652 tests** (was 53/607). Lint clean.
+
+**Reachable ≠ granted still holds:** no Agent role's allowlist contains `browser.submit_form` or
+any `browser.*` capability — confirmed by an explicit regression test, same discipline as Phase H.
+
+**Honest limit:** exactly like Phase H's read path, `CdpBrowserDriver.submitForm` has never run
+against a real browser. The P0 bug above was caught by *reading* the code, which is itself the
+argument for real-browser validation before ever granting this capability to an Agent — a reviewer
+reading code will not catch everything a real page does.
+
+**Exact next action:** per the CAVEMAN MODE directive's implementation order, the Organization
+model (Department -> Agent -> Capability -> Job/Workflow/AutonomyLevel — "No 137 fake agents").
+Continue the loop: inspect -> skills -> implement -> test -> attack -> fix -> full regression ->
+local commit -> memory -> next. No push, no PR, no deploy, no real L3+ external mutation without
+Yusuf's approval — unchanged standing constraints.
+
+
 ## 2026-08-18 — Phase H: Browser Broker, read-only (Claude Code, Opus 5) — autonomous continuation
 
 **What was done:** First phase of the autonomous continuation. ADR-005 had deliberately left the

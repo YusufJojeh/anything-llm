@@ -1,5 +1,40 @@
 # Test Baseline
 
+## Phase I (governed browser mutations) [VERIFIED_BY_TEST — 2026-08-20]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server
+```
+→ **55 suites, 652 tests, 0 failed** (was 53 / 607; Phase I adds 45).
+
+New files:
+- `server/__tests__/yusufOS/integration/browserSubmitFormLifecycle.test.js` — 13 tests: waiting for
+  approval before any driver call, an approved submission succeeding with independent
+  re-verification, unregistered-form/unknown-field/missing-required-field rejection, unverified
+  account rejection at build time, account-switch-after-approval invalidation, page-content-drift-
+  after-approval invalidation, navigate-away-after-approval refusal, double-execution idempotency,
+  an uncertain outcome resolving to `FAILED_UNKNOWN` then `reconcile` confirming success, a
+  submission that never landed reconciling to a genuine `FAILED`/`NOT_APPLIED` rather than a
+  fabricated success, the kill switch blocking without consuming the approval, and a disabled
+  broker refusing to even build the request.
+- `server/__tests__/yusufOS/unit/browserMutationGuards.test.js` — 28 tests: every `formRegistry.js`
+  and `mutationGuards.js` pure-function edge case (unregistered/non-allowlisted forms, field
+  allowlist/length/type/required violations, origin/path mismatch, unverified/mismatched/unbound
+  account digests, page-drift detection, and the `effectCertain` failure-classification rules).
+- `server/__tests__/yusufOS/security/browserBrokerSecurity.test.js` updated: the "every capability
+  is read-only" test now explicitly carves out `browser.submit_form` as the one deliberate L3
+  mutation, plus 3 new tests confirming it is reachable-but-not-yet-granted (mirroring Phase H).
+
+**All Phase I tests run on the fixture driver** — no browser, no network, no account. The CDP
+`submitForm` path is therefore *unproven in the field*, same caveat as Phase H's read path; see
+`KNOWN_RISKS.md`. An independent review before commit caught two real bugs invisible to this
+fixture suite (dropped field selectors, an unwired page-drift guard) — both fixed, and the fixture
+driver itself was tightened afterward so the field-selector regression would now fail a test too.
+
+Frontend unchanged this phase.
+
+
 ## Phase H (Browser Broker) [VERIFIED_BY_TEST — 2026-08-18]
 
 ```bash
