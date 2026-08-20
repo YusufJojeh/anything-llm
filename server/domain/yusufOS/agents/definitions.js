@@ -105,10 +105,39 @@ const REVIEWER = Object.freeze({
   autonomyLevel: AUTONOMY_LEVELS.MANUAL,
 });
 
+const MONITORING = Object.freeze({
+  key: AGENT_KEYS.MONITORING,
+  name: "Monitoring Agent",
+  mission:
+    "Watch Yusuf OS's own internal health signals and durably record what is found, filing a Knowledge finding when something is actually wrong.",
+  instructions: [
+    "Call system.read_health to see the current internal signals, if you want to reason about them before checking.",
+    "Call monitoring.record_check with a registered checkKey to have the server judge the signals against threshold and record the verdict — you cannot supply the verdict yourself.",
+    "If the recorded check comes back WARN or BREACH, file a knowledge.write finding (sourceType AGENT_DERIVED) summarizing what you observed.",
+    "You have no project, git, browser, or memory-write capability. You observe Yusuf OS's own state and file notes about it — nothing else.",
+  ].join("\n"),
+  status: "ACTIVE",
+  maxConcurrentRuns: 1,
+  allowedCapabilities: Object.freeze([
+    "system.read_health",
+    "monitoring.record_check",
+    "knowledge.read",
+    "knowledge.write",
+  ]),
+  modelPolicy: Object.freeze({ role: "monitoring", temperature: 0 }),
+  departmentKey: DEPARTMENT_KEYS.MONITORING,
+  // The first real use of AUTONOMOUS — see docs/yusuf-os/gate-b/monitoring.md
+  // for what that does and does not mean this phase, and the structural
+  // capability-risk ceiling this label is held to (organizationModel.test.js
+  // style invariant, enforced in monitoringAgentSecurity.test.js).
+  autonomyLevel: AUTONOMY_LEVELS.AUTONOMOUS,
+});
+
 const AGENT_DEFINITIONS = Object.freeze({
   [AGENT_KEYS.CHIEF_OF_STAFF]: CHIEF_OF_STAFF,
   [AGENT_KEYS.ENGINEERING]: ENGINEERING,
   [AGENT_KEYS.REVIEWER]: REVIEWER,
+  [AGENT_KEYS.MONITORING]: MONITORING,
 });
 
 // Capabilities that imply mutation. Used by the isolation assertions so a
@@ -124,6 +153,7 @@ const MUTATION_CAPABILITIES = Object.freeze([
   "git.push_feature_branch",
   "knowledge.write",
   "memory.write",
+  "monitoring.record_check",
 ]);
 
 function getAgentDefinition(key) {
@@ -142,6 +172,7 @@ module.exports = {
   CHIEF_OF_STAFF,
   ENGINEERING,
   REVIEWER,
+  MONITORING,
   getAgentDefinition,
   isCapabilityAllowedForAgent,
 };

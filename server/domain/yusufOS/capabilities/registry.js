@@ -389,6 +389,37 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SERVER_KEY",
     hardFlags: [],
   }),
+
+  // --- Phase K: Monitoring -------------------------------------------------
+  // A read of Yusuf OS's own internal state, and an append-only record of a
+  // check against it. Both stay internal-effect only; nothing here can reach
+  // outside Yusuf OS's own database. See docs/yusuf-os/gate-b/monitoring.md.
+  "system.read_health": definition({
+    key: "system.read_health",
+    domain: "system",
+    description:
+      "Read Yusuf OS's own internal health signals (approval backlog, unresolved intents, control-plane and kill-switch state).",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "monitoring.record_check": definition({
+    key: "monitoring.record_check",
+    domain: "monitoring",
+    description:
+      "Record one Monitoring check by its registered key. Status/observed value/threshold are always server-derived, never a caller's claim.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
 });
 
 const HARD_FORBIDDEN = Object.freeze([

@@ -60,8 +60,24 @@ describe("Gate E — agent capability isolation", () => {
     [AGENT_KEYS.REVIEWER, "memory.write"],
     [AGENT_KEYS.CHIEF_OF_STAFF, "memory.write"],
     [AGENT_KEYS.CHIEF_OF_STAFF, "knowledge.write"],
+    [AGENT_KEYS.REVIEWER, "monitoring.record_check"],
+    [AGENT_KEYS.ENGINEERING, "monitoring.record_check"],
+    [AGENT_KEYS.CHIEF_OF_STAFF, "monitoring.record_check"],
+    [AGENT_KEYS.MONITORING, "project.write_file"],
+    [AGENT_KEYS.MONITORING, "git.commit_local"],
+    [AGENT_KEYS.MONITORING, "git.push_feature_branch"],
+    [AGENT_KEYS.MONITORING, "browser.submit_form"],
+    [AGENT_KEYS.MONITORING, "memory.write"],
   ])("granting %s the %s capability is refused", (agentKey, capabilityKey) => {
     expect(() => assertGrantAllowed(agentKey, capabilityKey)).toThrow();
+  });
+
+  test("Monitoring holds no project, git, browser, or memory-write capability at the role-definition level", () => {
+    const monitoring = getAgentDefinition(AGENT_KEYS.MONITORING);
+    for (const capability of monitoring.allowedCapabilities) {
+      expect(capability.match(/^(project\.|git\.|browser\.)/)).toBeNull();
+      expect(capability).not.toBe("memory.write");
+    }
   });
 
   test("a Reviewer toolset exposes no mutation tool, and invoking one is denied", async () => {

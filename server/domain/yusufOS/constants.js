@@ -56,11 +56,13 @@ const AGENT_KEYS = Object.freeze({
   CHIEF_OF_STAFF: "chief_of_staff",
   ENGINEERING: "engineering",
   REVIEWER: "reviewer",
+  MONITORING: "monitoring",
 });
 
 const DEPARTMENT_KEYS = Object.freeze({
   SYSTEM_CORE: "system_core",
   ENGINEERING: "engineering",
+  MONITORING: "monitoring",
 });
 
 // Orchestration-only label describing how freely an Agent may plan/delegate
@@ -127,6 +129,19 @@ const KNOWLEDGE_SOURCE_TYPES = Object.freeze({
   DOCUMENT_CITED: "DOCUMENT_CITED",
 });
 
+// Phase K. Code-owned registry of check keys `monitoring.record_check`
+// accepts — a model supplies only the key, never the verdict. See
+// docs/yusuf-os/gate-b/monitoring.md.
+const MONITORING_CHECK_KEYS = Object.freeze({
+  SYSTEM_HEALTH: "SYSTEM_HEALTH",
+});
+
+const MONITORING_CHECK_STATUSES = Object.freeze({
+  OK: "OK",
+  WARN: "WARN",
+  BREACH: "BREACH",
+});
+
 const INTENT_STATUSES = Object.freeze({
   INTENT_CREATED: "INTENT_CREATED",
   POLICY_EVALUATED: "POLICY_EVALUATED",
@@ -187,6 +202,8 @@ module.exports = {
   EVIDENCE_RETENTION_DAYS,
   MEMORY_SCOPES,
   KNOWLEDGE_SOURCE_TYPES,
+  MONITORING_CHECK_KEYS,
+  MONITORING_CHECK_STATUSES,
   INTENT_STATUSES,
   APPROVAL_STATUSES,
   POLICY_OUTCOMES,

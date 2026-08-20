@@ -1002,6 +1002,25 @@ model yusuf_memory_entries {
   @@index([scope, scopeRef])
 }
 
+// Phase K: append-only Monitoring check history. `status`/`observedValue`/
+// `threshold` are always server-derived (see MonitoringAdapter), never a
+// caller's claim. See docs/yusuf-os/gate-b/monitoring.md.
+model yusuf_monitoring_checks {
+  id                     Int      @id @default(autoincrement())
+  uuid                   String   @unique
+  checkKey               String
+  status                 String
+  observedValue          String
+  threshold              String
+  summary                String
+  createdByPrincipalType String
+  createdByPrincipalId   String
+  digest                 String
+  createdAt              DateTime @default(now())
+
+  @@index([checkKey, createdAt])
+}
+
 model yusuf_security_settings {
   id        Int      @id @default(autoincrement())
   key       String   @unique

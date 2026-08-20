@@ -8,11 +8,19 @@ const { ProjectAdapter } = require("../adapters/project/ProjectAdapter");
 const { BrowserAdapter } = require("../adapters/browser/BrowserAdapter");
 const { KnowledgeAdapter } = require("../adapters/knowledge/KnowledgeAdapter");
 const { MemoryAdapter } = require("../adapters/memory/MemoryAdapter");
+const {
+  SystemHealthAdapter,
+} = require("../adapters/systemHealth/SystemHealthAdapter");
+const {
+  MonitoringAdapter,
+} = require("../adapters/monitoring/MonitoringAdapter");
 const localGitBuilders = require("../adapters/localGit/requestBuilders");
 const projectBuilders = require("../adapters/project/requestBuilders");
 const browserBuilders = require("../adapters/browser/requestBuilders");
 const knowledgeBuilders = require("../adapters/knowledge/requestBuilders");
 const memoryBuilders = require("../adapters/memory/requestBuilders");
+const systemHealthBuilders = require("../adapters/systemHealth/requestBuilders");
+const monitoringBuilders = require("../adapters/monitoring/requestBuilders");
 const { getAgentDefinition } = require("./definitions");
 const { YusufOSError, ErrorCodes } = require("../errors/YusufOSError");
 
@@ -57,6 +65,9 @@ const CAPABILITY_BUILDERS = Object.freeze({
   "knowledge.write": (args) => knowledgeBuilders.buildWriteRequest(args),
   "memory.read": (args, db) => memoryBuilders.buildReadRequest(args, db),
   "memory.write": (args, db) => memoryBuilders.buildWriteRequest(args, db),
+  "system.read_health": () => systemHealthBuilders.buildReadHealthRequest(),
+  "monitoring.record_check": (args) =>
+    monitoringBuilders.buildRecordCheckRequest(args),
 });
 
 function adapterForCapability(capabilityKey, db) {
@@ -70,6 +81,10 @@ function adapterForCapability(capabilityKey, db) {
   if (capabilityKey.startsWith("knowledge."))
     return new KnowledgeAdapter({ db });
   if (capabilityKey.startsWith("memory.")) return new MemoryAdapter({ db });
+  if (capabilityKey.startsWith("system."))
+    return new SystemHealthAdapter({ db });
+  if (capabilityKey.startsWith("monitoring."))
+    return new MonitoringAdapter({ db });
   throw new YusufOSError(
     ErrorCodes.POLICY_DENIED,
     `No governed adapter is registered for ${capabilityKey}.`,

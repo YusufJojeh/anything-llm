@@ -7,7 +7,8 @@ const {
   listDepartments,
   departmentForAgent,
 } = require("../../../domain/yusufOS/organization/departments");
-const { AGENT_KEYS, DEPARTMENT_KEYS, AUTONOMY_LEVELS } = require("../../../domain/yusufOS/constants");
+const { AGENT_KEYS, DEPARTMENT_KEYS, AUTONOMY_LEVELS, RISK_LEVELS } = require("../../../domain/yusufOS/constants");
+const { getCapability } = require("../../../domain/yusufOS/capabilities/registry");
 
 /**
  * The organization model (docs/yusuf-os/gate-b/organization-model.md) is a code-owned grouping
@@ -38,9 +39,13 @@ describe("organization model — Departments", () => {
     }
   });
 
-  test("no Department is empty or orphaned — the registry has exactly the two real departments", () => {
+  test("no Department is empty or orphaned — the registry has exactly the three real departments", () => {
     expect(Object.keys(DEPARTMENTS).sort()).toEqual(
-      [DEPARTMENT_KEYS.SYSTEM_CORE, DEPARTMENT_KEYS.ENGINEERING].sort()
+      [
+        DEPARTMENT_KEYS.SYSTEM_CORE,
+        DEPARTMENT_KEYS.ENGINEERING,
+        DEPARTMENT_KEYS.MONITORING,
+      ].sort()
     );
   });
 
@@ -67,10 +72,11 @@ describe("organization model — AutonomyLevel", () => {
     }
   });
 
-  test("no Agent is AUTONOMOUS yet — that level is reserved for a future real Agent", () => {
-    for (const definition of Object.values(AGENT_DEFINITIONS)) {
-      expect(definition.autonomyLevel).not.toBe(AUTONOMY_LEVELS.AUTONOMOUS);
-    }
+  test("exactly one Agent (Monitoring) is AUTONOMOUS — everyone else stays MANUAL/SUPERVISED", () => {
+    const autonomous = Object.values(AGENT_DEFINITIONS).filter(
+      (d) => d.autonomyLevel === AUTONOMY_LEVELS.AUTONOMOUS
+    );
+    expect(autonomous.map((d) => d.key)).toEqual([AGENT_KEYS.MONITORING]);
   });
 
   test("a mutation-capable Agent (Engineering) is never more autonomous than MANUAL", () => {
@@ -79,6 +85,26 @@ describe("organization model — AutonomyLevel", () => {
     // test below that makes the claim structurally true, not just stated.
     const engineering = getAgentDefinition(AGENT_KEYS.ENGINEERING);
     expect(engineering.autonomyLevel).toBe(AUTONOMY_LEVELS.MANUAL);
+  });
+
+  // Phase K, docs/yusuf-os/gate-b/monitoring.md: AUTONOMOUS is now a real,
+  // granted label (Monitoring), not just a reserved enum value. This is the
+  // structural ceiling that keeps that label from ever quietly becoming a
+  // second, softer path around approval, the same class of bug as the
+  // previously-fixed scheduled-job auto-approve issue.
+  test("no AUTONOMOUS-level Agent may hold a capability above L1 risk or of class EXTERNAL_MUTATION", () => {
+    const autonomous = Object.values(AGENT_DEFINITIONS).filter(
+      (d) => d.autonomyLevel === AUTONOMY_LEVELS.AUTONOMOUS
+    );
+    expect(autonomous.length).toBeGreaterThan(0);
+    for (const definition of autonomous) {
+      for (const capabilityKey of definition.allowedCapabilities) {
+        const capability = getCapability(capabilityKey);
+        expect(capability).toBeTruthy();
+        expect([RISK_LEVELS.L0, RISK_LEVELS.L1]).toContain(capability.defaultRisk);
+        expect(capability.operationClass).not.toBe("EXTERNAL_MUTATION");
+      }
+    }
   });
 });
 

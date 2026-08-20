@@ -28,9 +28,18 @@ const ENGINEERING = Object.freeze({
   memberAgentKeys: Object.freeze([AGENT_KEYS.ENGINEERING, AGENT_KEYS.REVIEWER]),
 });
 
+const MONITORING = Object.freeze({
+  key: DEPARTMENT_KEYS.MONITORING,
+  name: "Monitoring",
+  mission:
+    "Watch Yusuf OS's own internal state and record what changes without holding any external authority.",
+  memberAgentKeys: Object.freeze([AGENT_KEYS.MONITORING]),
+});
+
 const DEPARTMENTS = Object.freeze({
   [DEPARTMENT_KEYS.SYSTEM_CORE]: SYSTEM_CORE,
   [DEPARTMENT_KEYS.ENGINEERING]: ENGINEERING,
+  [DEPARTMENT_KEYS.MONITORING]: MONITORING,
 });
 
 function getDepartment(key) {
@@ -52,6 +61,7 @@ module.exports = {
   DEPARTMENTS,
   SYSTEM_CORE,
   ENGINEERING,
+  MONITORING,
   getDepartment,
   listDepartments,
   departmentForAgent,
