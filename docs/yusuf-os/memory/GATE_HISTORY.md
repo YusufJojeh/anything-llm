@@ -1,5 +1,96 @@
 # Gate History
 
+## Phase K — Monitoring — 2026-08-20 — PASS
+
+Gives Yusuf OS a real Agent that watches Yusuf OS's own internal health signals and durably
+records what it found — the first real use of `AUTONOMY_LEVELS.AUTONOMOUS`, which the Organization
+model deliberately defined but left unused ("for a future Agent that may start work without being
+handed an objective, e.g. a Monitoring Agent reacting to a real signal"). Yusuf chose "Full
+vertical slice, same depth as Phase J." Design note: `docs/yusuf-os/gate-b/monitoring.md`.
+
+### What was built
+
+- **`yusuf_monitoring_checks`** (new table, additive migration
+  `20260820120000_add_yusuf_os_monitoring`) — append-only check history: `checkKey`, `status`
+  (`OK`/`WARN`/`BREACH`, DB-level `CHECK` constraint, plain `String` in `schema.prisma` per the
+  existing project convention), `observedValue`/`threshold` (JSON snapshots), `summary`, `digest`,
+  principal attribution, unique `uuid`.
+- **`system.read_health`** (READ, L0, ALLOW) — `SystemHealthAdapter` returns the raw four-signal
+  snapshot (pending approvals, unresolved intents, control-plane health via `auditKeyConfigured()`,
+  kill-switch state) with no interpretation, no external effect.
+- **`monitoring.record_check`** (LOCAL_WRITE, L1, ALLOW) — the model supplies only a `checkKey`;
+  `MonitoringAdapter.execute()` recomputes the snapshot itself at execute time and derives
+  `status`/`summary` via `monitoring/thresholds.js`'s `evaluateSystemHealth` — mirrors
+  `recordEvidence`'s `VALIDATION`-kind pattern from Gate E. Test-proven: a caller supplying
+  `status: "BREACH"` and a fake `observedValue` in its call arguments is silently ignored.
+- **Monitoring Department + Monitoring Agent** (`organization/departments.js`,
+  `agents/definitions.js`) — one member, `allowedCapabilities`: `system.read_health`,
+  `monitoring.record_check`, `knowledge.read`, `knowledge.write`. No project/git/browser/
+  memory-write capability (test-enforced at the role-definition level).
+  `autonomyLevel: AUTONOMOUS` — first real use of the label.
+- **New structural invariant**: no `AUTONOMOUS`-level Agent may ever be defined with a capability
+  whose `defaultRisk` is above `L1` or whose `operationClass` is `EXTERNAL_MUTATION`, enforced by a
+  `test.each`-style loop in `organizationModel.test.js` over every real `AgentDefinition`, looking
+  each capability up via the actual registry (`getCapability`), not a hardcoded list. Explicitly
+  drawn as the same class of concern as the previously-fixed scheduled-job auto-approve
+  vulnerability — a guard against "autonomous" ever quietly becoming a second, softer path around
+  approval.
+
+### The one invariant, and how it's enforced
+
+Unchanged: both new capabilities pass through `YusufActionBoundary` -> Policy -> Execution
+Coordinator -> Verification -> Audit like any other governed capability. `autonomyLevel` is an
+orchestration-only label, never consulted by `PolicyEngine`/`ApprovalService`/the capability
+registry — confirmed still true by the Organization model's existing grep-based regression test,
+which this phase did not need to touch.
+
+### Independent review
+
+Found one real P1, no other issues.
+
+- **P1 (fixed)** — the fix for a genuine self-observation paradox (the intent for a
+  `system.read_health`/`monitoring.record_check` call is itself `EXECUTING` at the moment that same
+  call reads the unresolved-intents count, so it would always see at least one "unresolved" intent
+  — itself) was originally too broad: it excluded the *whole* `monitoring.record_check` capability
+  from the count. Independent review caught that `monitoring.record_check` performs a real Prisma
+  write that CAN legitimately get stuck `EXECUTING`/`FAILED_UNKNOWN` (a DB error after commit but
+  before verification, a crash mid-call) — exactly the class of unproven-effect state this signal
+  exists to catch — and a capability-wide exclusion would make it structurally invisible to
+  Monitoring's own judgment forever, not just for the one in-flight call. Also noted
+  `DashboardProjection#systemStatus` does not apply any such exclusion, so a human looking at the
+  dashboard would still see a stuck effect that the autonomous Monitoring Agent — the whole point
+  of this phase — would not. **Fixed** by changing `readSystemHealthSnapshot` to accept
+  `{ excludeIntentId }`: `system.read_health` (which persists nothing, so it can never itself be a
+  stuck effect) keeps the safe whole-class exclusion; `monitoring.record_check` is excluded only by
+  the exact in-flight intent's own id, threaded from `prepared.intent.id` in both adapters. Added a
+  regression test (`monitoringLifecycle.test.js`, "a stuck monitoring.record_check intent from a
+  prior call is not hidden from a later check") that manufactures a `FAILED_UNKNOWN` intent from a
+  *previous* call and asserts a later check still reports `WARN`. Updated the design note with a
+  new "A self-observation hazard, caught by independent review" section documenting the
+  wrong-then-right fix.
+- **Everything else reviewed checked out clean**: the verdict-derivation path cannot be spoofed by
+  the model (confirmed by the adapter code and by test); the AUTONOMOUS risk-ceiling test is
+  registry-driven, not a hardcoded list, so it stays correct as capabilities evolve; Monitoring's
+  capability set has zero path, direct or chained, to any external mutation; `reconcile()`'s
+  narrower existence-only check (vs. Knowledge/Memory's expected-digest recomputation) is
+  accurately documented as a real, accepted difference, not an understated gap, because the
+  verdict is derived from a live snapshot at execute time rather than anything the intent recorded
+  up front; the migration/schema change is additive-only with a correct unique index and DB-level
+  `CHECK` constraint.
+
+### Evidence
+
+**60 server suites / 734 tests**, 0 failed (was 58/705). Lint clean
+(`npx eslint domain/yusufOS`, zero output). `git diff --check` clean. Local commit `d9a56e1f` —
+"feat(yusuf-os): Phase K — Monitoring, the first AUTONOMOUS-level Agent" (23 files changed, 1112
+insertions). Not pushed.
+
+### What remains
+
+No scheduled trigger for Monitoring runs; only one registered `checkKey`; no retention on
+`yusuf_monitoring_checks`; no Command Center UI surfacing; no second `AUTONOMOUS` Agent. See
+`DEFERRED_WORK.md`.
+
 ## Phase J — Knowledge/Evidence/Memory split — 2026-08-20 — PASS
 
 Implements ADR-008 (accepted at Gate B, never built until now): Conversational Memory, sourced

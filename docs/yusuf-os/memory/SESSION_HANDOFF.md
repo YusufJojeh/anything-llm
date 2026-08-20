@@ -1,5 +1,40 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-20 — Phase K: Monitoring (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
+
+**What was done:** Yusuf chose "Full vertical slice, same depth as Phase J" when asked how deep to
+build Monitoring. Wrote `docs/yusuf-os/gate-b/monitoring.md` first, then implemented the first-ever
+`AUTONOMOUS`-level Agent: a Monitoring Department/Agent with two new governed capabilities
+(`system.read_health`, `monitoring.record_check`), a new `yusuf_monitoring_checks` table, and a new
+structural invariant capping what any `AUTONOMOUS` Agent may ever be granted.
+
+**One thing worth carrying forward:** `monitoring.record_check` never trusts the model for a
+verdict — the adapter recomputes the health snapshot itself at execute time and derives
+`status`/`summary` from code-owned thresholds, the same pattern as `recordEvidence`'s
+`VALIDATION`-kind evidence in Gate E. Also worth remembering: a capability that reads Yusuf OS's
+own intent-status counts will always see its *own* currently-EXECUTING intent as unresolved unless
+explicitly excluded — but exclude by exact intent id, never by whole capability class, if that
+capability performs a real write that can genuinely get stuck. Excluding the whole class (the first
+attempt here) silently hides real stuck-write failures forever, which is precisely the failure mode
+this signal exists to catch.
+
+**Independent review earned its keep a seventh time.** Everything looked done and tests were green;
+review still found the self-observation fix was too broad — excluding all of
+`monitoring.record_check` from the unresolved-intents count, rather than only the exact in-flight
+intent computing the current snapshot, would have made a genuinely stuck write invisible to
+Monitoring forever. Fixed with an `excludeIntentId` parameter threaded from `prepared.intent.id`;
+added a regression test that manufactures a stuck *prior* intent and proves it still counts. This
+extends the running pattern already tracked across six prior gates/phases: self-review consistently
+misses something a fresh independent pass catches.
+
+**Evidence:** 60 server suites / **734 tests** (was 58/705). Lint clean. Local commit `d9a56e1f`.
+
+**Exact next action:** whatever the next phase is per the CAVEMAN MODE implementation order after
+Monitoring (Career, Marketing, Founder, Research, Sales/Inbox, Integrations, Model routing/cost,
+Command Center expansion, hardening, release/ops) — no gate-b design doc exists for any of them
+yet; check first, same as every prior phase.
+
+
 ## 2026-08-20 — Phase J: Knowledge/Evidence/Memory split (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
 
 **What was done:** Yusuf chose "Full vertical slice" (design note + schema + governed

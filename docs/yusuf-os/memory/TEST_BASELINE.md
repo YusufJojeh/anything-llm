@@ -1,5 +1,49 @@
 # Test Baseline
 
+## Phase K (Monitoring) [VERIFIED_BY_TEST — 2026-08-20]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server
+```
+→ **60 suites, 734 tests, 0 failed** (was 58 / 705; adds 29).
+
+New files:
+- `server/__tests__/yusufOS/integration/monitoringLifecycle.test.js` — 8 tests through the real
+  governed chain: Monitoring reads its own health snapshot; a clean system records an OK check; a
+  model supplying a fake `status`/`observedValue` in its arguments is ignored (the server always
+  recomputes the verdict); an unregistered `checkKey` is rejected before any row is written; a real
+  manufactured unresolved-intent condition is recorded as WARN and Monitoring can then file a
+  Knowledge finding about it; Monitoring's toolset has no project/git/browser/memory-write tool;
+  two checks in a row produce two history rows (not an upsert); a stuck `monitoring.record_check`
+  intent from a *prior* call is still counted as unresolved by a later check (the P1 fix, see
+  `GATE_HISTORY.md`).
+- `server/__tests__/yusufOS/unit/monitoringThresholds.test.js` — 11 tests of the pure
+  `evaluateSystemHealth`/`evaluateCheck` logic: OK/WARN/BREACH boundaries for both signals, worst-
+  of-multiple-signals-wins, a degraded control plane always BREACHes, an engaged kill switch is
+  reported but does not itself escalate status, dispatch-by-checkKey, and JSON-serializability of
+  the threshold output.
+- `organizationModel.test.js` updated: three Departments now (was two); exactly one Agent
+  (Monitoring) is AUTONOMOUS; a new structural test asserts no AUTONOMOUS-level Agent may hold a
+  capability above risk L1 or of operationClass EXTERNAL_MUTATION, looked up from the capability
+  registry for every `AgentDefinition`.
+- `agentRuntimeSecurity.test.js` gained rows refusing Reviewer/Engineering/Chief-of-Staff a grant
+  of `monitoring.record_check`, and refusing Monitoring a grant of any project/git/browser/
+  memory.write capability, plus a direct role-definition assertion.
+- `commandCenterGateway.test.js`/`commandCenterProjection.test.js` updated from 3 to 4 expected
+  seeded agents (Monitoring is now real and seeded by `ensureCoreStaff`).
+- `migrationSafety.test.js` updated to expect the new migration in the applied-migrations list.
+
+New migration: `20260820120000_add_yusuf_os_monitoring` — additive `yusuf_monitoring_checks` table
+(append-only check history; DB-level `CHECK` constraint on `status`).
+
+**Independent review caught one real bug before commit**: the health snapshot excluded the whole
+`monitoring.record_check` capability from its own unresolved-intent count to avoid a
+self-observation paradox (a check's own intent is still `EXECUTING` while it reads the snapshot) —
+but `monitoring.record_check` is a real write that can legitimately get stuck
+`EXECUTING`/`FAILED_UNKNOWN`, and a capability-wide exclusion would have hidden that forever, not
+just the in-flight call. Fixed to exclude only the exact in-flight intent id. See `GATE_HISTORY.md`.
+
 ## Phase J (Knowledge/Evidence/Memory split) [VERIFIED_BY_TEST — 2026-08-20]
 
 ```bash

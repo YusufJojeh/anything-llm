@@ -1,5 +1,26 @@
 # Deferred Work
 
+## Deferred after Phase K (Monitoring) — 2026-08-20
+
+Phase K is **done** — see `CURRENT_GATE.md`. Still deferred:
+
+- **A scheduled/unattended trigger for Monitoring runs.** Monitoring only runs when handed a Task,
+  same as every other Agent today. Wiring `run-scheduled-job.js` to create real Monitoring runs
+  unattended is a real design decision (concurrency, backoff, what happens if a check itself
+  throws) deliberately deferred — building it now would be premature scope.
+- **Only one registered `checkKey`** (`SYSTEM_HEALTH`). A second check is a small, low-risk
+  addition (extend `thresholds.js` + the request builder's allowlist) left for whenever a real
+  second signal exists to watch.
+- **No retention on `yusuf_monitoring_checks`** — same accepted gap already left on Knowledge/
+  Memory in Phase J, not re-litigated here.
+- **No Command Center UI surfacing** of check history — backend-only this phase, same pattern as
+  every prior phase.
+- **A second `AUTONOMOUS` Agent** — this phase proves the new risk-ceiling invariant holds for one;
+  it does not add another.
+- **Everything after Monitoring in the CAVEMAN MODE order** — Career, Marketing, Founder, Research,
+  Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, security/reliability
+  hardening, release/ops, end-to-end scenarios — not started.
+
 ## Deferred after Phase J (Knowledge/Evidence/Memory split) — 2026-08-20
 
 Phase J is **done** — see `CURRENT_GATE.md`. Still deferred:

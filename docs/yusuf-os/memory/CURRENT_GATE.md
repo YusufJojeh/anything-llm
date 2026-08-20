@@ -1,5 +1,58 @@
 # Current Gate
 
+## Phase K — Monitoring — status: COMPLETE
+
+**Objective:** give Yusuf OS a real Agent that watches Yusuf OS's own internal health signals and
+durably records what it found — the first use of `AUTONOMY_LEVELS.AUTONOMOUS`, which the
+Organization model deliberately defined but left unused.
+**Design note:** `docs/yusuf-os/gate-b/monitoring.md`, written before code, amended once after
+independent review to document a caught-and-fixed self-observation bug.
+**Implemented:**
+- **`yusuf_monitoring_checks`** (new table, append-only check history) — `checkKey`, `status`
+  (`OK`/`WARN`/`BREACH`, DB-level CHECK constraint), `observedValue`/`threshold` (JSON snapshots),
+  `summary`, `digest`, principal attribution.
+- **`system.read_health`** (READ, L0, ALLOW) — returns the raw four-signal snapshot (pending
+  approvals, unresolved intents, control-plane health, kill-switch state) with no interpretation.
+- **`monitoring.record_check`** (LOCAL_WRITE, L1, ALLOW) — the model supplies only a `checkKey`;
+  the adapter recomputes the snapshot itself at execute time and derives `status`/`summary` from
+  code-owned thresholds (`monitoring/thresholds.js`) — mirrors `recordEvidence`'s `VALIDATION`-kind
+  pattern from Gate E. A model cannot force a false verdict by lying in its call arguments
+  (test-proven).
+- **Monitoring Department + Monitoring Agent** — one member, `allowedCapabilities`:
+  `system.read_health`, `monitoring.record_check`, `knowledge.read`, `knowledge.write`. No
+  project/git/browser/memory-write capability. `autonomyLevel: AUTONOMOUS` — first real use.
+- **New structural invariant**: no `AUTONOMOUS`-level Agent may ever hold a capability whose
+  `defaultRisk` is above `L1` or whose `operationClass` is `EXTERNAL_MUTATION`, enforced by a
+  registry-driven `test.each`-style loop over every `AgentDefinition`, guarding against
+  "autonomous" ever quietly becoming a second, softer path around approval (the same class of bug
+  as the previously-fixed scheduled-job auto-approve vulnerability, `GATE_HISTORY.md`).
+**The one invariant:** unchanged — both new capabilities pass through `YusufActionBoundary` ->
+Policy -> Execution Coordinator -> Verification -> Audit like any other governed capability;
+`AUTONOMOUS` is an orchestration label only, never consulted by Policy (extends the Organization
+model's own invariant, now covering a second concept).
+**Tests:** `monitoringLifecycle.test.js` (8 integration cases), `monitoringThresholds.test.js` (11
+unit cases), plus `organizationModel.test.js`, `agentRuntimeSecurity.test.js`, and two Command
+Center suites updated. **60 suites / 734 tests** (was 58/705). See `TEST_BASELINE.md`.
+**Independent review caught one real P1 bug**: the health snapshot's fix for a self-observation
+paradox (a check's own intent is still `EXECUTING` while it reads the snapshot) originally excluded
+the *whole* `monitoring.record_check` capability from the unresolved-intents count — but that
+capability performs a real write that can legitimately get stuck `EXECUTING`/`FAILED_UNKNOWN`,
+which is exactly the class of unproven effect this signal exists to catch; a capability-wide
+exclusion would hide it forever, not just the in-flight call. Fixed to exclude only the exact
+in-flight intent id (`excludeIntentId`, threaded from `prepared.intent.id`); `system.read_health`
+(which persists nothing) is still safely excluded as a whole class. A regression test manufactures
+a stuck *prior* `monitoring.record_check` intent and asserts a later check still reports it. See
+`GATE_HISTORY.md` and the design note's "A self-observation hazard" section. Everything else
+reviewed checked out clean (verdict-derivation cannot be spoofed by the model; the AUTONOMOUS
+risk-ceiling test is registry-driven, not hardcoded; Monitoring has no path, direct or chained, to
+any external mutation; `reconcile()`'s narrower existence-only check is accurately documented, not
+an understated gap; migration is additive-only with a correct CHECK constraint).
+**Remaining:** no scheduled trigger for Monitoring runs; only one registered `checkKey`; no
+retention on `yusuf_monitoring_checks`; no Command Center UI surfacing.
+**Next automatic phase:** per the CAVEMAN MODE implementation order — Career, Marketing, Founder,
+Research, Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening,
+release/ops — the specific next phase to be determined by reading `DEFERRED_WORK.md`.
+
 ## Phase J — Knowledge/Evidence/Memory split — status: COMPLETE
 
 **Objective:** implement ADR-008 (accepted at Gate B, never built until now) — separate
@@ -59,7 +112,7 @@ still doesn't transition the intent to a terminal state — a pre-existing frame
 introduced by this phase). See `GATE_HISTORY.md` and the design note's "Known limitations" section.
 **Remaining:** no Command Center UI surfacing this phase (same pattern as Gate F/organization
 model); no scheduled trigger wired to call `tombstoneExpiredEvidence`; no Memory Curator role yet.
-**Next automatic phase:** Phase K (Monitoring), per the CAVEMAN MODE implementation order.
+**Next automatic phase:** Phase K (Monitoring) — **COMPLETE, see above.**
 
 ## Organization model (Department/AutonomyLevel) — status: COMPLETE
 
