@@ -104,6 +104,22 @@ describe("Gate E — agent capability isolation", () => {
     [AGENT_KEYS.FOUNDER, "monitoring.record_check"],
     [AGENT_KEYS.FOUNDER, "career.update_status"],
     [AGENT_KEYS.FOUNDER, "marketing.update_status"],
+    [AGENT_KEYS.REVIEWER, "research.update_status"],
+    [AGENT_KEYS.ENGINEERING, "research.update_status"],
+    [AGENT_KEYS.CHIEF_OF_STAFF, "research.update_status"],
+    [AGENT_KEYS.MONITORING, "research.record_item"],
+    [AGENT_KEYS.CAREER, "research.record_item"],
+    [AGENT_KEYS.MARKETING, "research.record_item"],
+    [AGENT_KEYS.FOUNDER, "research.record_item"],
+    [AGENT_KEYS.RESEARCH, "project.write_file"],
+    [AGENT_KEYS.RESEARCH, "git.commit_local"],
+    [AGENT_KEYS.RESEARCH, "git.push_feature_branch"],
+    [AGENT_KEYS.RESEARCH, "browser.submit_form"],
+    [AGENT_KEYS.RESEARCH, "memory.write"],
+    [AGENT_KEYS.RESEARCH, "monitoring.record_check"],
+    [AGENT_KEYS.RESEARCH, "career.update_status"],
+    [AGENT_KEYS.RESEARCH, "marketing.update_status"],
+    [AGENT_KEYS.RESEARCH, "founder.update_status"],
   ])("granting %s the %s capability is refused", (agentKey, capabilityKey) => {
     expect(() => assertGrantAllowed(agentKey, capabilityKey)).toThrow();
   });
@@ -140,6 +156,18 @@ describe("Gate E — agent capability isolation", () => {
       expect(
         capability.match(
           /^(project\.|git\.|browser\.|monitoring\.|career\.|marketing\.)/
+        )
+      ).toBeNull();
+      expect(capability).not.toBe("memory.write");
+    }
+  });
+
+  test("Research holds no project, git, browser, or memory-write capability at the role-definition level", () => {
+    const research = getAgentDefinition(AGENT_KEYS.RESEARCH);
+    for (const capability of research.allowedCapabilities) {
+      expect(
+        capability.match(
+          /^(project\.|git\.|browser\.|monitoring\.|career\.|marketing\.|founder\.)/
         )
       ).toBeNull();
       expect(capability).not.toBe("memory.write");

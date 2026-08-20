@@ -60,6 +60,7 @@ const AGENT_KEYS = Object.freeze({
   CAREER: "career",
   MARKETING: "marketing",
   FOUNDER: "founder",
+  RESEARCH: "research",
 });
 
 const DEPARTMENT_KEYS = Object.freeze({
@@ -69,6 +70,7 @@ const DEPARTMENT_KEYS = Object.freeze({
   CAREER: "career",
   MARKETING: "marketing",
   FOUNDER: "founder",
+  RESEARCH: "research",
 });
 
 // Orchestration-only label describing how freely an Agent may plan/delegate
@@ -185,6 +187,16 @@ const FOUNDER_VENTURE_STATUSES = Object.freeze({
   KILLED: "KILLED",
 });
 
+// Phase O. A new research item always starts OPEN (research.record_item
+// refuses any other initial value), same discipline as every prior tracking
+// phase's forced start. See docs/yusuf-os/gate-b/research.md.
+const RESEARCH_ITEM_STATUSES = Object.freeze({
+  OPEN: "OPEN",
+  INVESTIGATING: "INVESTIGATING",
+  ANSWERED: "ANSWERED",
+  ABANDONED: "ABANDONED",
+});
+
 const INTENT_STATUSES = Object.freeze({
   INTENT_CREATED: "INTENT_CREATED",
   POLICY_EVALUATED: "POLICY_EVALUATED",
@@ -250,6 +262,7 @@ module.exports = {
   CAREER_OPPORTUNITY_STATUSES,
   MARKETING_CONTENT_STATUSES,
   FOUNDER_VENTURE_STATUSES,
+  RESEARCH_ITEM_STATUSES,
   INTENT_STATUSES,
   APPROVAL_STATUSES,
   POLICY_OUTCOMES,

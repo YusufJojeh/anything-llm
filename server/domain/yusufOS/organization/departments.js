@@ -60,6 +60,14 @@ const FOUNDER = Object.freeze({
   memberAgentKeys: Object.freeze([AGENT_KEYS.FOUNDER]),
 });
 
+const RESEARCH = Object.freeze({
+  key: DEPARTMENT_KEYS.RESEARCH,
+  name: "Research",
+  mission:
+    "Track research questions Yusuf is investigating as durable, honestly-transitioned records.",
+  memberAgentKeys: Object.freeze([AGENT_KEYS.RESEARCH]),
+});
+
 const DEPARTMENTS = Object.freeze({
   [DEPARTMENT_KEYS.SYSTEM_CORE]: SYSTEM_CORE,
   [DEPARTMENT_KEYS.ENGINEERING]: ENGINEERING,
@@ -67,6 +75,7 @@ const DEPARTMENTS = Object.freeze({
   [DEPARTMENT_KEYS.CAREER]: CAREER,
   [DEPARTMENT_KEYS.MARKETING]: MARKETING,
   [DEPARTMENT_KEYS.FOUNDER]: FOUNDER,
+  [DEPARTMENT_KEYS.RESEARCH]: RESEARCH,
 });
 
 function getDepartment(key) {
@@ -92,6 +101,7 @@ module.exports = {
   CAREER,
   MARKETING,
   FOUNDER,
+  RESEARCH,
   getDepartment,
   listDepartments,
   departmentForAgent,

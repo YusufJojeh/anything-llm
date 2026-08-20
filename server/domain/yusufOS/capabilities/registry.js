@@ -550,6 +550,48 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SERVER_KEY",
     hardFlags: [],
   }),
+
+  // --- Phase O: Research ------------------------------------------------------
+  // Durable tracking of research questions Yusuf is investigating. Pipeline
+  // state only — no automated browsing/search execution. See
+  // docs/yusuf-os/gate-b/research.md.
+  "research.read_items": definition({
+    key: "research.read_items",
+    domain: "research",
+    description: "Read research items by uuid or status.",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "research.record_item": definition({
+    key: "research.record_item",
+    domain: "research",
+    description: "Record a new research item. Always starts at status OPEN.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
+  "research.update_status": definition({
+    key: "research.update_status",
+    domain: "research",
+    description:
+      "Transition an existing research item's status. Illegal transitions are refused by a code-owned transition table.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
 });
 
 const HARD_FORBIDDEN = Object.freeze([

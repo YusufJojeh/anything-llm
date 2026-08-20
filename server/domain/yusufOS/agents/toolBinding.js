@@ -17,6 +17,7 @@ const {
 const { CareerAdapter } = require("../adapters/career/CareerAdapter");
 const { MarketingAdapter } = require("../adapters/marketing/MarketingAdapter");
 const { FounderAdapter } = require("../adapters/founder/FounderAdapter");
+const { ResearchAdapter } = require("../adapters/research/ResearchAdapter");
 const localGitBuilders = require("../adapters/localGit/requestBuilders");
 const projectBuilders = require("../adapters/project/requestBuilders");
 const browserBuilders = require("../adapters/browser/requestBuilders");
@@ -27,6 +28,7 @@ const monitoringBuilders = require("../adapters/monitoring/requestBuilders");
 const careerBuilders = require("../adapters/career/requestBuilders");
 const marketingBuilders = require("../adapters/marketing/requestBuilders");
 const founderBuilders = require("../adapters/founder/requestBuilders");
+const researchBuilders = require("../adapters/research/requestBuilders");
 const { getAgentDefinition } = require("./definitions");
 const { YusufOSError, ErrorCodes } = require("../errors/YusufOSError");
 
@@ -89,6 +91,11 @@ const CAPABILITY_BUILDERS = Object.freeze({
     founderBuilders.buildRecordVentureRequest(args),
   "founder.update_status": (args, db) =>
     founderBuilders.buildUpdateStatusRequest(args, db),
+  "research.read_items": (args) => researchBuilders.buildReadRequest(args),
+  "research.record_item": (args) =>
+    researchBuilders.buildRecordItemRequest(args),
+  "research.update_status": (args, db) =>
+    researchBuilders.buildUpdateStatusRequest(args, db),
 });
 
 function adapterForCapability(capabilityKey, db) {
@@ -110,6 +117,7 @@ function adapterForCapability(capabilityKey, db) {
   if (capabilityKey.startsWith("marketing."))
     return new MarketingAdapter({ db });
   if (capabilityKey.startsWith("founder.")) return new FounderAdapter({ db });
+  if (capabilityKey.startsWith("research.")) return new ResearchAdapter({ db });
   throw new YusufOSError(
     ErrorCodes.POLICY_DENIED,
     `No governed adapter is registered for ${capabilityKey}.`,

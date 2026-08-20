@@ -39,7 +39,7 @@ describe("organization model — Departments", () => {
     }
   });
 
-  test("no Department is empty or orphaned — the registry has exactly the six real departments", () => {
+  test("no Department is empty or orphaned — the registry has exactly the seven real departments", () => {
     expect(Object.keys(DEPARTMENTS).sort()).toEqual(
       [
         DEPARTMENT_KEYS.SYSTEM_CORE,
@@ -48,6 +48,7 @@ describe("organization model — Departments", () => {
         DEPARTMENT_KEYS.CAREER,
         DEPARTMENT_KEYS.MARKETING,
         DEPARTMENT_KEYS.FOUNDER,
+        DEPARTMENT_KEYS.RESEARCH,
       ].sort()
     );
   });

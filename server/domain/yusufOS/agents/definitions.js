@@ -208,6 +208,31 @@ const FOUNDER = Object.freeze({
   autonomyLevel: AUTONOMY_LEVELS.MANUAL,
 });
 
+const RESEARCH = Object.freeze({
+  key: AGENT_KEYS.RESEARCH,
+  name: "Research Agent",
+  mission:
+    "Track research questions Yusuf is investigating as durable, honestly-transitioned records — nothing more.",
+  instructions: [
+    "Call research.read_items to see existing items by uuid or status.",
+    "Call research.record_item to record a new research question. It always starts at status OPEN — you cannot set an initial status.",
+    "Call research.update_status to move an item forward, abandon it, or reopen it after it was answered if new evidence proves the conclusion wrong. An illegal transition is refused before anything is written.",
+    "You have no project, git, browser, or memory-write capability — you track research questions and note what you find, nothing else. You do not perform automated web research yourself.",
+  ].join("\n"),
+  status: "ACTIVE",
+  maxConcurrentRuns: 1,
+  allowedCapabilities: Object.freeze([
+    "research.read_items",
+    "research.record_item",
+    "research.update_status",
+    "knowledge.read",
+    "knowledge.write",
+  ]),
+  modelPolicy: Object.freeze({ role: "research", temperature: 0 }),
+  departmentKey: DEPARTMENT_KEYS.RESEARCH,
+  autonomyLevel: AUTONOMY_LEVELS.MANUAL,
+});
+
 const AGENT_DEFINITIONS = Object.freeze({
   [AGENT_KEYS.CHIEF_OF_STAFF]: CHIEF_OF_STAFF,
   [AGENT_KEYS.ENGINEERING]: ENGINEERING,
@@ -216,6 +241,7 @@ const AGENT_DEFINITIONS = Object.freeze({
   [AGENT_KEYS.CAREER]: CAREER,
   [AGENT_KEYS.MARKETING]: MARKETING,
   [AGENT_KEYS.FOUNDER]: FOUNDER,
+  [AGENT_KEYS.RESEARCH]: RESEARCH,
 });
 
 // Capabilities that imply mutation. Used by the isolation assertions so a
@@ -238,6 +264,8 @@ const MUTATION_CAPABILITIES = Object.freeze([
   "marketing.update_status",
   "founder.record_venture",
   "founder.update_status",
+  "research.record_item",
+  "research.update_status",
 ]);
 
 function getAgentDefinition(key) {
@@ -260,6 +288,7 @@ module.exports = {
   CAREER,
   MARKETING,
   FOUNDER,
+  RESEARCH,
   getAgentDefinition,
   isCapabilityAllowedForAgent,
 };

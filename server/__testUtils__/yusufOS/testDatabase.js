@@ -83,6 +83,7 @@ async function clearYusufTables(db) {
   await db.yusuf_career_opportunities.deleteMany();
   await db.yusuf_marketing_content.deleteMany();
   await db.yusuf_founder_ventures.deleteMany();
+  await db.yusuf_research_items.deleteMany();
   await db.yusuf_run_evidence.deleteMany();
   await db.yusuf_handoffs.deleteMany();
   await db.yusuf_project_commands.deleteMany();
