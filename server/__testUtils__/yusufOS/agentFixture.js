@@ -85,6 +85,7 @@ async function createAgentFixture({ db, projectKey = null } = {}) {
     reviewer: agents[AGENT_KEYS.REVIEWER],
     monitoring: agents[AGENT_KEYS.MONITORING],
     career: agents[AGENT_KEYS.CAREER],
+    marketing: agents[AGENT_KEYS.MARKETING],
     repositoryUuid: git.repository.uuid,
     BROKEN_CALCULATOR,
     FIXED_CALCULATOR,

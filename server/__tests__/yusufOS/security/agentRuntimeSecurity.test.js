@@ -78,6 +78,18 @@ describe("Gate E — agent capability isolation", () => {
     [AGENT_KEYS.CAREER, "browser.submit_form"],
     [AGENT_KEYS.CAREER, "memory.write"],
     [AGENT_KEYS.CAREER, "monitoring.record_check"],
+    [AGENT_KEYS.REVIEWER, "marketing.update_status"],
+    [AGENT_KEYS.ENGINEERING, "marketing.update_status"],
+    [AGENT_KEYS.CHIEF_OF_STAFF, "marketing.update_status"],
+    [AGENT_KEYS.MONITORING, "marketing.record_content"],
+    [AGENT_KEYS.CAREER, "marketing.record_content"],
+    [AGENT_KEYS.MARKETING, "project.write_file"],
+    [AGENT_KEYS.MARKETING, "git.commit_local"],
+    [AGENT_KEYS.MARKETING, "git.push_feature_branch"],
+    [AGENT_KEYS.MARKETING, "browser.submit_form"],
+    [AGENT_KEYS.MARKETING, "memory.write"],
+    [AGENT_KEYS.MARKETING, "monitoring.record_check"],
+    [AGENT_KEYS.MARKETING, "career.update_status"],
   ])("granting %s the %s capability is refused", (agentKey, capabilityKey) => {
     expect(() => assertGrantAllowed(agentKey, capabilityKey)).toThrow();
   });
@@ -94,6 +106,16 @@ describe("Gate E — agent capability isolation", () => {
     const career = getAgentDefinition(AGENT_KEYS.CAREER);
     for (const capability of career.allowedCapabilities) {
       expect(capability.match(/^(project\.|git\.|browser\.|monitoring\.)/)).toBeNull();
+      expect(capability).not.toBe("memory.write");
+    }
+  });
+
+  test("Marketing holds no project, git, browser, or memory-write capability at the role-definition level", () => {
+    const marketing = getAgentDefinition(AGENT_KEYS.MARKETING);
+    for (const capability of marketing.allowedCapabilities) {
+      expect(
+        capability.match(/^(project\.|git\.|browser\.|monitoring\.|career\.)/)
+      ).toBeNull();
       expect(capability).not.toBe("memory.write");
     }
   });

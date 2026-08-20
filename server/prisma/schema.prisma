@@ -1038,6 +1038,23 @@ model yusuf_career_opportunities {
   @@index([status, createdAt])
 }
 
+model yusuf_marketing_content {
+  id                     Int      @id @default(autoincrement())
+  uuid                   String   @unique
+  title                  String
+  channel                String
+  format                 String
+  status                 String
+  notes                  String?
+  createdByPrincipalType String
+  createdByPrincipalId   String
+  digest                 String
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @default(now()) @updatedAt
+
+  @@index([status, createdAt])
+}
+
 model yusuf_security_settings {
   id        Int      @id @default(autoincrement())
   key       String   @unique

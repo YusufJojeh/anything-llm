@@ -158,12 +158,38 @@ const CAREER = Object.freeze({
   autonomyLevel: AUTONOMY_LEVELS.MANUAL,
 });
 
+const MARKETING = Object.freeze({
+  key: AGENT_KEYS.MARKETING,
+  name: "Marketing Agent",
+  mission:
+    "Track marketing content Yusuf is producing as durable, honestly-transitioned records — nothing more.",
+  instructions: [
+    "Call marketing.read_content to see existing content items by uuid or status.",
+    "Call marketing.record_content to record a new content idea. It always starts at status IDEA — you cannot set an initial status.",
+    "Call marketing.update_status to move a content item forward. An illegal transition is refused before anything is written. Marking something PUBLISHED is you recording that it went out somewhere — Yusuf OS does not verify or post it for you.",
+    "You have no project, git, browser, or memory-write capability — you track content items and note what you find, nothing else. You cannot post anything on Yusuf's behalf.",
+  ].join("\n"),
+  status: "ACTIVE",
+  maxConcurrentRuns: 1,
+  allowedCapabilities: Object.freeze([
+    "marketing.read_content",
+    "marketing.record_content",
+    "marketing.update_status",
+    "knowledge.read",
+    "knowledge.write",
+  ]),
+  modelPolicy: Object.freeze({ role: "marketing", temperature: 0 }),
+  departmentKey: DEPARTMENT_KEYS.MARKETING,
+  autonomyLevel: AUTONOMY_LEVELS.MANUAL,
+});
+
 const AGENT_DEFINITIONS = Object.freeze({
   [AGENT_KEYS.CHIEF_OF_STAFF]: CHIEF_OF_STAFF,
   [AGENT_KEYS.ENGINEERING]: ENGINEERING,
   [AGENT_KEYS.REVIEWER]: REVIEWER,
   [AGENT_KEYS.MONITORING]: MONITORING,
   [AGENT_KEYS.CAREER]: CAREER,
+  [AGENT_KEYS.MARKETING]: MARKETING,
 });
 
 // Capabilities that imply mutation. Used by the isolation assertions so a
@@ -182,6 +208,8 @@ const MUTATION_CAPABILITIES = Object.freeze([
   "monitoring.record_check",
   "career.record_opportunity",
   "career.update_status",
+  "marketing.record_content",
+  "marketing.update_status",
 ]);
 
 function getAgentDefinition(key) {
@@ -202,6 +230,7 @@ module.exports = {
   REVIEWER,
   MONITORING,
   CAREER,
+  MARKETING,
   getAgentDefinition,
   isCapabilityAllowedForAgent,
 };

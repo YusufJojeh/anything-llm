@@ -58,6 +58,7 @@ const AGENT_KEYS = Object.freeze({
   REVIEWER: "reviewer",
   MONITORING: "monitoring",
   CAREER: "career",
+  MARKETING: "marketing",
 });
 
 const DEPARTMENT_KEYS = Object.freeze({
@@ -65,6 +66,7 @@ const DEPARTMENT_KEYS = Object.freeze({
   ENGINEERING: "engineering",
   MONITORING: "monitoring",
   CAREER: "career",
+  MARKETING: "marketing",
 });
 
 // Orchestration-only label describing how freely an Agent may plan/delegate
@@ -157,6 +159,18 @@ const CAREER_OPPORTUNITY_STATUSES = Object.freeze({
   WITHDRAWN: "WITHDRAWN",
 });
 
+// Phase M. A new content item always starts IDEA (marketing.record_content
+// refuses any other initial value), same discipline as Career's RESEARCHING
+// start. See docs/yusuf-os/gate-b/marketing.md.
+const MARKETING_CONTENT_STATUSES = Object.freeze({
+  IDEA: "IDEA",
+  DRAFTING: "DRAFTING",
+  READY_FOR_REVIEW: "READY_FOR_REVIEW",
+  SCHEDULED: "SCHEDULED",
+  PUBLISHED: "PUBLISHED",
+  ARCHIVED: "ARCHIVED",
+});
+
 const INTENT_STATUSES = Object.freeze({
   INTENT_CREATED: "INTENT_CREATED",
   POLICY_EVALUATED: "POLICY_EVALUATED",
@@ -220,6 +234,7 @@ module.exports = {
   MONITORING_CHECK_KEYS,
   MONITORING_CHECK_STATUSES,
   CAREER_OPPORTUNITY_STATUSES,
+  MARKETING_CONTENT_STATUSES,
   INTENT_STATUSES,
   APPROVAL_STATUSES,
   POLICY_OUTCOMES,

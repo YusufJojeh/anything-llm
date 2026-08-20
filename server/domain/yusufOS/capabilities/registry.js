@@ -463,6 +463,51 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SERVER_KEY",
     hardFlags: [],
   }),
+
+  // --- Phase M: Marketing --------------------------------------------------
+  // Durable tracking of marketing content Yusuf is producing. Internal-effect
+  // only — no real posting to any channel (that needs the Browser Broker and a
+  // real per-service form registration, deferred). PUBLISHED here is Yusuf/an
+  // Agent asserting content went live elsewhere, not Yusuf OS verifying it —
+  // see docs/yusuf-os/gate-b/marketing.md.
+  "marketing.read_content": definition({
+    key: "marketing.read_content",
+    domain: "marketing",
+    description: "Read marketing content items by uuid or status.",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "marketing.record_content": definition({
+    key: "marketing.record_content",
+    domain: "marketing",
+    description:
+      "Record a new marketing content item. Always starts at status IDEA.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
+  "marketing.update_status": definition({
+    key: "marketing.update_status",
+    domain: "marketing",
+    description:
+      "Transition an existing marketing content item's status. Illegal transitions are refused by a code-owned transition table.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
 });
 
 const HARD_FORBIDDEN = Object.freeze([
