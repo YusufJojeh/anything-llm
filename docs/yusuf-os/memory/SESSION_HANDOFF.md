@@ -1,5 +1,37 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-20 — Phase N: Founder (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
+
+**What was done:** Continued the CAVEMAN MODE loop autonomously to Founder, the next phase after
+Marketing. Wrote `docs/yusuf-os/gate-b/founder.md`, implemented a Founder Department/Agent that
+tracks side-project ventures through a code-owned transition table (`IDEA -> VALIDATING ->
+BUILDING -> LAUNCHED`, with `PAUSED` as a resumable side-track and `KILLED` terminal), three new
+governed capabilities, and a new `yusuf_founder_ventures` table — mirroring Career/Marketing's
+established pattern.
+
+**One thing worth carrying forward:** Founder's transition table has a different shape again from
+both siblings — Career is purely forward/terminal, Marketing has two backward edges within its
+linear pipeline, Founder has *branching* (three states can each reach `PAUSED` or `KILLED`) plus
+one resume edge (`PAUSED -> BUILDING`). The design constraint that made this safe: `LAUNCHED` is
+only reachable via `BUILDING`, and resuming from `PAUSED` always lands specifically at `BUILDING`,
+never directly back at `LAUNCHED` — so no chain through `PAUSED` can skip a required stage. Worth
+remembering as a general design check for any future branching pipeline: verify by construction
+(and then by a specific unit test) that side-branches can't be used to shortcut the main sequence,
+not just that the graph "looks" safe.
+
+**Independent review found nothing to fix** — the third phase running (after Career, Marketing)
+where an adversarial pass, this time specifically probing the branching+resume graph for a
+sequence-skipping bypass, found zero P0/P1/P2. The defense-in-depth pattern (server forces initial
+status, two-checkpoint transition validation with an independent fresh read at execute time) keeps
+holding regardless of the transition graph's shape — forward-only, cyclic, or branching.
+
+**Evidence:** 66 server suites / **825 tests** (was 64/792). Lint clean. Local commit `df691471`.
+
+**Exact next action:** whatever comes after Founder in the CAVEMAN MODE order (Research,
+Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening, release/ops) —
+no gate-b design doc exists for any of them yet; check first, same as every prior phase.
+
+
 ## 2026-08-20 — Phase M: Marketing (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
 
 **What was done:** Yusuf chose "Full vertical slice" for Marketing, the next phase after Career in

@@ -1,5 +1,58 @@
 # Gate History
 
+## Phase N — Founder — 2026-08-20 — PASS
+
+Gives Yusuf OS a durable, honestly-transitioned record of side-project ventures Yusuf is running —
+named only as a future roster label in `PRODUCT_CHARTER.md`/`ROADMAP.md` until this phase. Mirrors
+Phase L/M's pattern with its own transition-table shape. Design note:
+`docs/yusuf-os/gate-b/founder.md`.
+
+### What was built
+
+- **`yusuf_founder_ventures`** (new table, additive migration
+  `20260820160000_add_yusuf_os_founder`) — `name`, `category`, `status`
+  (`IDEA`/`VALIDATING`/`BUILDING`/`LAUNCHED`/`PAUSED`/`KILLED`, DB-level `CHECK` constraint),
+  `notes` (nullable), `digest`, principal attribution, unique `uuid`.
+- **`founder.read_ventures`** (READ, L0, ALLOW) — by uuid or status.
+- **`founder.record_venture`** (LOCAL_WRITE, L1, ALLOW) — `buildRecordVentureRequest` hardcodes
+  the initial `status` to `IDEA` regardless of any status the model's call arguments carry.
+- **`founder.update_status`** (LOCAL_WRITE, L1, ALLOW) — transitions a venture, validated against
+  a code-owned transition table (`domain/yusufOS/founder/transitions.js`) at the same two
+  checkpoints as Career/Marketing.
+- **A branching transition graph, different again from both siblings**: `VALIDATING`/`BUILDING`/
+  `LAUNCHED` can each reach `PAUSED` or `KILLED`; `PAUSED` can resume to `BUILDING` (the one
+  resume edge) or be `KILLED`. `LAUNCHED` is only reachable via `BUILDING`, and resuming from
+  `PAUSED` always lands at `BUILDING` specifically — no chain through `PAUSED` can skip a required
+  stage of the main pipeline. `KILLED` is the only true terminal state.
+- **Founder Department + Founder Agent** — one member, `allowedCapabilities`:
+  `founder.read_ventures`, `founder.record_venture`, `founder.update_status`, `knowledge.read`,
+  `knowledge.write`. No project/git/browser/memory-write/monitoring/career/marketing capability
+  (test-enforced at the role-definition level). `autonomyLevel: MANUAL`.
+
+### The one invariant, and how it's enforced
+
+Unchanged: both new mutation capabilities pass through `YusufActionBoundary` -> Policy -> Execution
+Coordinator -> Verification -> Audit like any other governed capability. Capability isolation is
+enforced structurally via the code-owned `allowedCapabilities` registry, not the database.
+
+### Independent review
+
+**Found no P0/P1/P2** — the third phase running (after Career, Marketing) where an adversarial
+pass found nothing to fix. This review specifically probed whether the branching+resume graph
+could be chained to skip a required stage (e.g. reaching `LAUNCHED` without ever passing through
+`BUILDING`, or reviving a `KILLED` venture) and confirmed neither is possible by construction, not
+just by convention. Model-supplied-status bypass, TOCTOU in the transition recheck, digest
+consistency, capability isolation, and migration/schema/constants alignment were all re-verified
+using the same method as Career/Marketing and found clean.
+
+### Tests
+
+`founderLifecycle.test.js` (10 integration cases, including the `PAUSED -> BUILDING` resume edge),
+`founderTransitions.test.js` (9 unit cases, including a dedicated assertion that
+`PAUSED -> BUILDING` is the only edge that resumes toward the main pipeline), plus
+`organizationModel.test.js`, `agentRuntimeSecurity.test.js`, and two Command Center suites
+updated. **66 suites / 825 tests** (was 64/792).
+
 ## Phase M — Marketing — 2026-08-20 — PASS
 
 Gives Yusuf OS a durable, honestly-transitioned record of marketing content Yusuf is producing —

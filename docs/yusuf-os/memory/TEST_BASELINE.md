@@ -1,5 +1,47 @@
 # Test Baseline
 
+## Phase N (Founder) [VERIFIED_BY_TEST — 2026-08-20]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server
+```
+→ **66 suites, 825 tests, 0 failed** (was 64 / 792; adds 2 suites, 33 tests).
+
+New files:
+- `server/__tests__/yusufOS/integration/founderLifecycle.test.js` — 10 tests through the real
+  governed chain: a new venture always starts at `IDEA` even if the model asks for a different
+  initial status; a valid forward transition (`IDEA -> VALIDATING`) succeeds and updates notes;
+  the `PAUSED -> BUILDING` resume edge succeeds; an illegal transition (`IDEA -> LAUNCHED`) is
+  rejected before any write and the row's digest is unchanged; a terminal venture (`KILLED`)
+  refuses any further transition; an unknown venture uuid is rejected before any write; reading by
+  status/uuid returns the right shape; Founder's toolset has no project/git/browser/memory-write
+  tool; re-recording the same name/category produces a second distinct row, not an upsert.
+- `server/__tests__/yusufOS/unit/founderTransitions.test.js` — 9 tests of the pure
+  `isValidTransition` logic: every legal edge (including branching to PAUSED/KILLED from three
+  different states and the PAUSED->BUILDING resume), the terminal state refuses every target, an
+  out-of-enum target is never valid, no source key is orphaned, and a dedicated test confirms
+  `PAUSED->BUILDING` is the only edge that resumes progress toward the main pipeline.
+- `organizationModel.test.js` updated: six Departments now (was five).
+- `agentRuntimeSecurity.test.js` gained rows refusing Reviewer/Engineering/Chief-of-Staff/
+  Monitoring/Career/Marketing a grant of `founder.*`, refusing Founder a grant of any project/git/
+  browser/memory-write/monitoring/career/marketing capability, plus a direct role-definition
+  assertion.
+- `commandCenterGateway.test.js`/`commandCenterProjection.test.js` updated from 6 to 7 expected
+  seeded agents (Founder is now real and seeded by `ensureCoreStaff`).
+- `migrationSafety.test.js` updated to expect the new migration in the applied-migrations list.
+
+New migration: `20260820160000_add_yusuf_os_founder` — additive `yusuf_founder_ventures` table
+(DB-level `CHECK` constraint on `status` matching the six-value transition-table enum).
+
+**Independent review found no P0/P1/P2.** Confirmed: a model-supplied status on
+`founder.record_venture` cannot override the server-forced `IDEA` start; the branching transition
+graph (three states can each reach PAUSED/KILLED, plus the one PAUSED->BUILDING resume edge)
+introduces no TOCTOU gap and no path that reaches `LAUNCHED` without passing through `BUILDING` or
+revives a `KILLED` venture; digest recomputation is consistent across create/update/verify;
+capability isolation holds structurally; migration and `schema.prisma` match
+`FOUNDER_VENTURE_STATUSES` exactly. See `GATE_HISTORY.md`.
+
 ## Phase M (Marketing) [VERIFIED_BY_TEST — 2026-08-20]
 
 ```bash

@@ -1,5 +1,52 @@
 # Current Gate
 
+## Phase N — Founder — status: COMPLETE
+
+**Objective:** give Yusuf OS a durable, honest record of side-project ventures Yusuf is running —
+named in `PRODUCT_CHARTER.md`'s future-roster list, never previously scoped. Mirrors Phase L/M's
+pattern, with its own transition table shape (branching + one resume edge).
+**Design note:** `docs/yusuf-os/gate-b/founder.md`.
+**Implemented:**
+- **`yusuf_founder_ventures`** (new table) — `name`, `category`, `status` (six-value DB-level
+  `CHECK` constraint), `notes`, `digest`, principal attribution.
+- **`founder.read_ventures`** (READ, L0, ALLOW) — by uuid or status.
+- **`founder.record_venture`** (LOCAL_WRITE, L1, ALLOW) — the model supplies `name`/`category`/
+  optional `notes`; the server always mints the uuid and always starts the row at `IDEA`
+  regardless of what status the model asks for (test-proven).
+- **`founder.update_status`** (LOCAL_WRITE, L1, ALLOW) — transitions a venture, validated against
+  a code-owned transition table (`founder/transitions.js`) at the same two checkpoints as
+  Career/Marketing (early request-builder rejection against a fresh read; independent
+  re-validation in `FounderAdapter.execute()` against a fresh read at execute time).
+- **Transition table:** `IDEA -> VALIDATING -> BUILDING -> LAUNCHED`, with `VALIDATING`/
+  `BUILDING`/`LAUNCHED` each able to branch to `PAUSED` or `KILLED`, and `PAUSED` able to resume
+  to `BUILDING` (the one backward/resume edge) or be `KILLED`. `LAUNCHED` has no backward edge —
+  reaching it always requires having passed through `BUILDING`, and resuming from `PAUSED` always
+  lands at `BUILDING` specifically, never directly back at `LAUNCHED`. `KILLED` is terminal.
+- **Founder Department + Founder Agent** — one member, `allowedCapabilities`:
+  `founder.read_ventures`, `founder.record_venture`, `founder.update_status`, `knowledge.read`,
+  `knowledge.write`. No project/git/browser/memory-write/monitoring/career/marketing capability.
+  `autonomyLevel: MANUAL`.
+**The one invariant:** unchanged — both new mutation capabilities pass through
+`YusufActionBoundary` -> Policy -> Execution Coordinator -> Verification -> Audit like any other
+governed capability.
+**Tests:** `founderLifecycle.test.js` (10 integration cases, including the PAUSED->BUILDING resume
+edge), `founderTransitions.test.js` (9 unit cases, including one confirming PAUSED->BUILDING is
+the only edge that resumes toward the main pipeline), plus `organizationModel.test.js`,
+`agentRuntimeSecurity.test.js`, and two Command Center suites updated. **66 suites / 825 tests**
+(was 64/792). See `TEST_BASELINE.md`.
+**Independent review found no P0/P1/P2** — confirmed no model-supplied-status bypass, the
+branching transition graph (unlike Career's purely-forward table or Marketing's two-backward-edge
+table) introduces no TOCTOU gap or path that reaches `LAUNCHED` without passing through
+`BUILDING` or revives a `KILLED` venture, consistent digest recomputation across
+create/update/verify, structural capability isolation, and exact migration/schema/constants
+alignment.
+**Remaining:** no financial/investment tracking (a future Finance phase's decision); no legal/
+incorporation automation; no retention on `yusuf_founder_ventures`; no Command Center UI
+surfacing.
+**Next automatic phase:** per the CAVEMAN MODE implementation order — Research, Sales/Inbox,
+Integrations, Model routing/cost, Command Center expansion, hardening, release/ops — the specific
+next phase to be determined by reading `DEFERRED_WORK.md`.
+
 ## Phase M — Marketing — status: COMPLETE
 
 **Objective:** give Yusuf OS a durable, honest record of marketing content Yusuf is producing —
@@ -44,9 +91,7 @@ registry, and exact migration/schema/constants alignment (CHECK constraint value
 **Remaining:** no real publishing/posting integration — `PUBLISHED` is an unverified self-report,
 documented explicitly in the design note's Known limitations; no retention on
 `yusuf_marketing_content`; no Command Center UI surfacing.
-**Next automatic phase:** per the CAVEMAN MODE implementation order — Founder, Research,
-Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening, release/ops —
-the specific next phase to be determined by reading `DEFERRED_WORK.md`.
+**Next automatic phase:** Phase N (Founder) — **COMPLETE, see above.**
 
 ## Phase L — Career — status: COMPLETE
 

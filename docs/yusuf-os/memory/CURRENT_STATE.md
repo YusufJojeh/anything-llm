@@ -1,8 +1,8 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-20, Phase M (Marketing) pass. See `CURRENT_GATE.md` for the full record;
-Phases H, I, the Organization model, J, K, L, and M have all landed since the line below was last
-true — read `CURRENT_GATE.md` top-to-bottom rather than trusting this summary's detail below,
+_Last verified: 2026-08-20, Phase N (Founder) pass. See `CURRENT_GATE.md` for the full record;
+Phases H, I, the Organization model, J, K, L, M, and N have all landed since the line below was
+last true — read `CURRENT_GATE.md` top-to-bottom rather than trusting this summary's detail below,
 which is not fully re-verified this pass._
 
 **Branch:** `feature/yusuf-os-core`. Seven local checkpoint commits (Gate B docs, Gate C core,
@@ -34,7 +34,7 @@ unpushed. `origin` =
   System Health surface, and snapshot-first SSE reconciliation. Plus the browser session
   bootstrap that lets a browser reach the control plane without ever holding the control token.
 
-**What has passed (as of Phase M):** 64/64 server suites, **792/792 tests** (see `TEST_BASELINE.md`
+**What has passed (as of Phase N):** 66/66 server suites, **825/825 tests** (see `TEST_BASELINE.md`
 for the exact command and per-phase deltas); frontend counts not re-verified this phase (no
 frontend change). Server lint clean, `git diff --check` clean.
 
@@ -44,17 +44,16 @@ Phase I (`browser.submit_form`, the first governed browser mutation), the Organi
 (Knowledge/Evidence/Memory split), Phase K (Monitoring — the first `AUTONOMOUS`-level Agent,
 `system.read_health`/`monitoring.record_check`, a new risk-ceiling invariant for any AUTONOMOUS
 Agent), Phase L (Career — job opportunity tracking through a strictly-forward code-owned
-transition table, `career.read_opportunities`/`career.record_opportunity`/`career.update_status` —
-the first phase in this run where independent review found no P0/P1 on its first pass), and
-**Phase M (Marketing — content tracking through a code-owned transition table with two
-deliberate backward edges for revision loops, `marketing.read_content`/`marketing.record_content`/
-`marketing.update_status` — the second phase running where independent review found nothing to
-fix, confirming the pattern holds even when the transition graph has cycles — see
-`CURRENT_GATE.md`).**
+transition table), Phase M (Marketing — content tracking through a transition table with two
+deliberate backward edges for revision loops), and **Phase N (Founder — venture tracking through
+a branching transition table with one resume edge, `founder.read_ventures`/
+`founder.record_venture`/`founder.update_status` — the third phase running where independent
+review found nothing to fix, this time specifically confirming the branching graph can't be
+chained to skip a required pipeline stage — see `CURRENT_GATE.md`).**
 
-**Next gate:** whatever comes after Marketing in the CAVEMAN MODE implementation order — Founder,
-Research, Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening,
-release/ops — not started, no design doc exists yet; see `DEFERRED_WORK.md`.
+**Next gate:** whatever comes after Founder in the CAVEMAN MODE implementation order — Research,
+Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening, release/ops —
+not started, no design doc exists yet; see `DEFERRED_WORK.md`.
 
 **Must not be rebuilt:** the Gate C kernel (still unmodified in `runtime/`, `policy/`,
 `approvals/`, `execution/ExecutionCoordinator.js`, `audit/`), the Gate D LocalGit adapter, and

@@ -1,5 +1,19 @@
 # Deferred Work
 
+## Deferred after Phase N (Founder) — 2026-08-20
+
+Phase N is **done** — see `CURRENT_GATE.md`. Still deferred:
+
+- **Financial/investment tracking for ventures** — deliberately deferred to a future Finance
+  phase; Founder tracks pipeline state only, never money.
+- **Legal/incorporation automation** — out of scope entirely.
+- **No retention on `yusuf_founder_ventures`** — same accepted gap already left on Career/
+  Marketing/Knowledge/Memory/Monitoring, not re-litigated here.
+- **No Command Center UI surfacing** of ventures — backend-only this phase.
+- **Everything after Founder in the CAVEMAN MODE order** — Research, Sales/Inbox, Integrations,
+  Model routing/cost, Command Center expansion, security/reliability hardening, release/ops,
+  end-to-end scenarios — not started.
+
 ## Deferred after Phase M (Marketing) — 2026-08-20
 
 Phase M is **done** — see `CURRENT_GATE.md`. Still deferred:
