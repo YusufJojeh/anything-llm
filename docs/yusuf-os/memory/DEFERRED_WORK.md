@@ -1,5 +1,18 @@
 # Deferred Work
 
+## Deferred after the Organization model — 2026-08-20
+
+The Department/AutonomyLevel organization model is **done** — see `CURRENT_GATE.md`. Still
+deferred:
+
+- **A third Department** — Research, Monitoring, Marketing, Career, Founder, Memory Curator all
+  remain names only. A Department is added only alongside the phase that builds its first real
+  Agent with real capabilities, never as an empty placeholder.
+- **Any `AUTONOMOUS`-level Agent** — the enum value exists; nothing qualifies for it yet.
+- **Command Center UI surfacing of Department/AutonomyLevel** — backend-only this phase, same
+  pattern as Gate F.
+- **Phase J (Knowledge/Evidence/Memory split)** — next automatic phase per `CURRENT_GATE.md`.
+
 ## Deferred after Phase I — 2026-08-20
 
 Phase I (governed browser mutations, `browser.submit_form`) is **done** — see `CURRENT_GATE.md`.

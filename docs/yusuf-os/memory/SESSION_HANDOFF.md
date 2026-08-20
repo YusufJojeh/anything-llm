@@ -1,5 +1,34 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-20 — Organization model: Department/AutonomyLevel (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
+
+**What was done:** Next phase in the same continuous run as Phase I below. No gate-b design doc
+existed for the "Organization model (Department/Agent/Capability/Job/Workflow)" phase name — it
+was only ever a label in memory files — so, checked with Yusuf first on approach; he said draft the
+design note and proceed. Wrote `docs/yusuf-os/gate-b/organization-model.md` before any code, then
+implemented a deliberately small, low-blast-radius slice: a code-owned `Department` registry
+(`organization/departments.js`) grouping the existing three AgentDefinitions into two real
+Departments (`system_core`, `engineering`), plus a per-Agent `autonomyLevel` label. Zero new
+Agents, zero new DB tables, zero new Job/Workflow primitive — `yusuf_tasks`/`yusuf_agent_runs`/
+`yusuf_handoffs` already are that, and duplicating them would have been exactly the kind of
+premature architecture CLAUDE.md warns against.
+
+**One thing worth carrying forward:** the design note names the single security-relevant claim
+explicitly and a test enforces it structurally, not just by convention — Department and
+AutonomyLevel must never be readable by PolicyEngine/ApprovalService/the capability registry,
+because a "how autonomous is this Agent" label is exactly the shape of thing that could quietly
+become a second, softer path to skipping approval (the same class of bug as the scheduled-job
+auto-approve issue fixed earlier in this project). A regression test greps the security kernel
+files for either concept and fails if either appears. Independent review confirmed the grep is
+sound and found no P0/P1.
+
+**Evidence:** 56 server suites / **666 tests** (was 55/652). Lint clean.
+
+**Exact next action:** Phase J — the four-way Documents / Knowledge / Evidence / Memory split
+(never merged into one vector store, per the CAVEMAN MODE directive). No gate-b design doc exists
+for this either — check first before assuming a shape, same as this phase did.
+
+
 ## 2026-08-20 — Phase I: governed browser mutations (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
 
 **What was done:** Built on top of the untracked `formRegistry.js`/`mutationGuards.js` draft

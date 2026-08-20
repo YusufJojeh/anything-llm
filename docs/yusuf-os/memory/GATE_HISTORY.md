@@ -1,5 +1,55 @@
 # Gate History
 
+## Organization model — Department / AutonomyLevel — 2026-08-20 — PASS
+
+Gives future specialist roles a place to attach to before they exist, without producing "137 fake
+agents." No prior gate-b doc covered this — design note written first:
+`docs/yusuf-os/gate-b/organization-model.md`.
+
+### What was built
+
+- `server/domain/yusufOS/organization/departments.js` — a code-owned `Department` registry (not a
+  database table) grouping the existing three `AgentDefinition`s into two real Departments:
+  `system_core` (Chief of Staff alone, matching its zero-capability design) and `engineering`
+  (Engineering + Reviewer, the one department with a real delegation relationship and real
+  capabilities). `getDepartment`/`listDepartments`/`departmentForAgent` helpers.
+- `AUTONOMY_LEVELS` (`MANUAL`/`SUPERVISED`/`AUTONOMOUS`) added to `constants.js`, and an
+  `autonomyLevel` field added to each `AgentDefinition` — Chief of Staff is `SUPERVISED`
+  (delegates freely once given an objective, but holds zero capability), Engineering and Reviewer
+  are `MANUAL`. Nothing is `AUTONOMOUS` yet; the level exists for a future Agent that may start
+  work without being handed an objective.
+- Deliberately **not** built: no new Agent, no new database table, no new Job/Workflow primitive.
+  `yusuf_tasks`/`yusuf_agent_runs`/`yusuf_handoffs` already are the Job/Workflow primitives; this
+  phase only labels which Department they belong to, derived at read time from the assigned
+  Agent, never stored redundantly.
+
+### The one invariant, and how it's enforced
+
+Department and AutonomyLevel must never be consulted by `PolicyEngine`, `ApprovalService`, or the
+capability registry to decide whether an action requires approval — that stays entirely owned by
+the registry's `defaultRisk`/`defaultOutcome`, a property of the action, not of who's asking or how
+"autonomous" they're labelled. This is the same class of vulnerability as the previously-fixed
+scheduled-job auto-approve bug: a label meaning "more autonomous" must never become a second,
+softer path to skipping approval. Enforced by a `test.each` regression test in
+`organizationModel.test.js` that greps `PolicyEngine.js`/`ApprovalService.js`/`registry.js`/
+`IntentService.js`/`ExecutionCoordinator.js` source for any reference to the organization module,
+`autonomyLevel`, or `departmentKey`, and fails if one appears.
+
+### Independent review
+
+Found no P0/P1. Confirmed the grep-based invariant test is sound (not trivially gameable — only a
+contrived dynamic-key-construction bypass would evade it, not a realistic one), confirmed
+`departments.js` and the `AgentDefinition` `departmentKey` fields agree bidirectionally with no
+stale references, and confirmed no existing test does whole-object equality on an `AgentDefinition`
+that the two new fields would break.
+
+**Evidence:** 56 suites / 666 tests (was 55/652), lint clean. See `TEST_BASELINE.md`.
+
+**What remains:** a third Department appears only alongside the phase that builds its first real
+Agent (Research, Monitoring, Marketing, Career, Founder, Memory Curator are all still names only);
+no Command Center UI change this phase. See `DEFERRED_WORK.md`.
+
+
 ## Phase I — governed browser mutations — 2026-08-20 — PASS
 
 The first browser mutation. `browser.submit_form`: an Agent supplies only a `formKey` and

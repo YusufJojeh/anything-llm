@@ -1,5 +1,25 @@
 # Current Gate
 
+## Organization model (Department/AutonomyLevel) — status: COMPLETE
+
+**Objective:** give future specialist roles (Research, Monitoring, Marketing, Career, Founder,
+Memory Curator) a place to attach to without producing "137 fake agents."
+**Design note:** `docs/yusuf-os/gate-b/organization-model.md` (written before the code — no prior
+gate-b doc covered this).
+**Implemented:** `server/domain/yusufOS/organization/departments.js` — a code-owned Department
+registry (not a DB table) grouping the existing three AgentDefinitions into two real Departments:
+`system_core` (Chief of Staff) and `engineering` (Engineering + Reviewer). Each AgentDefinition
+also gained an `autonomyLevel` (`MANUAL`/`SUPERVISED`/`AUTONOMOUS`) — an orchestration-only label;
+no Agent is `AUTONOMOUS` yet. **Zero new Agents, zero new DB tables, zero new Job/Workflow
+primitive** — those already exist as `yusuf_tasks`/`yusuf_agent_runs`/`yusuf_handoffs`.
+**The one invariant:** Department and AutonomyLevel are never consulted by
+PolicyEngine/ApprovalService/the capability registry to decide approval requirements — enforced by
+a regression test that greps the security kernel files for either concept and fails if found.
+**Tests:** `organizationModel.test.js`, 14 cases. Independent review: no P0/P1.
+**Remaining:** no UI change this phase (same pattern as Gate F — backend model first). A third
+Department appears only when a phase builds a real Agent that belongs in it.
+**Next automatic phase:** Phase J (Knowledge/Evidence/Memory split).
+
 ## Phase I — governed browser mutations — status: COMPLETE
 
 **Objective:** semantic browser mutation capabilities behind Durable Approval.

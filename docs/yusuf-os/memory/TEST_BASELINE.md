@@ -1,5 +1,23 @@
 # Test Baseline
 
+## Organization model (Department/AutonomyLevel) [VERIFIED_BY_TEST — 2026-08-20]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server
+```
+→ **56 suites, 666 tests, 0 failed** (was 55 / 652; adds 14).
+
+New file: `server/__tests__/yusufOS/unit/organizationModel.test.js` — every AgentDefinition
+resolves to exactly one real Department and vice versa, no empty/orphaned Department, every
+AgentDefinition declares a recognized AutonomyLevel with none `AUTONOMOUS` yet, and a
+`test.each` block that greps `PolicyEngine.js`/`ApprovalService.js`/`registry.js`/
+`IntentService.js`/`ExecutionCoordinator.js` source text for any reference to the organization
+module, `autonomyLevel`, or `departmentKey` and fails if one appears.
+
+No new DB migration, no frontend change this phase.
+
+
 ## Phase I (governed browser mutations) [VERIFIED_BY_TEST — 2026-08-20]
 
 ```bash
