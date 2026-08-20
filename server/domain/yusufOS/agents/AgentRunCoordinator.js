@@ -5,6 +5,8 @@ const {
   RUN_KINDS,
   PRINCIPAL_TYPES,
   EVIDENCE_KINDS,
+  EVIDENCE_CLASSES,
+  EVIDENCE_RETENTION_DAYS,
 } = require("../constants");
 const { AuditService } = require("../audit/AuditService");
 const { canonicalHash } = require("../security/canonicalJson");
@@ -192,12 +194,28 @@ class AgentRunCoordinator {
     summary,
     payload = {},
     intentUuid = null,
+    evidenceClass = EVIDENCE_CLASSES.SANITIZED_OUTPUT,
   }) {
     if (!Object.values(EVIDENCE_KINDS).includes(kind))
       throw new YusufOSError(
         ErrorCodes.VALIDATION_ERROR,
         `Unknown evidence kind: ${kind}`,
         { status: 422 }
+      );
+    if (!Object.values(EVIDENCE_CLASSES).includes(evidenceClass))
+      throw new YusufOSError(
+        ErrorCodes.VALIDATION_ERROR,
+        `Unknown evidence class: ${evidenceClass}`,
+        { status: 422 }
+      );
+    // ADR-008: secrets are never persisted. This is a refusal, not a
+    // zero-day retention policy — SECRET_FORBIDDEN exists in the enum only so
+    // a caller can name what it is refusing.
+    if (evidenceClass === EVIDENCE_CLASSES.SECRET_FORBIDDEN)
+      throw new YusufOSError(
+        ErrorCodes.ACTION_FORBIDDEN,
+        "Evidence classified SECRET_FORBIDDEN cannot be persisted.",
+        { status: 403 }
       );
 
     // Evidence must belong to the task whose completion gate will read it.
@@ -260,6 +278,10 @@ class AgentRunCoordinator {
     }
 
     const sanitized = redactForPersistence(payload);
+    const retentionDays = EVIDENCE_RETENTION_DAYS[evidenceClass];
+    const expiresAt = retentionDays
+      ? new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000)
+      : null;
     return this.db.yusuf_run_evidence.create({
       data: {
         uuid: randomUUID(),
@@ -269,6 +291,8 @@ class AgentRunCoordinator {
         status: resolvedStatus,
         summary: String(summary).slice(0, 4000),
         payload: JSON.stringify(sanitized),
+        evidenceClass,
+        expiresAt,
         digest: canonicalHash({
           kind,
           status: resolvedStatus,

@@ -56,6 +56,10 @@ describe("Gate E — agent capability isolation", () => {
     [AGENT_KEYS.REVIEWER, "git.push_feature_branch"],
     [AGENT_KEYS.CHIEF_OF_STAFF, "project.write_file"],
     [AGENT_KEYS.CHIEF_OF_STAFF, "git.push_feature_branch"],
+    [AGENT_KEYS.REVIEWER, "knowledge.write"],
+    [AGENT_KEYS.REVIEWER, "memory.write"],
+    [AGENT_KEYS.CHIEF_OF_STAFF, "memory.write"],
+    [AGENT_KEYS.CHIEF_OF_STAFF, "knowledge.write"],
   ])("granting %s the %s capability is refused", (agentKey, capabilityKey) => {
     expect(() => assertGrantAllowed(agentKey, capabilityKey)).toThrow();
   });

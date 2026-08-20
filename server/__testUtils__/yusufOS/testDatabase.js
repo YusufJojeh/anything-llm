@@ -77,6 +77,8 @@ async function createTestDatabase({ applyGateCSeparately = false } = {}) {
 async function clearYusufTables(db) {
   // Gate E tables first: they reference runs/tasks/agents.
   await db.yusuf_review_verdicts.deleteMany();
+  await db.yusuf_knowledge_entries.deleteMany();
+  await db.yusuf_memory_entries.deleteMany();
   await db.yusuf_run_evidence.deleteMany();
   await db.yusuf_handoffs.deleteMany();
   await db.yusuf_project_commands.deleteMany();

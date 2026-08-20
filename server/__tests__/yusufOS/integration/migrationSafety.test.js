@@ -34,6 +34,7 @@ describe("Yusuf OS additive migration safety", () => {
       "20260817033000_add_yusuf_os_core",
       "20260817120000_add_yusuf_os_git_repositories",
       "20260817180000_add_yusuf_os_agent_runtime",
+      "20260818090000_add_yusuf_os_knowledge_evidence_memory",
     ]);
   });
 

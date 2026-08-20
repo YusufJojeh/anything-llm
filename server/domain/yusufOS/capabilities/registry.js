@@ -333,6 +333,62 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SERVER_KEY_RECONCILE",
     hardFlags: [],
   }),
+
+  // --- Phase J: Knowledge + Memory ----------------------------------------
+  // Both are internal, reversible writes to Yusuf OS's own database with no
+  // external blast radius — the same tier as project.write_file, one step
+  // below git.push_feature_branch's L3. See
+  // docs/yusuf-os/gate-b/knowledge-evidence-memory.md.
+  "knowledge.read": definition({
+    key: "knowledge.read",
+    domain: "knowledge",
+    description: "Read curated Knowledge entries by uuid or tag.",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "knowledge.write": definition({
+    key: "knowledge.write",
+    domain: "knowledge",
+    description: "Record a curated Knowledge entry.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
+  "memory.read": definition({
+    key: "memory.read",
+    domain: "memory",
+    description:
+      "Read a scoped Memory entry. Scope ownership is enforced adapter-side.",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "memory.write": definition({
+    key: "memory.write",
+    domain: "memory",
+    description:
+      "Write (upsert) a scoped Memory entry. Scope ownership is enforced adapter-side; PERSONAL scope is never reachable by an Agent.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
 });
 
 const HARD_FORBIDDEN = Object.freeze([

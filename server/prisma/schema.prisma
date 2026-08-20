@@ -947,12 +947,59 @@ model yusuf_run_evidence {
   summary   String
   payload   String           @default("{}")
   digest    String
+  // Phase J (ADR-008): classification drives retention. Never
+  // "SECRET_FORBIDDEN" in practice — recordEvidence() refuses to persist at
+  // that class rather than persisting and relying on retention to remove it.
+  evidenceClass String       @default("SANITIZED_OUTPUT")
+  expiresAt     DateTime?
+  tombstonedAt  DateTime?
   createdAt DateTime         @default(now())
   run       yusuf_agent_runs @relation(fields: [runId], references: [id], onDelete: Restrict)
   task      yusuf_tasks      @relation(fields: [taskId], references: [id], onDelete: Restrict)
 
   @@index([taskId, kind, createdAt])
   @@index([runId, kind])
+  @@index([evidenceClass, expiresAt])
+}
+
+// Phase J: durable, citable facts an Agent chooses to record for reuse across
+// tasks. Deliberately NOT a vector store and NOT a replacement for
+// workspace_documents — see docs/yusuf-os/gate-b/knowledge-evidence-memory.md.
+model yusuf_knowledge_entries {
+  id                     Int      @id @default(autoincrement())
+  uuid                   String   @unique
+  title                  String
+  body                   String
+  sourceType             String
+  sourceRef              String?
+  tags                   String   @default("[]")
+  createdByPrincipalType String
+  createdByPrincipalId   String
+  digest                 String
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @default(now()) @updatedAt
+
+  @@index([sourceType, createdAt])
+}
+
+// Phase J: small scoped facts (personal/project/agent/task/conversation).
+// Distinct from upstream AnythingLLM's `memories` personalization model —
+// see docs/yusuf-os/gate-b/knowledge-evidence-memory.md.
+model yusuf_memory_entries {
+  id                     Int      @id @default(autoincrement())
+  uuid                   String   @unique
+  scope                  String
+  scopeRef               String?
+  key                    String
+  value                  String
+  createdByPrincipalType String
+  createdByPrincipalId   String
+  digest                 String
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @default(now()) @updatedAt
+
+  @@unique([scope, scopeRef, key])
+  @@index([scope, scopeRef])
 }
 
 model yusuf_security_settings {

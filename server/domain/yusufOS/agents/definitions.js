@@ -64,6 +64,10 @@ const ENGINEERING = Object.freeze({
     "git.stage_paths",
     "git.commit_local",
     "git.push_feature_branch",
+    "knowledge.read",
+    "knowledge.write",
+    "memory.read",
+    "memory.write",
   ]),
   modelPolicy: Object.freeze({ role: "coding", temperature: 0 }),
   departmentKey: DEPARTMENT_KEYS.ENGINEERING,
@@ -94,6 +98,7 @@ const REVIEWER = Object.freeze({
     "git.read_diff",
     "git.read_log",
     "git.read_show",
+    "knowledge.read",
   ]),
   modelPolicy: Object.freeze({ role: "review", temperature: 0 }),
   departmentKey: DEPARTMENT_KEYS.ENGINEERING,
@@ -117,6 +122,8 @@ const MUTATION_CAPABILITIES = Object.freeze([
   "git.stage_paths",
   "git.commit_local",
   "git.push_feature_branch",
+  "knowledge.write",
+  "memory.write",
 ]);
 
 function getAgentDefinition(key) {

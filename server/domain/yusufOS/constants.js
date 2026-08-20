@@ -92,6 +92,41 @@ const EVIDENCE_KINDS = Object.freeze({
   VALIDATION: "VALIDATION",
 });
 
+// Phase J / ADR-008. SECRET_FORBIDDEN is a valid classification value only so
+// recordEvidence() can name the refusal reason — nothing is ever persisted at
+// this class. Ordered least- to most-sensitive; EVIDENCE_RETENTION_DAYS below
+// intentionally shortens as sensitivity rises.
+const EVIDENCE_CLASSES = Object.freeze({
+  PUBLIC_METADATA: "PUBLIC_METADATA",
+  SANITIZED_OUTPUT: "SANITIZED_OUTPUT",
+  SENSITIVE_OPERATIONAL: "SENSITIVE_OPERATIONAL",
+  SCREENSHOT: "SCREENSHOT",
+  SECRET_FORBIDDEN: "SECRET_FORBIDDEN",
+});
+
+const EVIDENCE_RETENTION_DAYS = Object.freeze({
+  PUBLIC_METADATA: 365,
+  SANITIZED_OUTPUT: 180,
+  SENSITIVE_OPERATIONAL: 30,
+  SCREENSHOT: 14,
+});
+
+// Phase J. PERSONAL is reachable only by a USER principal — enforced in
+// adapters/memory/MemoryAdapter.js, not here; this is just the vocabulary.
+const MEMORY_SCOPES = Object.freeze({
+  PERSONAL: "PERSONAL",
+  PROJECT: "PROJECT",
+  AGENT: "AGENT",
+  TASK: "TASK",
+  CONVERSATION: "CONVERSATION",
+});
+
+const KNOWLEDGE_SOURCE_TYPES = Object.freeze({
+  AGENT_DERIVED: "AGENT_DERIVED",
+  USER_PROVIDED: "USER_PROVIDED",
+  DOCUMENT_CITED: "DOCUMENT_CITED",
+});
+
 const INTENT_STATUSES = Object.freeze({
   INTENT_CREATED: "INTENT_CREATED",
   POLICY_EVALUATED: "POLICY_EVALUATED",
@@ -148,6 +183,10 @@ module.exports = {
   REVIEW_VERDICTS,
   HANDOFF_STATUSES,
   EVIDENCE_KINDS,
+  EVIDENCE_CLASSES,
+  EVIDENCE_RETENTION_DAYS,
+  MEMORY_SCOPES,
+  KNOWLEDGE_SOURCE_TYPES,
   INTENT_STATUSES,
   APPROVAL_STATUSES,
   POLICY_OUTCOMES,

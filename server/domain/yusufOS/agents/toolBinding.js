@@ -6,9 +6,13 @@ const { ExecutionCoordinator } = require("../execution/ExecutionCoordinator");
 const { LocalGitAdapter } = require("../adapters/localGit/LocalGitAdapter");
 const { ProjectAdapter } = require("../adapters/project/ProjectAdapter");
 const { BrowserAdapter } = require("../adapters/browser/BrowserAdapter");
+const { KnowledgeAdapter } = require("../adapters/knowledge/KnowledgeAdapter");
+const { MemoryAdapter } = require("../adapters/memory/MemoryAdapter");
 const localGitBuilders = require("../adapters/localGit/requestBuilders");
 const projectBuilders = require("../adapters/project/requestBuilders");
 const browserBuilders = require("../adapters/browser/requestBuilders");
+const knowledgeBuilders = require("../adapters/knowledge/requestBuilders");
+const memoryBuilders = require("../adapters/memory/requestBuilders");
 const { getAgentDefinition } = require("./definitions");
 const { YusufOSError, ErrorCodes } = require("../errors/YusufOSError");
 
@@ -49,6 +53,10 @@ const CAPABILITY_BUILDERS = Object.freeze({
     projectBuilders.buildRunCommandRequest(args, db),
   "browser.submit_form": (args, db) =>
     browserBuilders.buildSubmitFormRequest(args, db),
+  "knowledge.read": (args) => knowledgeBuilders.buildReadRequest(args),
+  "knowledge.write": (args) => knowledgeBuilders.buildWriteRequest(args),
+  "memory.read": (args, db) => memoryBuilders.buildReadRequest(args, db),
+  "memory.write": (args, db) => memoryBuilders.buildWriteRequest(args, db),
 });
 
 function adapterForCapability(capabilityKey, db) {
@@ -59,6 +67,9 @@ function adapterForCapability(capabilityKey, db) {
   // every grant. Reachability and authority are deliberately separate steps —
   // the Agent that needs browser reads (Research/Career) arrives with them.
   if (capabilityKey.startsWith("browser.")) return new BrowserAdapter();
+  if (capabilityKey.startsWith("knowledge."))
+    return new KnowledgeAdapter({ db });
+  if (capabilityKey.startsWith("memory.")) return new MemoryAdapter({ db });
   throw new YusufOSError(
     ErrorCodes.POLICY_DENIED,
     `No governed adapter is registered for ${capabilityKey}.`,
