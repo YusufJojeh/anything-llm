@@ -1,0 +1,130 @@
+const { randomUUID } = require("crypto");
+const prisma = require("../../../../utils/prisma");
+const { YusufOSError, ErrorCodes } = require("../../errors/YusufOSError");
+const { CAREER_OPPORTUNITY_STATUSES } = require("../../constants");
+const { isValidTransition } = require("../../career/transitions");
+
+const RESOURCE_TYPE = "CAREER_OPPORTUNITY";
+const MAX_FIELD_LENGTH = 300;
+const MAX_NOTES_BYTES = 8 * 1024;
+
+function assertNonEmptyString(value, label, maxLength = MAX_FIELD_LENGTH) {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.length > maxLength
+  )
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      `${label} must be a non-empty string up to ${maxLength} characters.`,
+      { status: 422 }
+    );
+}
+
+function assertNotes(notes) {
+  if (notes === undefined || notes === null) return null;
+  if (typeof notes !== "string")
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      "notes must be a string.",
+      {
+        status: 422,
+      }
+    );
+  if (Buffer.byteLength(notes, "utf8") > MAX_NOTES_BYTES)
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      "notes exceeds the governed Career entry size limit.",
+      { status: 422 }
+    );
+  return notes;
+}
+
+async function buildReadRequest(args = {}) {
+  if (typeof args.uuid !== "string" && typeof args.status !== "string")
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      "Provide either uuid or status to read career opportunities.",
+      { status: 422 }
+    );
+  return {
+    resource: {
+      type: RESOURCE_TYPE,
+      id: args.uuid || `status:${args.status}`,
+      version: "N/A",
+    },
+    target: { uuid: args.uuid || null, status: args.status || null },
+    payload: {},
+    environment: "LOCAL",
+  };
+}
+
+async function buildRecordOpportunityRequest(args = {}) {
+  assertNonEmptyString(args.company, "company");
+  assertNonEmptyString(args.role, "role");
+  const source =
+    typeof args.source === "string" && args.source.length > 0
+      ? args.source
+      : null;
+  const notes = assertNotes(args.notes);
+  // Server mints identity; a new opportunity always starts RESEARCHING so
+  // every later transition passes through the reviewed transition table
+  // rather than an Agent choosing an initial status. See
+  // docs/yusuf-os/gate-b/career.md.
+  const uuid = randomUUID();
+  return {
+    resource: { type: RESOURCE_TYPE, id: uuid, version: "ABSENT" },
+    target: { uuid },
+    payload: {
+      company: args.company,
+      role: args.role,
+      source,
+      status: CAREER_OPPORTUNITY_STATUSES.RESEARCHING,
+      notes,
+    },
+    environment: "LOCAL",
+  };
+}
+
+async function buildUpdateStatusRequest(args = {}, db = prisma) {
+  assertNonEmptyString(args.uuid, "uuid");
+  if (!Object.values(CAREER_OPPORTUNITY_STATUSES).includes(args.status))
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Unknown career opportunity status: ${args.status}`,
+      { status: 422 }
+    );
+  const notes = assertNotes(args.notes);
+  const row = await db.yusuf_career_opportunities.findUnique({
+    where: { uuid: args.uuid },
+  });
+  if (!row)
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Unknown career opportunity: ${args.uuid}`,
+      { status: 422 }
+    );
+  // Cheap early rejection so an illegal transition never even reaches Policy —
+  // the adapter re-checks against a fresh read at execute time (the framework's
+  // live-preflight recheck narrows the window; this closes it), same
+  // defense-in-depth placement as Memory's scope-ownership check.
+  if (!isValidTransition(row.status, args.status))
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Illegal transition: ${row.status} -> ${args.status}.`,
+      { status: 422 }
+    );
+  return {
+    resource: { type: RESOURCE_TYPE, id: args.uuid, version: row.digest },
+    target: { uuid: args.uuid, status: args.status },
+    payload: { notes },
+    environment: "LOCAL",
+  };
+}
+
+module.exports = {
+  RESOURCE_TYPE,
+  buildReadRequest,
+  buildRecordOpportunityRequest,
+  buildUpdateStatusRequest,
+};

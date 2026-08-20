@@ -133,11 +133,37 @@ const MONITORING = Object.freeze({
   autonomyLevel: AUTONOMY_LEVELS.AUTONOMOUS,
 });
 
+const CAREER = Object.freeze({
+  key: AGENT_KEYS.CAREER,
+  name: "Career Agent",
+  mission:
+    "Track Yusuf's career opportunities as durable, honestly-transitioned records — nothing more.",
+  instructions: [
+    "Call career.read_opportunities to see existing opportunities by uuid or status.",
+    "Call career.record_opportunity to record a new opportunity you've learned about. It always starts at status RESEARCHING — you cannot set an initial status.",
+    "Call career.update_status to move an opportunity forward. An illegal transition (e.g. REJECTED back to APPLIED) is refused before anything is written; if that happens, record a new opportunity instead of trying to force it.",
+    "You have no project, git, browser, or memory-write capability — you track opportunities and note what you find, nothing else. You cannot apply to anything on Yusuf's behalf.",
+  ].join("\n"),
+  status: "ACTIVE",
+  maxConcurrentRuns: 1,
+  allowedCapabilities: Object.freeze([
+    "career.read_opportunities",
+    "career.record_opportunity",
+    "career.update_status",
+    "knowledge.read",
+    "knowledge.write",
+  ]),
+  modelPolicy: Object.freeze({ role: "career", temperature: 0 }),
+  departmentKey: DEPARTMENT_KEYS.CAREER,
+  autonomyLevel: AUTONOMY_LEVELS.MANUAL,
+});
+
 const AGENT_DEFINITIONS = Object.freeze({
   [AGENT_KEYS.CHIEF_OF_STAFF]: CHIEF_OF_STAFF,
   [AGENT_KEYS.ENGINEERING]: ENGINEERING,
   [AGENT_KEYS.REVIEWER]: REVIEWER,
   [AGENT_KEYS.MONITORING]: MONITORING,
+  [AGENT_KEYS.CAREER]: CAREER,
 });
 
 // Capabilities that imply mutation. Used by the isolation assertions so a
@@ -154,6 +180,8 @@ const MUTATION_CAPABILITIES = Object.freeze([
   "knowledge.write",
   "memory.write",
   "monitoring.record_check",
+  "career.record_opportunity",
+  "career.update_status",
 ]);
 
 function getAgentDefinition(key) {
@@ -173,6 +201,7 @@ module.exports = {
   ENGINEERING,
   REVIEWER,
   MONITORING,
+  CAREER,
   getAgentDefinition,
   isCapabilityAllowedForAgent,
 };

@@ -57,12 +57,14 @@ const AGENT_KEYS = Object.freeze({
   ENGINEERING: "engineering",
   REVIEWER: "reviewer",
   MONITORING: "monitoring",
+  CAREER: "career",
 });
 
 const DEPARTMENT_KEYS = Object.freeze({
   SYSTEM_CORE: "system_core",
   ENGINEERING: "engineering",
   MONITORING: "monitoring",
+  CAREER: "career",
 });
 
 // Orchestration-only label describing how freely an Agent may plan/delegate
@@ -142,6 +144,19 @@ const MONITORING_CHECK_STATUSES = Object.freeze({
   BREACH: "BREACH",
 });
 
+// Phase L. A new opportunity always starts RESEARCHING (career.record_opportunity
+// refuses any other initial value) so every real transition passes through the
+// code-owned transition table in career/transitions.js. See
+// docs/yusuf-os/gate-b/career.md.
+const CAREER_OPPORTUNITY_STATUSES = Object.freeze({
+  RESEARCHING: "RESEARCHING",
+  APPLIED: "APPLIED",
+  INTERVIEWING: "INTERVIEWING",
+  OFFER: "OFFER",
+  REJECTED: "REJECTED",
+  WITHDRAWN: "WITHDRAWN",
+});
+
 const INTENT_STATUSES = Object.freeze({
   INTENT_CREATED: "INTENT_CREATED",
   POLICY_EVALUATED: "POLICY_EVALUATED",
@@ -204,6 +219,7 @@ module.exports = {
   KNOWLEDGE_SOURCE_TYPES,
   MONITORING_CHECK_KEYS,
   MONITORING_CHECK_STATUSES,
+  CAREER_OPPORTUNITY_STATUSES,
   INTENT_STATUSES,
   APPROVAL_STATUSES,
   POLICY_OUTCOMES,

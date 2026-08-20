@@ -14,6 +14,7 @@ const {
 const {
   MonitoringAdapter,
 } = require("../adapters/monitoring/MonitoringAdapter");
+const { CareerAdapter } = require("../adapters/career/CareerAdapter");
 const localGitBuilders = require("../adapters/localGit/requestBuilders");
 const projectBuilders = require("../adapters/project/requestBuilders");
 const browserBuilders = require("../adapters/browser/requestBuilders");
@@ -21,6 +22,7 @@ const knowledgeBuilders = require("../adapters/knowledge/requestBuilders");
 const memoryBuilders = require("../adapters/memory/requestBuilders");
 const systemHealthBuilders = require("../adapters/systemHealth/requestBuilders");
 const monitoringBuilders = require("../adapters/monitoring/requestBuilders");
+const careerBuilders = require("../adapters/career/requestBuilders");
 const { getAgentDefinition } = require("./definitions");
 const { YusufOSError, ErrorCodes } = require("../errors/YusufOSError");
 
@@ -68,6 +70,11 @@ const CAPABILITY_BUILDERS = Object.freeze({
   "system.read_health": () => systemHealthBuilders.buildReadHealthRequest(),
   "monitoring.record_check": (args) =>
     monitoringBuilders.buildRecordCheckRequest(args),
+  "career.read_opportunities": (args) => careerBuilders.buildReadRequest(args),
+  "career.record_opportunity": (args) =>
+    careerBuilders.buildRecordOpportunityRequest(args),
+  "career.update_status": (args, db) =>
+    careerBuilders.buildUpdateStatusRequest(args, db),
 });
 
 function adapterForCapability(capabilityKey, db) {
@@ -85,6 +92,7 @@ function adapterForCapability(capabilityKey, db) {
     return new SystemHealthAdapter({ db });
   if (capabilityKey.startsWith("monitoring."))
     return new MonitoringAdapter({ db });
+  if (capabilityKey.startsWith("career.")) return new CareerAdapter({ db });
   throw new YusufOSError(
     ErrorCodes.POLICY_DENIED,
     `No governed adapter is registered for ${capabilityKey}.`,

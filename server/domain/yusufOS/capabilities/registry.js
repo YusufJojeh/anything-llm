@@ -420,6 +420,49 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SERVER_KEY",
     hardFlags: [],
   }),
+
+  // --- Phase L: Career -----------------------------------------------------
+  // Durable tracking of job opportunities Yusuf is pursuing. Internal-effect
+  // only — no auto-apply, no email/job-board mutation (that needs the Browser
+  // Broker and a real integration, deferred). See docs/yusuf-os/gate-b/career.md.
+  "career.read_opportunities": definition({
+    key: "career.read_opportunities",
+    domain: "career",
+    description: "Read career opportunities by uuid or status.",
+    operationClass: "READ",
+    defaultRisk: RISK_LEVELS.L0,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: false,
+    verificationRequired: false,
+    idempotency: "SAFE_RETRY",
+    hardFlags: [],
+  }),
+  "career.record_opportunity": definition({
+    key: "career.record_opportunity",
+    domain: "career",
+    description:
+      "Record a new career opportunity. Always starts at status RESEARCHING.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
+  "career.update_status": definition({
+    key: "career.update_status",
+    domain: "career",
+    description:
+      "Transition an existing career opportunity's status. Illegal transitions are refused by a code-owned transition table.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
 });
 
 const HARD_FORBIDDEN = Object.freeze([

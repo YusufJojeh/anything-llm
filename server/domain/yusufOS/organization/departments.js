@@ -36,10 +36,19 @@ const MONITORING = Object.freeze({
   memberAgentKeys: Object.freeze([AGENT_KEYS.MONITORING]),
 });
 
+const CAREER = Object.freeze({
+  key: DEPARTMENT_KEYS.CAREER,
+  name: "Career",
+  mission:
+    "Track opportunities Yusuf is pursuing as durable, honestly-transitioned records.",
+  memberAgentKeys: Object.freeze([AGENT_KEYS.CAREER]),
+});
+
 const DEPARTMENTS = Object.freeze({
   [DEPARTMENT_KEYS.SYSTEM_CORE]: SYSTEM_CORE,
   [DEPARTMENT_KEYS.ENGINEERING]: ENGINEERING,
   [DEPARTMENT_KEYS.MONITORING]: MONITORING,
+  [DEPARTMENT_KEYS.CAREER]: CAREER,
 });
 
 function getDepartment(key) {
@@ -62,6 +71,7 @@ module.exports = {
   SYSTEM_CORE,
   ENGINEERING,
   MONITORING,
+  CAREER,
   getDepartment,
   listDepartments,
   departmentForAgent,
