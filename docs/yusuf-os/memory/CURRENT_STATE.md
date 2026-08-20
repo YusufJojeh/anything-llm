@@ -1,7 +1,7 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-20, Phase N (Founder) pass. See `CURRENT_GATE.md` for the full record;
-Phases H, I, the Organization model, J, K, L, M, and N have all landed since the line below was
+_Last verified: 2026-08-20, Phase O (Research) pass. See `CURRENT_GATE.md` for the full record;
+Phases H, I, the Organization model, J, K, L, M, N, and O have all landed since the line below was
 last true — read `CURRENT_GATE.md` top-to-bottom rather than trusting this summary's detail below,
 which is not fully re-verified this pass._
 
@@ -34,7 +34,7 @@ unpushed. `origin` =
   System Health surface, and snapshot-first SSE reconciliation. Plus the browser session
   bootstrap that lets a browser reach the control plane without ever holding the control token.
 
-**What has passed (as of Phase N):** 66/66 server suites, **825/825 tests** (see `TEST_BASELINE.md`
+**What has passed (as of Phase O):** 68/68 server suites, **859/859 tests** (see `TEST_BASELINE.md`
 for the exact command and per-phase deltas); frontend counts not re-verified this phase (no
 frontend change). Server lint clean, `git diff --check` clean.
 

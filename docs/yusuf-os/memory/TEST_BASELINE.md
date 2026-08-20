@@ -1,5 +1,45 @@
 # Test Baseline
 
+## Phase O (Research) [VERIFIED_BY_TEST — 2026-08-20]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server --maxWorkers=2
+```
+→ **68 suites, 859 tests, 0 failed** (was 66 / 825; adds 2 suites, 34 tests).
+
+New files:
+- `server/__tests__/yusufOS/integration/researchLifecycle.test.js` — 10 tests through the real
+  governed chain: a new item always starts at `OPEN` even if the model asks for a different initial
+  status; a valid forward transition (`OPEN -> INVESTIGATING`) succeeds and updates notes; the
+  `ANSWERED -> INVESTIGATING` reopening edge succeeds; an illegal transition (`OPEN -> ANSWERED`) is
+  rejected before any write and the row's digest is unchanged; a terminal item (`ABANDONED`) refuses
+  any further transition; an unknown item uuid is rejected before any write; reading by status/uuid
+  returns the right shape; Research's toolset has no project/git/browser/memory-write tool;
+  re-recording the same question/category produces a second distinct row, not an upsert.
+- `server/__tests__/yusufOS/unit/researchTransitions.test.js` — 8 tests of the pure
+  `isValidTransition` logic: every legal edge (including the ANSWERED->INVESTIGATING reopening
+  edge), the terminal state refuses every target, an out-of-enum target is never valid, an unknown
+  source status is never valid, no source key is orphaned, and a dedicated test confirms
+  `ANSWERED->INVESTIGATING` is the only backward/reopening edge.
+- `organizationModel.test.js` updated: seven Departments now (was six).
+- `agentRuntimeSecurity.test.js` gained rows refusing Reviewer/Engineering/Chief-of-Staff/
+  Monitoring/Career/Marketing/Founder a grant of `research.*`, refusing Research a grant of any
+  project/git/browser/memory-write/monitoring/career/marketing/founder capability, plus a direct
+  role-definition assertion.
+- `commandCenterGateway.test.js`/`commandCenterProjection.test.js` updated from 7 to 8 expected
+  seeded agents (Research is now real and seeded by `ensureCoreStaff`).
+- `migrationSafety.test.js` updated to expect the new migration in the applied-migrations list.
+
+New migration: `20260820170000_add_yusuf_os_research` — additive `yusuf_research_items` table
+(DB-level `CHECK` constraint on `status` matching the four-value transition-table enum).
+
+**Independent review found no P0/P1/P2.** Confirmed: a model-supplied status on
+`research.record_item` cannot override the server-forced `OPEN` start; the reopening edge
+(`ANSWERED -> INVESTIGATING`) introduces no TOCTOU gap and no stale-digest acceptance; digest
+recomputation is consistent across create/update/verify; capability isolation is structural, not
+database-trusted; migration/schema/constants alignment is exact.
+
 ## Phase N (Founder) [VERIFIED_BY_TEST — 2026-08-20]
 
 ```bash

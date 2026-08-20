@@ -1,5 +1,51 @@
 # Gate History
 
+## Phase O — Research — 2026-08-20 — PASS
+
+Gives Yusuf OS a durable, honestly-transitioned record of research questions Yusuf is investigating
+— named only as a future roster label in `PRODUCT_CHARTER.md`/`ROADMAP.md` until this phase. Mirrors
+Phase N (Founder)'s pattern with its own transition-table shape. Design note:
+`docs/yusuf-os/gate-b/research.md`.
+
+### What was built
+
+- **`yusuf_research_items`** (new table, additive migration
+  `20260820170000_add_yusuf_os_research`) — `question`, `category`, `status`
+  (`OPEN`/`INVESTIGATING`/`ANSWERED`/`ABANDONED`, DB-level `CHECK` constraint), `notes` (nullable),
+  `digest`, principal attribution, unique `uuid`.
+- **`research.read_items`** (READ, L0, ALLOW) — by uuid or status.
+- **`research.record_item`** (LOCAL_WRITE, L1, ALLOW) — `buildRecordItemRequest` hardcodes the
+  initial `status` to `OPEN` regardless of any status the model's call arguments carry.
+- **`research.update_status`** (LOCAL_WRITE, L1, ALLOW) — transitions an item, validated against a
+  code-owned transition table (`domain/yusufOS/research/transitions.js`) at the same two
+  checkpoints as Career/Marketing/Founder.
+- **A near-linear transition graph with one reopening edge**: `OPEN -> INVESTIGATING -> ANSWERED`
+  is the main pipeline; `ABANDONED` is reachable as a terminal off-ramp from any non-terminal state;
+  `ANSWERED -> INVESTIGATING` is the one backward/reopening edge, justified because a *concluded*
+  answer can later prove wrong when new evidence surfaces — a different kind of justification than
+  Marketing's routine revision edges or Founder's resume-from-pause edge. `ABANDONED` is the only
+  true terminal state.
+- **Research Department + Research Agent** — one member, `allowedCapabilities`:
+  `research.read_items`, `research.record_item`, `research.update_status`, `knowledge.read`,
+  `knowledge.write`. No project/git/browser/memory-write/monitoring/career/marketing/founder
+  capability (test-enforced at the role-definition level). `autonomyLevel: MANUAL`.
+
+### Independent review
+
+No P0/P1/P2 findings. Reviewer confirmed: `research.record_item` cannot be made to start at any
+status other than `OPEN` regardless of model input; both transition-recheck checkpoints exist and
+neither can be bypassed via any code path (extra scrutiny given to the `ANSWERED -> INVESTIGATING`
+reopening edge specifically, with no bypass, stale-digest, or notes-corruption path found); digest
+computation is identical across record/update/verify and matches Founder's equivalent field set;
+capability isolation is structural (code-owned allowlist, not database-trusted) and the security
+test suite covers both directions; the SQL `CHECK` constraint, Prisma schema, and
+`RESEARCH_ITEM_STATUSES` constant are in exact alignment; input validation caps `question`/
+`category` at 300 chars and `notes` at 8KB, and the list-read path is bounded at 500 rows.
+
+### Evidence
+
+68 server suites / **859 tests** (was 66/825). Lint clean. Local commit `0416c892`.
+
 ## Phase N — Founder — 2026-08-20 — PASS
 
 Gives Yusuf OS a durable, honestly-transitioned record of side-project ventures Yusuf is running —

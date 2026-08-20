@@ -1,5 +1,52 @@
 # Current Gate
 
+## Phase O — Research — status: COMPLETE
+
+**Objective:** give Yusuf OS a durable, honest record of research questions Yusuf is investigating —
+named in `PRODUCT_CHARTER.md`'s future-roster list, never previously scoped. Mirrors Phase N
+(Founder)'s pattern, with its own transition table shape (a simple linear pipeline plus one
+reopening edge).
+**Design note:** `docs/yusuf-os/gate-b/research.md`.
+**Implemented:**
+- **`yusuf_research_items`** (new table) — `question`, `category`, `status` (four-value DB-level
+  `CHECK` constraint), `notes`, `digest`, principal attribution.
+- **`research.read_items`** (READ, L0, ALLOW) — by uuid or status.
+- **`research.record_item`** (LOCAL_WRITE, L1, ALLOW) — the model supplies `question`/`category`/
+  optional `notes`; the server always mints the uuid and always starts the row at `OPEN` regardless
+  of what status the model asks for (test-proven).
+- **`research.update_status`** (LOCAL_WRITE, L1, ALLOW) — transitions an item, validated against a
+  code-owned transition table (`research/transitions.js`) at the same two checkpoints as
+  Career/Marketing/Founder (early request-builder rejection against a fresh read; independent
+  re-validation in `ResearchAdapter.execute()` against a fresh read at execute time).
+- **Transition table:** `OPEN -> INVESTIGATING -> ANSWERED`, with `ABANDONED` reachable as a
+  terminal off-ramp from any non-terminal state, and `ANSWERED -> INVESTIGATING` as the one
+  reopening edge. Unlike Marketing's routine revision edges or Founder's resume-from-pause edge,
+  this reopening edge exists because a *concluded* answer can later prove wrong when new evidence
+  surfaces — documented as a "Why the reopening edge" section in the design note, and independently
+  unit-tested that this is the *only* backward edge in the table.
+- **Research Department + Research Agent** — one member, `allowedCapabilities`:
+  `research.read_items`, `research.record_item`, `research.update_status`, `knowledge.read`,
+  `knowledge.write`. No project/git/browser/memory-write/monitoring/career/marketing/founder
+  capability. `autonomyLevel: MANUAL`.
+**The one invariant:** unchanged — both new mutation capabilities pass through
+`YusufActionBoundary` -> Policy -> Execution Coordinator -> Verification -> Audit like any other
+governed capability.
+**Tests:** `researchLifecycle.test.js` (10 integration cases, including the ANSWERED->INVESTIGATING
+reopening edge), `researchTransitions.test.js` (8 unit cases, including one confirming
+ANSWERED->INVESTIGATING is the only backward/reopening edge), plus `organizationModel.test.js`,
+`agentRuntimeSecurity.test.js`, and two Command Center suites updated. **68 suites / 859 tests**
+(was 66/825). See `TEST_BASELINE.md`.
+**Independent review found no P0/P1/P2** — confirmed no model-supplied-status bypass, no TOCTOU gap
+in the transition recheck (including specific scrutiny on the reopening edge), consistent digest
+recomputation across create/update/verify, structural capability isolation, and exact
+migration/schema/constants alignment.
+**Remaining:** no automated web research/search integration (needs Browser Broker + a real search
+integration, a separate later decision); no retention on `yusuf_research_items`; no Command Center
+UI surfacing.
+**Next automatic phase:** per the CAVEMAN MODE implementation order — Sales/Inbox, Integrations,
+Model routing/cost, Command Center expansion, hardening, release/ops — the specific next phase to
+be determined by reading `DEFERRED_WORK.md`.
+
 ## Phase N — Founder — status: COMPLETE
 
 **Objective:** give Yusuf OS a durable, honest record of side-project ventures Yusuf is running —
@@ -43,9 +90,7 @@ alignment.
 **Remaining:** no financial/investment tracking (a future Finance phase's decision); no legal/
 incorporation automation; no retention on `yusuf_founder_ventures`; no Command Center UI
 surfacing.
-**Next automatic phase:** per the CAVEMAN MODE implementation order — Research, Sales/Inbox,
-Integrations, Model routing/cost, Command Center expansion, hardening, release/ops — the specific
-next phase to be determined by reading `DEFERRED_WORK.md`.
+**Next automatic phase:** Phase O (Research) — **COMPLETE, see above.**
 
 ## Phase M — Marketing — status: COMPLETE
 

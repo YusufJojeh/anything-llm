@@ -1,5 +1,20 @@
 # Deferred Work
 
+## Deferred after Phase O (Research) — 2026-08-20
+
+Phase O is **done** — see `CURRENT_GATE.md`. Still deferred:
+
+- **Automated web research/search execution** — deliberately deferred; Research tracks pipeline
+  state only. Real automation needs the Browser Broker plus a real search integration, a separate,
+  larger decision.
+- **Structured citation/source-linking beyond `knowledge.*`** — out of scope this phase.
+- **No retention on `yusuf_research_items`** — same accepted gap already left on Career/Marketing/
+  Founder/Knowledge/Memory/Monitoring, not re-litigated here.
+- **No Command Center UI surfacing** of research items — backend-only this phase.
+- **Everything after Research in the CAVEMAN MODE order** — Sales/Inbox, Integrations, Model
+  routing/cost, Command Center expansion, security/reliability hardening, release/ops, end-to-end
+  scenarios — not started.
+
 ## Deferred after Phase N (Founder) — 2026-08-20
 
 Phase N is **done** — see `CURRENT_GATE.md`. Still deferred:

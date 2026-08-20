@@ -1,5 +1,36 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-20 — Phase O: Research (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
+
+**What was done:** Yusuf explicitly said "Continue to Phase O (Research), full vertical slice."
+Wrote `docs/yusuf-os/gate-b/research.md`, implemented a Research Department/Agent that tracks
+research questions through a code-owned transition table (`OPEN -> INVESTIGATING -> ANSWERED`,
+`ABANDONED` as a terminal off-ramp from any non-terminal state, `ANSWERED -> INVESTIGATING` as a
+reopening edge), three new governed capabilities, and a new `yusuf_research_items` table —
+mirroring Career/Marketing/Founder's established pattern.
+
+**One thing worth carrying forward:** Research's reopening edge (`ANSWERED -> INVESTIGATING`) is
+philosophically distinct from Marketing's routine revision edges and Founder's resume-from-pause
+edge — it exists because a *concluded* answer can later prove wrong when new evidence surfaces, not
+because of an editorial back-and-forth or a paused/resumed task. Also carried forward the lesson
+from Founder's backward-edge-detection test bug: wrote `researchTransitions.test.js`'s "only
+backward edge" test using a simple linear-order-index comparison (appropriate since Research's
+graph, unlike Founder's branching one, is a genuine linear chain with one true backward hop) and
+verified it passed on the first run rather than assuming correctness.
+
+**Independent review found nothing to fix** — the fourth phase running (after Career, Marketing,
+Founder) where an adversarial pass, this time with extra scrutiny on the reopening edge for any
+bypass potential, found zero P0/P1/P2. The defense-in-depth pattern (server forces initial status,
+two-checkpoint transition validation with an independent fresh read at execute time) keeps holding
+regardless of the transition graph's shape.
+
+**Evidence:** 68 server suites / **859 tests** (was 66/825). Lint clean. Local commit `0416c892`.
+
+**Exact next action:** whatever comes after Research in the CAVEMAN MODE order (Sales/Inbox,
+Integrations, Model routing/cost, Command Center expansion, hardening, release/ops) — no gate-b
+design doc exists for any of them yet; check first, same as every prior phase.
+
+
 ## 2026-08-20 — Phase N: Founder (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
 
 **What was done:** Continued the CAVEMAN MODE loop autonomously to Founder, the next phase after
