@@ -1,5 +1,58 @@
 # Gate History
 
+## Phase Q — Application submission seam — 2026-08-20 — PASS (no findings)
+
+Closes the two real gaps toward the end-to-end job-application scenario Yusuf described, chosen
+explicitly by him via AskUserQuestion after Phase P (over "Career/Marketing wiring refinement" and
+"define Integrations phase" alternatives). Design note:
+`docs/yusuf-os/gate-b/application-submission.md`, which opens with a step-by-step audit table
+showing the scenario's steps were almost entirely already built.
+
+### What was built
+
+- `career.prepare_application` (LOCAL_WRITE, L1, ALLOW) — a local-only `applicationNotes` draft on
+  an opportunity still `RESEARCHING`, with no status argument at all (cannot change status by
+  construction), TOCTOU-rechecked at both the request-builder and adapter-execute checkpoints.
+- Career Agent granted the pre-existing, unmodified `browser.submit_form` (Phase I) — first Agent
+  to hold it. No code in `BrowserAdapter.js`/`formRegistry.js`/`originPolicy.js` changed.
+- Additive migration adding nullable `applicationNotes` to `yusuf_career_opportunities`.
+
+### Two regressions caught by the test/build harness during this phase (not by initial design)
+
+1. **Shared digest formula, cross-adapter coupling.** `CareerAdapter.entryDigest()` gained an
+   `applicationNotes` field. Phase P's `InboxAdapter.js` imports and calls this same function
+   directly for its `inbox.advance_linked_career_status` seam (Career's integration point for
+   Inbox, built in Phase Q's precursor phase). The first regression run after adding the field
+   failed `inboxLifecycle.test.js`'s seam test with `verificationStatus: "UNKNOWN"` instead of
+   `"VERIFIED"` — the digest InboxAdapter computed for the same row no longer matched what
+   CareerAdapter itself would compute, because `InboxAdapter.js`'s call site hadn't been updated
+   to include the new field. Fixed by passing `applicationNotes: opportunity.applicationNotes`
+   there too. **Lesson recorded in `SESSION_HANDOFF.md`:** any change to a shared digest/hash
+   formula must be grepped for every importer, not just the domain's own call sites — cross-domain
+   seams create hidden coupling exactly like this.
+2. **Migration-naming/harness-classification mismatch.** The new migration folder was first named
+   without the `_add_yusuf_os_` substring `testDatabase.js` uses to separate Yusuf-owned migrations
+   from upstream AnythingLLM ones in the `applyGateCSeparately` test mode. This misclassified it as
+   "upstream," which ran it before any Yusuf table existed, failing with "no such table:
+   yusuf_career_opportunities". Fixed by renaming to
+   `20260820190000_add_yusuf_os_career_application_notes`.
+
+Both were caught and fixed before commit; the final regression run and the independent review both
+passed clean against the corrected code.
+
+### Independent review — no P0/P1/P2
+
+Specifically re-verified digest consistency across every `entryDigest`/`careerEntryDigest` call
+site after the fix above (the reviewer's own words: "the highest-risk item, since a shared digest
+formula changed and multiple adapters/capabilities depend on it matching"); confirmed
+`career.prepare_application` has no status argument anywhere; confirmed `browser.submit_form`'s
+own code is byte-for-byte unmodified; confirmed capability isolation (only Career holds both new/
+newly-granted capabilities, via the full `agentRuntimeSecurity.test.js` and
+`browserBrokerSecurity.test.js` refusal tables); confirmed the prepared-draft state is genuinely
+inert (nothing reads `applicationNotes` to auto-trigger anything).
+
+**Result:** 70 suites / 913 tests. Local commit `889f4e46`. Memory commit pending (this commit).
+
 ## Phase P — Sales/Inbox — 2026-08-20 — PASS (one P1 found and fixed)
 
 Gives Yusuf OS durable local-only inbound-message tracking and reply drafting, per Yusuf's explicit

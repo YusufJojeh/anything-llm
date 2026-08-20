@@ -1,5 +1,82 @@
 # Current Gate
 
+## Phase Q — Application submission seam — status: COMPLETE
+
+**Objective:** at Yusuf's explicit direction ("attempt the end-to-end scenario now"), close the
+two real gaps toward the full pipeline he described: Job found -> Research -> Career -> Evidence
+check -> Application prepared -> Needs Yusuf -> Approval -> Browser -> Submission verification ->
+Inbox monitors reply -> Career state updated -> Command Center. Auditing that list against the
+existing implementation showed every other step already existed across Phases L/O/P/Gate E/Gate
+F/J — only "Application prepared" and Career actually holding a browser mutation capability were
+missing. Deliberately the smallest phase in this run: two changes, no new adapter, no new Agent,
+no new Department.
+**Design note:** `docs/yusuf-os/gate-b/application-submission.md` (includes the step-by-step
+audit table showing what was already built vs. what this phase adds).
+**Implemented:**
+- **`career.prepare_application`** (LOCAL_WRITE, L1, ALLOW) — stores a local-only
+  `applicationNotes` draft on an opportunity that is still `RESEARCHING`. Has **no status
+  argument at all** — cannot change status by construction, not just by validation. Requires the
+  opportunity to still be `RESEARCHING`; re-checked independently at both the request-builder and
+  `CareerAdapter.execute()` checkpoints (same TOCTOU discipline as every other governed write in
+  this system). This is the "Application prepared" / "Needs Yusuf" checkpoint — pure inert local
+  storage, nothing reads it to auto-trigger anything else.
+- **Career Agent granted `browser.submit_form`** — the existing, **completely unmodified** Phase I
+  capability (`EXTERNAL_MUTATION`, L3, `REQUIRE_APPROVAL`, registry-mediated formKey +
+  allowlisted fields, account-identity binding, page-drift detection, independent post-execution
+  verification). First Agent in Yusuf OS to hold it. This is the "Approval -> Browser -> Submission
+  verification" step — reachable now, but not usable, since `formRegistry.js` still ships empty
+  and the Browser Broker still defaults to disabled (`HUMAN_ACTION_REQUIRED.md` §2 unchanged).
+  Once a real submission succeeds, the pre-existing `career.update_status` (unmodified) moves the
+  opportunity to `APPLIED` — no new capability needed there.
+- **`yusuf_career_opportunities.applicationNotes`** (new nullable column, additive migration
+  `20260820190000_add_yusuf_os_career_application_notes`) — free text, same pattern as the
+  existing `notes` column, no CHECK constraint needed.
+- `CareerAdapter.entryDigest()`'s field set was extended to include `applicationNotes`; every call
+  site (record/update/prepare) updated consistently, **including the shared digest computation
+  inside Phase P's `InboxAdapter.advance_linked_career_status`** — a cross-adapter dependency that
+  independent review specifically verified stayed consistent (a mismatch there would have silently
+  broken the Inbox->Career seam's verification without any test catching it by coincidence).
+- **"Inbox monitors reply -> Career state updated"** — already fully built in Phase P
+  (`inbox.advance_linked_career_status`); unmodified this phase.
+- **"Command Center"** — already fully generic (Gate F reads tasks/runs/approvals/audit, not
+  per-domain data); no Career-specific Command Center work needed or done.
+**The one invariant:** unchanged — `career.prepare_application` passes through the full boundary
+like any other governed capability; granting `browser.submit_form` to a new Agent required zero
+changes to `PolicyEngine`/`ApprovalService`/`ExecutionCoordinator`, confirming (independent review
+checked this explicitly) that capability risk tiers, not agent identity, are what those components
+consult.
+**Tests:** `careerLifecycle.test.js` gained 3 new cases (drafts, rejects drafting past
+`RESEARCHING`, rejects empty notes) and one existing test corrected (Career now legitimately holds
+`browser.submit_form`); `agentRuntimeSecurity.test.js` and `browserBrokerSecurity.test.js` updated
+so Career is the sole exception to "no Agent holds `browser.submit_form`" and the sole holder of
+`career.prepare_application`; `migrationSafety.test.js` updated. **70 suites / 913 tests** (was
+70/903 — Phase Q adds tests to existing suites rather than new suites, since it extends the
+existing Career adapter/tests rather than building a new domain). See `TEST_BASELINE.md`.
+**A migration-naming pitfall caught by the test harness, not by review:** the first version of the
+new migration folder was named `..._add_career_application_notes` (missing the `_add_yusuf_os_`
+substring `testDatabase.js`'s harness uses to classify Yusuf-owned migrations vs. upstream
+AnythingLLM migrations). In the `applyGateCSeparately` test mode, this misclassified the migration
+as "upstream" and ran it before any Yusuf table existed, failing with "no such table:
+yusuf_career_opportunities". Fixed by renaming to
+`20260820190000_add_yusuf_os_career_application_notes`. Worth remembering for any future
+additive-column-only migration: the folder name's substring match matters, not just its timestamp
+ordering.
+**Independent review found no P0/P1/P2** — explicitly verified digest consistency across every
+`entryDigest`/`careerEntryDigest` call site (the highest-risk item, since a shared digest formula
+changed under two different adapters), confirmed `career.prepare_application` cannot change status
+by construction, confirmed `browser.submit_form`'s own code is byte-for-byte unmodified, confirmed
+capability isolation (only Career holds both new/newly-granted capabilities), and confirmed the
+prepared-draft state is genuinely inert.
+**Remaining:** no real job-application form is registered anywhere (`formRegistry.js` still
+empty); Browser Broker still disabled by default; no Career-specific Command Center surfacing; no
+retention policy on `applicationNotes`. The full literal end-to-end scenario (a real submission
+against a real site) cannot run until Yusuf completes `HUMAN_ACTION_REQUIRED.md` §2 and registers
+a real form — this phase proves the *mechanism*, not a live integration, same pattern as every
+prior phase's local-only proof (Gate D's local git remote, Phase I's fixture-only browser tests).
+**Next automatic phase:** to be determined per Yusuf's own direction — check with him before
+picking the next slice; no design doc exists yet for Integrations, Model routing/cost, or Command
+Center expansion.
+
 ## Phase P — Sales/Inbox — status: COMPLETE
 
 **Objective:** durable local-only inbound-message tracking and reply drafting, per Yusuf's explicit
@@ -90,7 +167,7 @@ note as the acceptance bar for whichever future phase builds real sends); no ret
 (Sales/Inbox and Career/Marketing wiring first, then the end-to-end scenario: Job found ->
 Research -> Career -> Evidence check -> Application prepared -> Needs Yusuf -> Approval -> Browser
 -> Submission verification -> Inbox monitors reply -> Career state updated -> Command Center) —
-the specific next phase to be determined by reading `DEFERRED_WORK.md`.
+**COMPLETE as Phase Q, see above.**
 
 ## Phase O — Research — status: COMPLETE
 

@@ -1,5 +1,53 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-20 — Phase Q: Application submission seam (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
+
+**What was done:** After Phase P, asked Yusuf directly (via AskUserQuestion, since "Integrations"
+in `DEFERRED_WORK.md`'s implementation order was an undefined placeholder with no scope) what to
+build next. He chose "attempt the end-to-end scenario now" (Job found -> Research -> Career ->
+Evidence -> Application prepared -> Needs Yusuf -> Approval -> Browser -> Submission verification
+-> Inbox monitors reply -> Career state updated -> Command Center). Before writing any code, I
+audited that list against everything already built (Phases L/O/P, Gate E/F/J) and found every step
+already existed except two: a local "application prepared" checkpoint, and Career actually holding
+a browser mutation capability (it held zero L3/browser capability before this). Built exactly
+those two things — `career.prepare_application` (local-only draft, no status argument) and a grant
+of the existing, unmodified `browser.submit_form` to Career — rather than inventing a bespoke
+duplicate submission mechanism.
+
+**One thing worth carrying forward — a shared-digest-formula regression, caught before it shipped.**
+`CareerAdapter.entryDigest()`'s field set changed when `applicationNotes` was added. This function
+is depended on by more than just `CareerAdapter.js` itself: Phase P's `InboxAdapter.js` imports and
+calls it directly for its `inbox.advance_linked_career_status` seam. Updating `CareerAdapter.js`'s
+own call sites but forgetting `InboxAdapter.js`'s would have silently broken that seam's
+verification (`verify()` would report `NOT_APPLIED`/`UNKNOWN` for a perfectly successful write) —
+and it very nearly did: the first regression run caught exactly this (`inboxLifecycle.test.js`
+failed with `verificationStatus` `UNKNOWN` instead of `VERIFIED`) before I'd finished wiring
+everything through. **Lesson: when a shared digest/hash formula in one domain's adapter changes,
+grep for every other file that imports and calls that function directly, not just the domain's own
+call sites** — cross-domain seams (like Inbox's into Career) create exactly this kind of hidden
+coupling, and a test suite that happens to cover the seam is what catches it, not code review
+alone (the independent reviewer this phase separately re-verified all call sites and confirmed
+they were consistent after the fix).
+
+**A second, unrelated regression also caught by the test harness, not by design:** the new
+migration folder was initially named `..._add_career_application_notes` — missing the
+`_add_yusuf_os_` substring the test harness (`testDatabase.js`) uses to classify Yusuf-owned
+migrations vs. upstream ones for the `applyGateCSeparately` test mode. This misclassified it as
+"upstream" and ran it before any Yusuf table existed. Renamed to
+`20260820190000_add_yusuf_os_career_application_notes` to fix. Worth remembering for any future
+migration that only adds a column to an existing Yusuf table, not a whole new one.
+
+**Independent review found no P0/P1/P2** — specifically re-verified the digest-consistency fix
+above across every call site, confirmed `career.prepare_application` cannot change status by
+construction, and confirmed `browser.submit_form`'s own code was genuinely untouched by this
+phase.
+
+**Evidence:** 70 server suites / **913 tests** (was 70/903). Local commit `889f4e46`.
+
+**Exact next action:** none chosen yet — check with Yusuf before picking the next phase, per his
+own framing that Integrations/Model routing/Command Center expansion have no defined scope yet.
+
+
 ## 2026-08-20 — Phase P: Sales/Inbox (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
 
 **What was done:** Yusuf explicitly authorized "CONTINUE SALES/INBOX" with five hard requirements

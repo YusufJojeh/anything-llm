@@ -1,5 +1,27 @@
 # Deferred Work
 
+## Deferred after Phase Q (Application submission seam) — 2026-08-20
+
+Phase Q is **done** — see `CURRENT_GATE.md`. Still deferred:
+
+- **A real job-application form registration in `formRegistry.js`.** It still ships empty. Career
+  holding `browser.submit_form` makes the capability reachable, not usable — registering a real
+  form for a specific job site is a per-integration decision, same as every prior "not a real
+  integration yet" deferral (Career's job-board integration, Marketing's publishing integration,
+  Inbox's `gmail.*`).
+  Broker attachment — see `HUMAN_ACTION_REQUIRED.md` §2, unchanged.
+- **No actual live run of the full end-to-end scenario against a real site.** This phase proves the
+  mechanism (every capability exists and is correctly governed); it does not and cannot prove a
+  real submission until the two items above are resolved by Yusuf.
+- **No retention policy on `applicationNotes`** — same accepted gap as every other free-text field
+  in this system (`notes`, `snippet`, `draftReplyBody`, etc.), not re-litigated here.
+- **No Career-specific Command Center surfacing** — same "mechanism first, UI later" pattern as
+  every prior phase; the generic Gate F projections already reflect this activity via tasks/runs/
+  approvals/audit.
+- **Everything after Phase Q** — the next phase has not been chosen; check with Yusuf before
+  picking Integrations, Model routing/cost, Command Center expansion, or hardening, since no
+  design doc exists yet for any of them.
+
 ## Deferred after Phase P (Sales/Inbox) — 2026-08-20
 
 Phase P is **done** — see `CURRENT_GATE.md`. Still deferred:

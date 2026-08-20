@@ -63,10 +63,14 @@ Until then the broker honestly reports `UNAVAILABLE` in System Health.
 answer this — it is a judgement about what Yusuf is willing to let an Agent observe, and for
 Phase I, act on.
 
-**Separate decision, not yet needed:** granting `browser.submit_form` to any Agent role, and
-registering any real production form in `formRegistry.js` (it ships empty). Both are per-
-integration decisions belonging with whichever future phase wires a specific service — nothing
-blocks on them today since no role is authorized to reach the capability yet.
+**Updated 2026-08-20 (Phase Q):** `browser.submit_form` is now granted to the Career Agent
+(`career.prepare_application` → approval → `browser.submit_form` is the intended job-application
+flow). This grant is a no-op until the three operator actions above are done AND a real form is
+registered in `formRegistry.js` (it still ships empty) — until then Career's grant is reachable
+but functionally unusable, same as before. **Decision still needed from Yusuf:** which origins
+belong on the allowlist, and what the first real form registration should be (which job board /
+ATS, and its exact field mapping) — the repository cannot answer either; both are judgement calls
+about what Yusuf is willing to let an Agent submit on his behalf.
 
 ---
 

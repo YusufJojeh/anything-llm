@@ -1,5 +1,45 @@
 # Test Baseline
 
+## Phase Q (Application submission seam) [VERIFIED_BY_TEST — 2026-08-20]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server --maxWorkers=2
+```
+→ **70 suites, 913 tests, 0 failed** (was 70 / 903 — this phase extends existing Career test
+suites rather than adding a new domain suite).
+
+Changed/added tests:
+- `careerLifecycle.test.js` — 3 new cases: preparing an application stores a local draft without
+  changing status; an application cannot be prepared once the opportunity has moved past
+  `RESEARCHING`; empty `applicationNotes` is rejected before any write. One existing test
+  corrected: "Career has no project, git, browser, or memory-write tool" -> "... and its only
+  browser tool is browser.submit_form" (Career now legitimately holds it).
+- `agentRuntimeSecurity.test.js` — added refusal rows for every other agent against
+  `career.prepare_application`; removed the stale `[AGENT_KEYS.CAREER, "browser.submit_form"]`
+  refusal row (now an intentional grant); updated the Career role-definition test to assert
+  `browser.submit_form` and `career.prepare_application` are both present.
+- `browserBrokerSecurity.test.js` — both "no Agent role may hold browser.submit_form" tests
+  rewritten to assert Career is the sole exception (`isCapabilityAllowedForAgent` now returns
+  `true` only for `[AGENT_KEYS.CAREER, "browser.submit_form"]`).
+- `migrationSafety.test.js` — added the new migration name to the expected list.
+
+New migration: `20260820190000_add_yusuf_os_career_application_notes` — additive nullable
+`applicationNotes TEXT` column on `yusuf_career_opportunities`, no CHECK constraint (free text,
+matching the existing `notes` column). **Naming pitfall caught during this phase:** the folder was
+first named without the `_add_yusuf_os_` substring `testDatabase.js`'s harness matches to classify
+Yusuf-owned vs. upstream migrations; in `applyGateCSeparately` mode this misordered it before any
+Yusuf table existed. Renamed to include the substring; any future additive-column-only migration
+must keep this naming convention regardless of what it's adding.
+
+**Independent review found no P0/P1/P2.** Specifically verified digest consistency across every
+`entryDigest`/`careerEntryDigest` call site (the highest-risk item — a shared digest formula
+changed under two different adapters, `CareerAdapter.js` and Phase P's `InboxAdapter.js`);
+confirmed `career.prepare_application` has no status argument anywhere in its request builder,
+adapter execute case, or registry definition; confirmed `browser.submit_form`'s own code
+(`BrowserAdapter.js`, `formRegistry.js`, `originPolicy.js`) is byte-for-byte unmodified by this
+phase; confirmed capability isolation via the full refusal-table grep.
+
 ## Phase P (Sales/Inbox) [VERIFIED_BY_TEST — 2026-08-20]
 
 ```bash

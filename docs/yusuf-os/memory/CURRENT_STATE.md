@@ -1,9 +1,9 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-20, Phase P (Sales/Inbox) pass. See `CURRENT_GATE.md` for the full record;
-Phases H, I, the Organization model, J, K, L, M, N, O, and P have all landed since the line below
-was last true — read `CURRENT_GATE.md` top-to-bottom rather than trusting this summary's detail
-below, which is not fully re-verified this pass._
+_Last verified: 2026-08-20, Phase Q (Application submission seam) pass. See `CURRENT_GATE.md` for
+the full record; Phases H, I, the Organization model, J, K, L, M, N, O, P, and Q have all landed
+since the line below was last true — read `CURRENT_GATE.md` top-to-bottom rather than trusting
+this summary's detail below, which is not fully re-verified this pass._
 
 **Branch:** `feature/yusuf-os-core`. Seven local checkpoint commits (Gate B docs, Gate C core,
 Claude memory, Gate D LocalGit, Gate E agent runtime, Gate F projections, Gate G frontend), all
@@ -34,7 +34,7 @@ unpushed. `origin` =
   System Health surface, and snapshot-first SSE reconciliation. Plus the browser session
   bootstrap that lets a browser reach the control plane without ever holding the control token.
 
-**What has passed (as of Phase O):** 68/68 server suites, **859/859 tests** (see `TEST_BASELINE.md`
+**What has passed (as of Phase Q):** 70/70 server suites, **913/913 tests** (see `TEST_BASELINE.md`
 for the exact command and per-phase deltas); frontend counts not re-verified this phase (no
 frontend change). Server lint clean, `git diff --check` clean.
 
@@ -49,11 +49,17 @@ deliberate backward edges for revision loops), and **Phase N (Founder — ventur
 a branching transition table with one resume edge, `founder.read_ventures`/
 `founder.record_venture`/`founder.update_status` — the third phase running where independent
 review found nothing to fix, this time specifically confirming the branching graph can't be
-chained to skip a required pipeline stage — see `CURRENT_GATE.md`).**
+chained to skip a required pipeline stage — see `CURRENT_GATE.md`), Phase O (Research — question
+tracking), Phase P (Sales/Inbox — message tracking with a code-enforced, not merely validated,
+Career integration seam via `inbox.advance_linked_career_status`), and Phase Q (Application
+submission seam — `career.prepare_application` plus granting Career the pre-existing
+`browser.submit_form`, closing out Yusuf's own end-to-end job-application scenario to the extent
+scoped; chosen explicitly by Yusuf via AskUserQuestion over two other options).**
 
-**Next gate:** whatever comes after Founder in the CAVEMAN MODE implementation order — Research,
-Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening, release/ops —
-not started, no design doc exists yet; see `DEFERRED_WORK.md`.
+**Next gate:** none chosen yet. Per Yusuf's own direction to "attempt the end-to-end scenario,"
+that has now been done (Phase Q). Integrations, Model routing/cost, Command Center expansion,
+hardening, and release/ops all remain undefined in scope — do not start any of them without
+Yusuf's explicit instruction; see `DEFERRED_WORK.md`.
 
 **Must not be rebuilt:** the Gate C kernel (still unmodified in `runtime/`, `policy/`,
 `approvals/`, `execution/ExecutionCoordinator.js`, `audit/`), the Gate D LocalGit adapter, and
