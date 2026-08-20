@@ -1,5 +1,23 @@
 # Deferred Work
 
+## Deferred after Phase L (Career) — 2026-08-20
+
+Phase L is **done** — see `CURRENT_GATE.md`. Still deferred:
+
+- **Any job-board or email integration.** No LinkedIn/Indeed/Gmail wiring exists; Career only
+  tracks opportunities a human or Agent tells it about. Real integration needs the Browser Broker
+  plus a per-service form registration (Phase I's own pattern), a separate, larger decision.
+- **Resume/cover-letter generation** — out of scope; Career tracks state, it does not produce
+  artifacts.
+- **No retention on `yusuf_career_opportunities`** — same accepted gap already left on Knowledge/
+  Memory/Monitoring, not re-litigated here.
+- **No Command Center UI surfacing** of career opportunities — backend-only this phase.
+- **Notes cannot be cleared via `career.update_status`**, only replaced with new text — intentional
+  (documented with a code comment after independent review flagged it as worth noting), not a bug.
+- **Everything after Career in the CAVEMAN MODE order** — Marketing, Founder, Research, Sales/
+  Inbox, Integrations, Model routing/cost, Command Center expansion, security/reliability
+  hardening, release/ops, end-to-end scenarios — not started.
+
 ## Deferred after Phase K (Monitoring) — 2026-08-20
 
 Phase K is **done** — see `CURRENT_GATE.md`. Still deferred:

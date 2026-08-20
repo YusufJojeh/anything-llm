@@ -1,5 +1,39 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-20 — Phase L: Career (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
+
+**What was done:** Yusuf chose "Full vertical slice" for Career, the next phase after Monitoring in
+the CAVEMAN MODE order. Wrote `docs/yusuf-os/gate-b/career.md` first, then implemented a Career
+Department/Agent that tracks job opportunities through a code-owned transition table
+(`RESEARCHING -> APPLIED -> INTERVIEWING -> OFFER`, with `REJECTED`/`WITHDRAWN` as terminal
+off-ramps), three new governed capabilities, and a new `yusuf_career_opportunities` table.
+
+**One thing worth carrying forward:** a new opportunity always starts at `RESEARCHING` regardless
+of what status the model requests on creation — the server, not the model, decides the starting
+state, the same discipline Monitoring and Knowledge/Memory already established for "never trust
+the model with a value only the server should own." The transition legality check is placed at two
+checkpoints (an early rejection in the request builder against a fresh read, and a re-validation
+in the adapter's `execute()` against an independent fresh read) — the same defense-in-depth
+placement Memory already uses for its scope-ownership check, reused rather than reinvented.
+
+**Independent review found no P0/P1 for the first time in several phases.** Every one of the last
+several phases (Knowledge/Memory, Monitoring) had at least one real P1 that self-review missed;
+this is the first phase where an adversarial pass, specifically checking for a model-supplied-
+status bypass, a TOCTOU gap in the transition recheck, and digest-consistency issues, found
+nothing beyond a single P2 documentation nit (notes cannot be cleared via `update_status`, only
+replaced — intentional, now commented). Worth remembering this doesn't mean skip review next time
+— it means the discipline built up over the last several phases (fresh re-reads at execute time,
+server-derived values, code-owned registries) is starting to hold up under adversarial pressure by
+default, not that the bar can be lowered.
+
+**Evidence:** 62 server suites / **760 tests** (was 60/734). Lint clean. Local commit `0ae1266c`.
+
+**Exact next action:** whatever comes after Career in the CAVEMAN MODE order (Marketing, Founder,
+Research, Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening,
+release/ops) — no gate-b design doc exists for any of them yet; check first, same as every prior
+phase.
+
+
 ## 2026-08-20 — Phase K: Monitoring (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
 
 **What was done:** Yusuf chose "Full vertical slice, same depth as Phase J" when asked how deep to

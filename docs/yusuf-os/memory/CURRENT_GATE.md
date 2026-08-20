@@ -1,5 +1,48 @@
 # Current Gate
 
+## Phase L — Career — status: COMPLETE
+
+**Objective:** give Yusuf OS a durable, honest record of career opportunities Yusuf is pursuing —
+named in `PRODUCT_CHARTER.md`'s future-roster list, never previously scoped.
+**Design note:** `docs/yusuf-os/gate-b/career.md`, written before code.
+**Implemented:**
+- **`yusuf_career_opportunities`** (new table) — `company`, `role`, `source`, `status` (six-value
+  DB-level `CHECK` constraint), `notes`, `digest`, principal attribution.
+- **`career.read_opportunities`** (READ, L0, ALLOW) — by uuid or status.
+- **`career.record_opportunity`** (LOCAL_WRITE, L1, ALLOW) — the model supplies `company`/`role`/
+  optional `source`/`notes`; the server always mints the uuid and always starts the row at
+  `RESEARCHING` regardless of what status the model asks for (test-proven).
+- **`career.update_status`** (LOCAL_WRITE, L1, ALLOW) — transitions an opportunity, validated
+  against a code-owned transition table (`career/transitions.js`) at two checkpoints: an early
+  rejection in the request builder against a fresh read, and a re-validation in
+  `CareerAdapter.execute()` against an independent fresh read at execute time (closing the window
+  the framework's generic live-preflight recheck narrows) — the same defense-in-depth placement as
+  Memory's scope-ownership check.
+- **Career Department + Career Agent** — one member, `allowedCapabilities`:
+  `career.read_opportunities`, `career.record_opportunity`, `career.update_status`,
+  `knowledge.read`, `knowledge.write`. No project/git/browser/memory-write/monitoring capability.
+  `autonomyLevel: MANUAL` — task-driven, not `AUTONOMOUS` (nothing about tracking a job search
+  calls for an Agent that starts work on its own, unlike Monitoring).
+**The one invariant:** unchanged — both new mutation capabilities pass through
+`YusufActionBoundary` -> Policy -> Execution Coordinator -> Verification -> Audit like any other
+governed capability.
+**Tests:** `careerLifecycle.test.js` (8 integration cases), `careerTransitions.test.js` (7 unit
+cases), plus `organizationModel.test.js`, `agentRuntimeSecurity.test.js`, and two Command Center
+suites updated. **62 suites / 760 tests** (was 60/734). See `TEST_BASELINE.md`.
+**Independent review found no P0/P1** — the first phase in this run where independent review found
+nothing blocking on its first pass. Confirmed no model-supplied-status bypass, no TOCTOU gap in
+the transition recheck, consistent digest recomputation across create/update/verify, structural
+capability isolation via the code-owned registry (not the database), and exact migration/schema/
+constants alignment. One P2 documentation nit (notes cannot be cleared via `update_status`, only
+replaced — intentional) was folded in as a one-line code comment rather than filed separately. See
+`GATE_HISTORY.md`.
+**Remaining:** no job-board/email integration (needs Browser Broker + a real per-service form
+registration, a separate later decision); no resume/cover-letter generation; no retention on
+`yusuf_career_opportunities`; no Command Center UI surfacing.
+**Next automatic phase:** per the CAVEMAN MODE implementation order — Marketing, Founder, Research,
+Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening, release/ops —
+the specific next phase to be determined by reading `DEFERRED_WORK.md`.
+
 ## Phase K — Monitoring — status: COMPLETE
 
 **Objective:** give Yusuf OS a real Agent that watches Yusuf OS's own internal health signals and
@@ -49,9 +92,7 @@ any external mutation; `reconcile()`'s narrower existence-only check is accurate
 an understated gap; migration is additive-only with a correct CHECK constraint).
 **Remaining:** no scheduled trigger for Monitoring runs; only one registered `checkKey`; no
 retention on `yusuf_monitoring_checks`; no Command Center UI surfacing.
-**Next automatic phase:** per the CAVEMAN MODE implementation order — Career, Marketing, Founder,
-Research, Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening,
-release/ops — the specific next phase to be determined by reading `DEFERRED_WORK.md`.
+**Next automatic phase:** Phase L (Career) — **COMPLETE, see above.**
 
 ## Phase J — Knowledge/Evidence/Memory split — status: COMPLETE
 

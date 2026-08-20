@@ -1,5 +1,46 @@
 # Test Baseline
 
+## Phase L (Career) [VERIFIED_BY_TEST — 2026-08-20]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server
+```
+→ **62 suites, 760 tests, 0 failed** (was 60 / 734; adds 2 suites, 26 tests).
+
+New files:
+- `server/__tests__/yusufOS/integration/careerLifecycle.test.js` — 8 tests through the real
+  governed chain: a new opportunity always starts at `RESEARCHING` even if the model asks for a
+  different initial status; a valid transition (`RESEARCHING -> APPLIED`) succeeds and updates
+  notes; an illegal transition (`RESEARCHING -> OFFER`) is rejected before any write and the row's
+  digest is unchanged; a terminal opportunity (`REJECTED`) refuses any further transition; an
+  unknown opportunity uuid is rejected before any write; reading by status/uuid returns the right
+  shape; Career's toolset has no project/git/browser/memory-write tool; re-recording the same
+  company/role produces a second distinct row, not an upsert.
+- `server/__tests__/yusufOS/unit/careerTransitions.test.js` — 7 tests of the pure
+  `isValidTransition` logic: every legal edge in the transition table, both terminal states refuse
+  every target, an out-of-enum target is never valid, and no source key in the table is orphaned.
+- `organizationModel.test.js` updated: four Departments now (was three).
+- `agentRuntimeSecurity.test.js` gained rows refusing Reviewer/Engineering/Chief-of-Staff/
+  Monitoring a grant of `career.*`, refusing Career a grant of any project/git/browser/
+  memory-write/monitoring capability, plus a direct role-definition assertion.
+- `commandCenterGateway.test.js`/`commandCenterProjection.test.js` updated from 4 to 5 expected
+  seeded agents (Career is now real and seeded by `ensureCoreStaff`).
+- `migrationSafety.test.js` updated to expect the new migration in the applied-migrations list.
+
+New migration: `20260820140000_add_yusuf_os_career` — additive `yusuf_career_opportunities` table
+(DB-level `CHECK` constraint on `status` matching the six-value transition-table enum).
+
+**Independent review found no P0/P1** (a first among the last several phases — every prior one had
+at least one real P1). Confirmed: a model-supplied status on `career.record_opportunity` cannot
+override the server-forced `RESEARCHING` start; the transition check is genuinely re-validated
+against a fresh read in `CareerAdapter.execute()`, not just the request builder's earlier check
+(no TOCTOU gap); digest recomputation is consistent across create/update/verify; capability
+isolation holds structurally via the code-owned `allowedCapabilities` registry, not the database;
+migration and `schema.prisma` match `CAREER_OPPORTUNITY_STATUSES` exactly. One P2/documentation
+nit (notes cannot be cleared via `update_status`, only replaced — intentional, now commented) was
+folded in as a one-line code comment. See `GATE_HISTORY.md`.
+
 ## Phase K (Monitoring) [VERIFIED_BY_TEST — 2026-08-20]
 
 ```bash

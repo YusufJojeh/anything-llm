@@ -1,5 +1,85 @@
 # Gate History
 
+## Phase L — Career — 2026-08-20 — PASS
+
+Gives Yusuf OS a durable, honestly-transitioned record of job opportunities Yusuf is pursuing —
+named only as a future roster label in `PRODUCT_CHARTER.md`/`ROADMAP.md` until this phase. Yusuf
+chose "Full vertical slice, same depth as Phase J/K." Design note:
+`docs/yusuf-os/gate-b/career.md`.
+
+### What was built
+
+- **`yusuf_career_opportunities`** (new table, additive migration
+  `20260820140000_add_yusuf_os_career`) — `company`, `role`, `source` (nullable), `status`
+  (`RESEARCHING`/`APPLIED`/`INTERVIEWING`/`OFFER`/`REJECTED`/`WITHDRAWN`, DB-level `CHECK`
+  constraint), `notes` (nullable), `digest`, principal attribution, unique `uuid`.
+- **`career.read_opportunities`** (READ, L0, ALLOW) — by uuid or status.
+- **`career.record_opportunity`** (LOCAL_WRITE, L1, ALLOW) — the model supplies `company`/`role`/
+  optional `source`/`notes`; `buildRecordOpportunityRequest` hardcodes the initial `status` to
+  `RESEARCHING` regardless of any status the model's call arguments carry — there is no code path
+  where a model-supplied status reaches the create call (test-proven and independent-review
+  confirmed).
+- **`career.update_status`** (LOCAL_WRITE, L1, ALLOW) — transitions an opportunity, validated
+  against a code-owned transition table (`domain/yusufOS/career/transitions.js`,
+  `isValidTransition(from, to)`, pure and unit-tested in isolation) at two checkpoints: an early
+  rejection in `buildUpdateStatusRequest` against a fresh read (mirroring Monitoring's early
+  rejection of an unregistered `checkKey`), and an independent re-validation in
+  `CareerAdapter.execute()` against its own fresh read at execute time — the same defense-in-depth
+  placement as Memory's scope-ownership recheck.
+- **Career Department + Career Agent** (`organization/departments.js`, `agents/definitions.js`) —
+  one member, `allowedCapabilities`: `career.read_opportunities`, `career.record_opportunity`,
+  `career.update_status`, `knowledge.read`, `knowledge.write`. No project/git/browser/memory-write/
+  monitoring capability (test-enforced at the role-definition level). `autonomyLevel: MANUAL` —
+  task-driven, not `AUTONOMOUS` like Monitoring.
+
+### The one invariant, and how it's enforced
+
+Unchanged: both new mutation capabilities pass through `YusufActionBoundary` -> Policy -> Execution
+Coordinator -> Verification -> Audit like any other governed capability. Capability isolation is
+enforced structurally via the code-owned `allowedCapabilities` registry
+(`isCapabilityAllowedForAgent`/`assertGrantAllowed`), not the database — confirmed by independent
+review to actually block a hypothetical bad DB grant, not just discourage one.
+
+### Independent review
+
+**Found no P0/P1** — the first phase in this run where an adversarial pass found nothing blocking
+on its first attempt (Knowledge/Memory and Monitoring each had a real P1 that self-review missed).
+The review specifically targeted:
+
+- **Model-supplied-status bypass**: confirmed not exploitable — `buildRecordOpportunityRequest`
+  hardcodes `payload.status = RESEARCHING`, and `CareerAdapter.execute()`'s create branch reads
+  only the server-set `payload.status`, never a raw model argument.
+- **TOCTOU between request-building and execution**: confirmed not a gap —
+  `CareerAdapter.execute()` performs an independent fresh read and re-validates
+  `isValidTransition(existing.status, target.status)` against that fresh row before writing, not
+  just trusting the request builder's earlier check.
+- **Digest consistency across record -> update -> verify -> reconcile**: walked by hand and
+  confirmed consistent; `reconcile()`'s narrower existence-plus-status check (vs. Knowledge/
+  Memory's expected-digest recomputation) is accurately documented as a real, accepted limitation,
+  not an understated gap, because `career.update_status`'s `canonicalPayload` carries only `notes`.
+- **Capability isolation**: confirmed the Career Agent's `allowedCapabilities` never reaches
+  project/git/browser/memory-write/monitoring, and that `assertGrantAllowed` would structurally
+  refuse a hypothetical bad DB grant rather than silently trusting it.
+- **Migration/schema/constants alignment**: confirmed the migration's `CHECK` constraint values,
+  `schema.prisma`'s columns, and `CAREER_OPPORTUNITY_STATUSES` match exactly.
+- **One P2 (accepted, folded in)** — `notes` cannot be cleared via `career.update_status`, only
+  replaced with new text, because the adapter only overwrites `notes` when the payload carries an
+  actual string. This is intentional (mirrors the transition table's own "no rewriting history"
+  philosophy — starting over is a new opportunity row) but wasn't stated anywhere. **Fixed** by
+  adding a one-line code comment in `CareerAdapter.js` rather than filing it as a separate defect.
+
+### Evidence
+
+**62 server suites / 760 tests**, 0 failed (was 60/734). Lint clean
+(`npx eslint domain/yusufOS`, zero output after one auto-fix pass for formatting). Local commit
+`0ae1266c` — "feat(yusuf-os): Phase L — Career opportunity tracking" (20 files changed, 990
+insertions). Not pushed.
+
+### What remains
+
+No job-board/email integration; no resume/cover-letter generation; no retention on
+`yusuf_career_opportunities`; no Command Center UI surfacing. See `DEFERRED_WORK.md`.
+
 ## Phase K — Monitoring — 2026-08-20 — PASS
 
 Gives Yusuf OS a real Agent that watches Yusuf OS's own internal health signals and durably
