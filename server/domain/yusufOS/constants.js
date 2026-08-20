@@ -58,6 +58,21 @@ const AGENT_KEYS = Object.freeze({
   REVIEWER: "reviewer",
 });
 
+const DEPARTMENT_KEYS = Object.freeze({
+  SYSTEM_CORE: "system_core",
+  ENGINEERING: "engineering",
+});
+
+// Orchestration-only label describing how freely an Agent may plan/delegate
+// its own work. Never consulted by PolicyEngine/ApprovalService/the
+// capability registry — approval requirements are owned entirely by
+// capabilities/registry.js. See docs/yusuf-os/gate-b/organization-model.md.
+const AUTONOMY_LEVELS = Object.freeze({
+  MANUAL: "MANUAL",
+  SUPERVISED: "SUPERVISED",
+  AUTONOMOUS: "AUTONOMOUS",
+});
+
 const REVIEW_VERDICTS = Object.freeze({
   PASS: "PASS",
   PASS_WITH_WARNINGS: "PASS_WITH_WARNINGS",
@@ -128,6 +143,8 @@ module.exports = {
   RUN_FAILURE_KINDS,
   RUN_KINDS,
   AGENT_KEYS,
+  DEPARTMENT_KEYS,
+  AUTONOMY_LEVELS,
   REVIEW_VERDICTS,
   HANDOFF_STATUSES,
   EVIDENCE_KINDS,

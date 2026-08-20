@@ -1,4 +1,8 @@
-const { AGENT_KEYS } = require("../constants");
+const {
+  AGENT_KEYS,
+  DEPARTMENT_KEYS,
+  AUTONOMY_LEVELS,
+} = require("../constants");
 
 // Code-owned AgentDefinitions. Capability grants live in the database
 // (`yusuf_agent_capabilities`) because they are operational configuration, but
@@ -27,6 +31,10 @@ const CHIEF_OF_STAFF = Object.freeze({
   // which is what prevents "delegator inherits delegatee's authority".
   allowedCapabilities: Object.freeze([]),
   modelPolicy: Object.freeze({ role: "orchestration", temperature: 0 }),
+  departmentKey: DEPARTMENT_KEYS.SYSTEM_CORE,
+  // Orchestration-only label — never consulted for approval requirements.
+  // See docs/yusuf-os/gate-b/organization-model.md.
+  autonomyLevel: AUTONOMY_LEVELS.SUPERVISED,
 });
 
 const ENGINEERING = Object.freeze({
@@ -58,6 +66,8 @@ const ENGINEERING = Object.freeze({
     "git.push_feature_branch",
   ]),
   modelPolicy: Object.freeze({ role: "coding", temperature: 0 }),
+  departmentKey: DEPARTMENT_KEYS.ENGINEERING,
+  autonomyLevel: AUTONOMY_LEVELS.MANUAL,
 });
 
 const REVIEWER = Object.freeze({
@@ -86,6 +96,8 @@ const REVIEWER = Object.freeze({
     "git.read_show",
   ]),
   modelPolicy: Object.freeze({ role: "review", temperature: 0 }),
+  departmentKey: DEPARTMENT_KEYS.ENGINEERING,
+  autonomyLevel: AUTONOMY_LEVELS.MANUAL,
 });
 
 const AGENT_DEFINITIONS = Object.freeze({
