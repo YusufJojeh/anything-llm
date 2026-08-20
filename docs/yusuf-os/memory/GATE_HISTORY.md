@@ -1,5 +1,62 @@
 # Gate History
 
+## Phase M — Marketing — 2026-08-20 — PASS
+
+Gives Yusuf OS a durable, honestly-transitioned record of marketing content Yusuf is producing —
+named only as a future roster label in `PRODUCT_CHARTER.md`/`ROADMAP.md` until this phase. Yusuf
+chose "Full vertical slice." Mirrors Phase L (Career)'s pattern closely. Design note:
+`docs/yusuf-os/gate-b/marketing.md`.
+
+### What was built
+
+- **`yusuf_marketing_content`** (new table, additive migration
+  `20260820150000_add_yusuf_os_marketing`) — `title`, `channel`, `format`, `status`
+  (`IDEA`/`DRAFTING`/`READY_FOR_REVIEW`/`SCHEDULED`/`PUBLISHED`/`ARCHIVED`, DB-level `CHECK`
+  constraint), `notes` (nullable), `digest`, principal attribution, unique `uuid`.
+- **`marketing.read_content`** (READ, L0, ALLOW) — by uuid or status.
+- **`marketing.record_content`** (LOCAL_WRITE, L1, ALLOW) — the model supplies `title`/`channel`/
+  `format`/optional `notes`; `buildRecordContentRequest` hardcodes the initial `status` to `IDEA`
+  regardless of any status the model's call arguments carry (test-proven and independent-review
+  confirmed).
+- **`marketing.update_status`** (LOCAL_WRITE, L1, ALLOW) — transitions a content item, validated
+  against a code-owned transition table (`domain/yusufOS/marketing/transitions.js`,
+  `isValidTransition(from, to)`) at the same two checkpoints as Career: an early rejection in
+  `buildUpdateStatusRequest` against a fresh read, and an independent re-validation in
+  `MarketingAdapter.execute()` against its own fresh read at execute time.
+- **Deliberately different from Career's table**: two backward edges exist
+  (`READY_FOR_REVIEW -> DRAFTING`, `SCHEDULED -> DRAFTING`) for revision loops a content pipeline
+  realistically needs; `PUBLISHED` still has no backward edge (un-publishing is not "back to
+  drafting"). Justified in the design note's "Why one backward edge" section; independently unit-
+  tested that these two are the *only* backward edges present.
+- **Marketing Department + Marketing Agent** — one member, `allowedCapabilities`:
+  `marketing.read_content`, `marketing.record_content`, `marketing.update_status`,
+  `knowledge.read`, `knowledge.write`. No project/git/browser/memory-write/monitoring/career
+  capability (test-enforced at the role-definition level). `autonomyLevel: MANUAL`.
+
+### The one invariant, and how it's enforced
+
+Unchanged: both new mutation capabilities pass through `YusufActionBoundary` -> Policy -> Execution
+Coordinator -> Verification -> Audit like any other governed capability. Capability isolation is
+enforced structurally via the code-owned `allowedCapabilities` registry, not the database.
+
+### Independent review
+
+**Found no P0/P1/P2** — the second phase running (after Career) where an adversarial pass found
+nothing to fix. Specifically confirmed the added backward-edge transition surface does not
+introduce a TOCTOU gap or a status-laundering path: every hop, forward or backward, is
+independently re-validated against the row actually read at execute time, so the graph having
+cycles doesn't weaken the recheck the way it might if validation were only performed once
+up-front. Model-supplied-status bypass, digest consistency across record/update/verify/reconcile,
+capability isolation, and migration/schema/constants alignment were all re-verified by the same
+method used for Career and found clean.
+
+### Tests
+
+`marketingLifecycle.test.js` (11 integration cases, including both backward-edge transitions),
+`marketingTransitions.test.js` (9 unit cases, including a dedicated backward-edge-set assertion),
+plus `organizationModel.test.js`, `agentRuntimeSecurity.test.js`, and two Command Center suites
+updated. **64 suites / 792 tests** (was 62/760).
+
 ## Phase L — Career — 2026-08-20 — PASS
 
 Gives Yusuf OS a durable, honestly-transitioned record of job opportunities Yusuf is pursuing —

@@ -1,5 +1,46 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-20 — Phase M: Marketing (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
+
+**What was done:** Yusuf chose "Full vertical slice" for Marketing, the next phase after Career in
+the CAVEMAN MODE order. Wrote `docs/yusuf-os/gate-b/marketing.md`, implemented a Marketing
+Department/Agent that tracks content through a code-owned transition table (`IDEA -> DRAFTING ->
+READY_FOR_REVIEW -> SCHEDULED -> PUBLISHED`, `ARCHIVED` terminal), three new governed capabilities,
+and a new `yusuf_marketing_content` table — mirroring Career's pattern almost exactly, mechanically
+reusing the same adapter/request-builder/transition-table shape.
+
+**One thing worth carrying forward:** unlike Career (strictly forward-or-terminal, no backward
+edges — re-pursuing a job is a new row), Marketing's transition table deliberately allows two
+backward edges (`READY_FOR_REVIEW -> DRAFTING`, `SCHEDULED -> DRAFTING`) because a real content
+review/scheduling pipeline needs revision loops without that being a lie about history.
+`PUBLISHED` still has no backward edge at all — un-publishing is not "back to drafting." This is
+the first phase where two sibling phases (Career, Marketing) built on the exact same underlying
+pattern (Prisma-write-as-external-effect, server-forces-initial-status, two-checkpoint transition
+validation) but made a genuinely different design call on the transition graph's shape, each
+justified in its own design note's "Why" section — worth remembering the pattern is reusable
+scaffolding, not a template that forces identical business rules onto every phase that uses it.
+Also proactively carried forward Career's one review finding (notes-cannot-be-cleared-only-
+replaced) into `MarketingAdapter.js` before being told again, since the same code shape has the
+same behavior.
+
+**Independent review found nothing to fix** — the second phase running (after Career) where an
+adversarial pass targeting model-supplied-status bypass, TOCTOU in the transition recheck (with
+extra scrutiny on the two backward edges since they add more transition surface than Career had),
+digest consistency, and capability isolation found zero P0/P1/P2. Confirms Career's clean result
+wasn't a fluke specific to a forward-only transition table — the same defense-in-depth placement
+holds up under a graph with cycles too, because every hop still independently re-validates against
+the current row at execute time regardless of graph shape.
+
+**Evidence:** 64 server suites / **792 tests** (was 62/760). Lint clean. Local commit `35d2b96d`.
+Note: a full `npx jest server` at default worker count showed 3 flaky Windows-SQLite-contention
+failures unrelated to Marketing (each suite passed clean in isolation and under
+`--maxWorkers=2`) — see `TEST_BASELINE.md`.
+
+**Exact next action:** whatever comes after Marketing in the CAVEMAN MODE order (Founder, Research,
+Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening, release/ops) —
+no gate-b design doc exists for any of them yet; check first, same as every prior phase.
+
+
 ## 2026-08-20 — Phase L: Career (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
 
 **What was done:** Yusuf chose "Full vertical slice" for Career, the next phase after Monitoring in

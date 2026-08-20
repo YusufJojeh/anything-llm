@@ -1,5 +1,23 @@
 # Deferred Work
 
+## Deferred after Phase M (Marketing) — 2026-08-20
+
+Phase M is **done** — see `CURRENT_GATE.md`. Still deferred:
+
+- **Any real publishing/posting integration.** No Twitter/CMS/social wiring exists; `PUBLISHED` is
+  an unverified self-report. Real integration needs the Browser Broker plus a per-service form
+  registration (Phase I's own pattern), a separate, larger decision — same shape as Career's
+  deferred job-board integration.
+- **Content generation/drafting assistance** — out of scope; Marketing tracks state, it does not
+  produce copy.
+- **No retention on `yusuf_marketing_content`** — same accepted gap already left on Career/
+  Knowledge/Memory/Monitoring, not re-litigated here.
+- **No Command Center UI surfacing** of marketing content — backend-only this phase.
+- **No analytics/engagement tracking** on published content — out of scope; pipeline state only.
+- **Everything after Marketing in the CAVEMAN MODE order** — Founder, Research, Sales/Inbox,
+  Integrations, Model routing/cost, Command Center expansion, security/reliability hardening,
+  release/ops, end-to-end scenarios — not started.
+
 ## Deferred after Phase L (Career) — 2026-08-20
 
 Phase L is **done** — see `CURRENT_GATE.md`. Still deferred:

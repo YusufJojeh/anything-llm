@@ -1,5 +1,55 @@
 # Test Baseline
 
+## Phase M (Marketing) [VERIFIED_BY_TEST — 2026-08-20]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server
+```
+→ **64 suites, 792 tests, 0 failed** (was 62 / 760; adds 2 suites, 32 tests).
+
+New files:
+- `server/__tests__/yusufOS/integration/marketingLifecycle.test.js` — 11 tests through the real
+  governed chain: a new content item always starts at `IDEA` even if the model asks for a
+  different initial status; a valid forward transition (`IDEA -> DRAFTING`) succeeds and updates
+  notes; the `READY_FOR_REVIEW -> DRAFTING` backward revision edge succeeds; the
+  `SCHEDULED -> DRAFTING` backward pull-back edge succeeds; an illegal transition
+  (`IDEA -> PUBLISHED`) is rejected before any write and the row's digest is unchanged; a terminal
+  content item (`ARCHIVED`) refuses any further transition; an unknown content uuid is rejected
+  before any write; reading by status/uuid returns the right shape; Marketing's toolset has no
+  project/git/browser/memory-write tool; re-recording the same title/channel/format produces a
+  second distinct row, not an upsert.
+- `server/__tests__/yusufOS/unit/marketingTransitions.test.js` — 9 tests of the pure
+  `isValidTransition` logic: every legal edge in the transition table (including both backward
+  edges), the terminal state refuses every target, an out-of-enum target is never valid, no source
+  key in the table is orphaned, and a dedicated test independently recomputes backward edges from
+  table order and asserts the exact set is `{READY_FOR_REVIEW->DRAFTING, SCHEDULED->DRAFTING}`.
+- `organizationModel.test.js` updated: five Departments now (was four).
+- `agentRuntimeSecurity.test.js` gained rows refusing Reviewer/Engineering/Chief-of-Staff/
+  Monitoring/Career a grant of `marketing.*`, refusing Marketing a grant of any project/git/
+  browser/memory-write/monitoring/career capability, plus a direct role-definition assertion.
+- `commandCenterGateway.test.js`/`commandCenterProjection.test.js` updated from 5 to 6 expected
+  seeded agents (Marketing is now real and seeded by `ensureCoreStaff`).
+- `migrationSafety.test.js` updated to expect the new migration in the applied-migrations list.
+
+New migration: `20260820150000_add_yusuf_os_marketing` — additive `yusuf_marketing_content` table
+(DB-level `CHECK` constraint on `status` matching the six-value transition-table enum).
+
+**Independent review found no P0/P1/P2.** Confirmed: a model-supplied status on
+`marketing.record_content` cannot override the server-forced `IDEA` start; the added backward-edge
+transition surface (unlike Career, which is strictly forward-or-terminal) introduces no TOCTOU gap
+or laundering path — every hop is independently re-validated against the current row at execute
+time; digest recomputation is consistent across create/update/verify; capability isolation holds
+structurally via the code-owned `allowedCapabilities` registry; migration and `schema.prisma` match
+`MARKETING_CONTENT_STATUSES` exactly. See `GATE_HISTORY.md`.
+
+**Note on this run's environment**: a full `npx jest server` at default parallelism showed 3
+flaky failures (Windows SQLite connection timeouts / temp-dir cleanup EPERM under worker
+contention) unrelated to Marketing — each failing suite was re-run individually and passed
+cleanly. `npx jest server --maxWorkers=2` also passed clean at 64/792. Treat isolated-suite
+re-runs as authoritative when default-parallelism runs show transient DB-connection timeouts on
+Windows.
+
 ## Phase L (Career) [VERIFIED_BY_TEST — 2026-08-20]
 
 ```bash

@@ -1,5 +1,53 @@
 # Current Gate
 
+## Phase M — Marketing — status: COMPLETE
+
+**Objective:** give Yusuf OS a durable, honest record of marketing content Yusuf is producing —
+named in `PRODUCT_CHARTER.md`'s future-roster list, never previously scoped. Mirrors Phase L
+(Career)'s pattern almost exactly, with a deliberately different transition table.
+**Design note:** `docs/yusuf-os/gate-b/marketing.md`.
+**Implemented:**
+- **`yusuf_marketing_content`** (new table) — `title`, `channel`, `format`, `status` (six-value
+  DB-level `CHECK` constraint), `notes`, `digest`, principal attribution.
+- **`marketing.read_content`** (READ, L0, ALLOW) — by uuid or status.
+- **`marketing.record_content`** (LOCAL_WRITE, L1, ALLOW) — the model supplies `title`/`channel`/
+  `format`/optional `notes`; the server always mints the uuid and always starts the row at `IDEA`
+  regardless of what status the model asks for (test-proven).
+- **`marketing.update_status`** (LOCAL_WRITE, L1, ALLOW) — transitions a content item, validated
+  against a code-owned transition table (`marketing/transitions.js`) at the same two checkpoints
+  as Career (early request-builder rejection against a fresh read; independent re-validation in
+  `MarketingAdapter.execute()` against a fresh read at execute time).
+- **Unlike Career, Marketing's transition table has two deliberate backward edges**:
+  `READY_FOR_REVIEW -> DRAFTING` (sent back for revision) and `SCHEDULED -> DRAFTING` (pulled back
+  before it went out) — a content review/scheduling pipeline realistically needs revision loops,
+  unlike a career opportunity pipeline. `PUBLISHED` has no backward edge at all: un-publishing is
+  not a "back to drafting" event. Documented as a "Why one backward edge" section in the design
+  note, and independently unit-tested that these two are the *only* backward edges in the table.
+- **Marketing Department + Marketing Agent** — one member, `allowedCapabilities`:
+  `marketing.read_content`, `marketing.record_content`, `marketing.update_status`,
+  `knowledge.read`, `knowledge.write`. No project/git/browser/memory-write/monitoring/career
+  capability. `autonomyLevel: MANUAL`.
+**The one invariant:** unchanged — both new mutation capabilities pass through
+`YusufActionBoundary` -> Policy -> Execution Coordinator -> Verification -> Audit like any other
+governed capability.
+**Tests:** `marketingLifecycle.test.js` (11 integration cases, including both backward-edge
+transitions), `marketingTransitions.test.js` (9 unit cases, including one that independently
+recomputes and asserts the exact set of backward edges), plus `organizationModel.test.js`,
+`agentRuntimeSecurity.test.js`, and two Command Center suites updated. **64 suites / 792 tests**
+(was 62/760). See `TEST_BASELINE.md`.
+**Independent review found no P0/P1/P2** — confirmed no model-supplied-status bypass, the
+added backward-edge transition surface introduces no TOCTOU gap or laundering path (every hop is
+independently re-validated against the current row at execute time), consistent digest
+recomputation across create/update/verify, structural capability isolation via the code-owned
+registry, and exact migration/schema/constants alignment (CHECK constraint values match
+`MARKETING_CONTENT_STATUSES` exactly).
+**Remaining:** no real publishing/posting integration — `PUBLISHED` is an unverified self-report,
+documented explicitly in the design note's Known limitations; no retention on
+`yusuf_marketing_content`; no Command Center UI surfacing.
+**Next automatic phase:** per the CAVEMAN MODE implementation order — Founder, Research,
+Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening, release/ops —
+the specific next phase to be determined by reading `DEFERRED_WORK.md`.
+
 ## Phase L — Career — status: COMPLETE
 
 **Objective:** give Yusuf OS a durable, honest record of career opportunities Yusuf is pursuing —
@@ -39,9 +87,7 @@ replaced — intentional) was folded in as a one-line code comment rather than f
 **Remaining:** no job-board/email integration (needs Browser Broker + a real per-service form
 registration, a separate later decision); no resume/cover-letter generation; no retention on
 `yusuf_career_opportunities`; no Command Center UI surfacing.
-**Next automatic phase:** per the CAVEMAN MODE implementation order — Marketing, Founder, Research,
-Sales/Inbox, Integrations, Model routing/cost, Command Center expansion, hardening, release/ops —
-the specific next phase to be determined by reading `DEFERRED_WORK.md`.
+**Next automatic phase:** Phase M (Marketing) — **COMPLETE, see above.**
 
 ## Phase K — Monitoring — status: COMPLETE
 
