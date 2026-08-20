@@ -26,6 +26,7 @@ const ErrorCodes = Object.freeze({
   VALIDATION_ERROR: "VALIDATION_ERROR",
   NOT_FOUND: "NOT_FOUND",
   CONFLICT: "CONFLICT",
+  MODEL_UNAVAILABLE: "MODEL_UNAVAILABLE",
 });
 
 module.exports = { YusufOSError, ErrorCodes };

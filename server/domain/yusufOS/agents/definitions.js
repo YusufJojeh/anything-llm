@@ -69,7 +69,11 @@ const ENGINEERING = Object.freeze({
     "memory.read",
     "memory.write",
   ]),
-  modelPolicy: Object.freeze({ role: "coding", temperature: 0 }),
+  modelPolicy: Object.freeze({
+    role: "coding",
+    temperature: 0,
+    routingPolicy: "FALLBACK_CHAIN",
+  }),
   departmentKey: DEPARTMENT_KEYS.ENGINEERING,
   autonomyLevel: AUTONOMY_LEVELS.MANUAL,
 });
@@ -100,7 +104,20 @@ const REVIEWER = Object.freeze({
     "git.read_show",
     "knowledge.read",
   ]),
-  modelPolicy: Object.freeze({ role: "review", temperature: 0 }),
+  // Phase R: the Reviewer's routing policy is configurable to an
+  // independent model/provider from Engineering's — set
+  // `explicitProvider`/`explicitModel` here (e.g. force OpenAI while
+  // Engineering runs on a local Ollama model) so a reviewer verdict is never
+  // produced by literally the same model instance that wrote the diff. Left
+  // unset by default (falls back to FALLBACK_CHAIN, independently resolved
+  // per call); Yusuf can pin this via config without touching the boundary.
+  modelPolicy: Object.freeze({
+    role: "review",
+    temperature: 0,
+    routingPolicy: "FALLBACK_CHAIN",
+    explicitProvider: null,
+    explicitModel: null,
+  }),
   departmentKey: DEPARTMENT_KEYS.ENGINEERING,
   autonomyLevel: AUTONOMY_LEVELS.MANUAL,
 });

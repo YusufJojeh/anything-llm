@@ -63,14 +63,34 @@ class ExecutionCoordinator {
         { status: 403 }
       );
 
-    const availability = await this.adapter.availability(context);
-    if (availability?.status !== "AVAILABLE")
-      throw new YusufOSError(
-        ErrorCodes.POLICY_DENIED,
-        "The governed execution adapter is not available.",
-        { status: 503, details: { availability: "UNAVAILABLE" } }
-      );
-    const preflight = await this.adapter.preflight(intentSnapshot, context);
+    // Pre-claim gap: `availability()`/`preflight()` run before any receipt
+    // exists and before the intent is claimed into EXECUTING. If either
+    // throws (adapter bug, network error, malformed adapter state) with no
+    // guard here, the throw propagates straight out of this method with no
+    // receipt and no intent-state transition — stranding the ActionIntent at
+    // AUTHORIZED/WAITING_APPROVAL forever (an orphan indistinguishable from
+    // "not yet attempted"). Nothing external could have happened yet at this
+    // point (no receipt was ever created, so no adapter.execute() could have
+    // run), so this always terminalizes to FAILED — never FAILED_UNKNOWN,
+    // which is reserved for genuine post-effect uncertainty (see
+    // ARCHITECTURE_INVARIANTS.md RECONCILE semantics). No approval is
+    // consumed either, since consumption happens later inside the claim
+    // transaction.
+    let availability;
+    let preflight;
+    try {
+      availability = await this.adapter.availability(context);
+      if (availability?.status !== "AVAILABLE")
+        throw new YusufOSError(
+          ErrorCodes.POLICY_DENIED,
+          "The governed execution adapter is not available.",
+          { status: 503, details: { availability: "UNAVAILABLE" } }
+        );
+      preflight = await this.adapter.preflight(intentSnapshot, context);
+    } catch (error) {
+      await this.terminalizePreClaimFailure(intentSnapshot, error, context);
+      throw error;
+    }
     const accountIdentityDigest =
       preflight?.accountIdentity === null ||
       preflight?.accountIdentity === undefined
@@ -80,12 +100,15 @@ class ExecutionCoordinator {
       availability.account !== null &&
       availability.account !== undefined &&
       canonicalHash(availability.account) !== accountIdentityDigest
-    )
-      throw new YusufOSError(
+    ) {
+      const mismatch = new YusufOSError(
         ErrorCodes.POLICY_DENIED,
         "Adapter availability and preflight account identity do not match.",
         { status: 409 }
       );
+      await this.terminalizePreClaimFailure(intentSnapshot, mismatch, context);
+      throw mismatch;
+    }
     const governedPreflight = Object.freeze({
       resourceVersion: preflight?.resourceVersion ?? null,
       targetIdentityDigest: preflight?.targetIdentityDigest ?? null,
@@ -259,6 +282,58 @@ class ExecutionCoordinator {
         { expectedReceiptVersion: 2, expectedVerificationStatus: "PENDING" }
       );
     }
+  }
+
+  /**
+   * Terminalizes an intent that failed during availability()/preflight(),
+   * strictly before the claim transaction ever ran. No receipt exists at
+   * this point, so there is nothing to update there — only the intent (and,
+   * if one exists, the run waiting on it) needs to leave the
+   * AUTHORIZED/WAITING_APPROVAL limbo it would otherwise be stuck in.
+   * Best-effort and idempotent: if the intent already left that state (e.g.
+   * a concurrent caller got there first), this is a no-op rather than a
+   * second error.
+   */
+  async terminalizePreClaimFailure(intentSnapshot, error, context = {}) {
+    if (!intentSnapshot) return;
+    await this.db.$transaction(async (tx) => {
+      const transitioned = await tx.yusuf_action_intents.updateMany({
+        where: {
+          id: intentSnapshot.id,
+          status: {
+            in: [INTENT_STATUSES.AUTHORIZED, INTENT_STATUSES.WAITING_APPROVAL],
+          },
+        },
+        data: {
+          status: INTENT_STATUSES.FAILED,
+          version: { increment: 1 },
+        },
+      });
+      if (transitioned.count !== 1) return;
+      await tx.yusuf_agent_runs.updateMany({
+        where: {
+          id: intentSnapshot.runId,
+          status: { in: ["RUNNING", "WAITING_APPROVAL"] },
+        },
+        data: { status: "FAILED", version: { increment: 1 } },
+      });
+      await this.audit.appendInTransaction(tx, {
+        eventType: "execution.preclaim_failed",
+        principal: {
+          type: PRINCIPAL_TYPES.SYSTEM,
+          id: "execution-coordinator",
+        },
+        taskRef: intentSnapshot.taskId,
+        runRef: intentSnapshot.runId,
+        intentRef: intentSnapshot.uuid,
+        outcome: INTENT_STATUSES.FAILED,
+        metadata: redactForPersistence({
+          reason: String(error?.message || error),
+          stage: "pre_claim_availability_or_preflight",
+        }),
+        requestId: context.requestId || intentSnapshot.requestId,
+      });
+    });
   }
 
   async persistExecutionResult(claim, executionResult) {

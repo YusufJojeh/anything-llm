@@ -98,12 +98,63 @@ function promptDigest(parts) {
   return sha256(JSON.stringify(parts));
 }
 
+/**
+ * Phase R: the production ModelClient implementation. Every real (non-test)
+ * model call in Yusuf OS must go through this class, which in turn goes
+ * through ModelRouter — there is no other sanctioned path to a provider.
+ * Deterministic tests use DeterministicModelClient above instead; they never
+ * exercise this class, so the mocked suite carries no live-network
+ * dependency.
+ */
+class RoutedModelClient extends ModelClient {
+  constructor({ router } = {}) {
+    super();
+    const { ModelRouter } = require("../models/ModelRouter");
+    this.router = router || new ModelRouter();
+  }
+
+  describe() {
+    return this.router.describe();
+  }
+
+  /**
+   * `modelPolicy` is an AgentDefinition's modelPolicy object (routingPolicy,
+   * explicitProvider/explicitModel for e.g. the Reviewer's independence
+   * requirement, temperature). `context.messages` carries the actual
+   * conversation; everything outside of `<<<UNTRUSTED...>>>` wrapping is
+   * assumed to already have been assembled by the caller via wrapUntrusted.
+   */
+  async complete({ agentKey, phase, context = {}, modelPolicy = {} }) {
+    const messages = context.messages || [
+      { role: "user", content: context.prompt || "" },
+    ];
+    const policy = modelPolicy.explicitProvider
+      ? "EXPLICIT_MODEL"
+      : modelPolicy.routingPolicy || "FALLBACK_CHAIN";
+    const routed = await this.router.route({
+      policy,
+      model: modelPolicy.explicitModel || undefined,
+      messages,
+      temperature: modelPolicy.temperature ?? 0,
+    });
+    return {
+      content: routed.content,
+      usage: routed.usage,
+      modelRef: { provider: routed.provider, model: routed.model },
+      routed,
+      agentKey,
+      phase,
+    };
+  }
+}
+
 module.exports = {
   UNTRUSTED_OPEN,
   UNTRUSTED_CLOSE,
   wrapUntrusted,
   ModelClient,
   DeterministicModelClient,
+  RoutedModelClient,
   buildRunTelemetry,
   promptDigest,
 };

@@ -13,6 +13,8 @@ const { canonicalHash } = require("../security/canonicalJson");
 const { redactForPersistence } = require("../security/redaction");
 const { conditionalTransition } = require("../state/transitions");
 const { YusufOSError, ErrorCodes } = require("../errors/YusufOSError");
+const { CONFIDENCE } = require("../models/constants");
+const CONFIDENCE_UNAVAILABLE = CONFIDENCE.UNAVAILABLE;
 
 /**
  * Owns AgentRun lifecycle: creation (idempotent), start (concurrency-limited),
@@ -339,6 +341,58 @@ class AgentRunCoordinator {
           : undefined,
         tokenUsage,
         estimatedCostMicros: estimatedCostMicros ?? undefined,
+      },
+    });
+  }
+
+  /**
+   * Phase R: persists a ModelRouter completion envelope onto the AgentRun.
+   * This is the one call site every routed model completion must go
+   * through — extends the existing modelRef/tokenUsage/estimatedCostMicros
+   * columns rather than forking a parallel run record. `estimatedCostMicros`
+   * is left `null` (never coerced to 0) whenever cost confidence is
+   * UNAVAILABLE — cost is informational only and is never read by
+   * Policy/Approval.
+   */
+  async recordModelCompletion({ runId, routed }) {
+    if (!routed) return null;
+    const usageConfidence = routed.usage?.confidence || CONFIDENCE_UNAVAILABLE;
+    const costConfidence = routed.cost?.confidence || CONFIDENCE_UNAVAILABLE;
+    const usage =
+      usageConfidence === CONFIDENCE_UNAVAILABLE
+        ? undefined
+        : {
+            promptTokens: routed.usage.promptTokens,
+            completionTokens: routed.usage.completionTokens,
+            totalTokens: routed.usage.totalTokens,
+          };
+    let tokenUsage;
+    if (usage) {
+      tokenUsage = JSON.stringify({ ...usage, confidence: usageConfidence });
+    } else {
+      tokenUsage = JSON.stringify({ confidence: usageConfidence });
+    }
+    const estimatedCostMicros =
+      costConfidence === CONFIDENCE_UNAVAILABLE ||
+      routed.cost?.amountMicros == null
+        ? null
+        : Number(routed.cost.amountMicros);
+    return this.db.yusuf_agent_runs.update({
+      where: { id: Number(runId) },
+      data: {
+        modelRef: JSON.stringify({
+          provider: String(routed.provider || "unknown"),
+          model: String(routed.model || "unknown"),
+          policy: routed.policy || null,
+          fallbackOccurred: Boolean(routed.fallbackOccurred),
+          latencyMs: Number.isFinite(routed.latencyMs)
+            ? routed.latencyMs
+            : null,
+          usageConfidence,
+          costConfidence,
+        }),
+        tokenUsage,
+        estimatedCostMicros,
       },
     });
   }
