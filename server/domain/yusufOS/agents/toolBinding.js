@@ -8,6 +8,7 @@ const { ProjectAdapter } = require("../adapters/project/ProjectAdapter");
 const { BrowserAdapter } = require("../adapters/browser/BrowserAdapter");
 const localGitBuilders = require("../adapters/localGit/requestBuilders");
 const projectBuilders = require("../adapters/project/requestBuilders");
+const browserBuilders = require("../adapters/browser/requestBuilders");
 const { getAgentDefinition } = require("./definitions");
 const { YusufOSError, ErrorCodes } = require("../errors/YusufOSError");
 
@@ -46,6 +47,8 @@ const CAPABILITY_BUILDERS = Object.freeze({
     projectBuilders.buildWriteFileRequest(args, db),
   "project.run_command": (args, db) =>
     projectBuilders.buildRunCommandRequest(args, db),
+  "browser.submit_form": (args, db) =>
+    browserBuilders.buildSubmitFormRequest(args, db),
 });
 
 function adapterForCapability(capabilityKey, db) {

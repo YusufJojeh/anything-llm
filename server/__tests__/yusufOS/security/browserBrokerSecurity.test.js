@@ -87,19 +87,29 @@ function run(adapter, capabilityKey, target = {}) {
 }
 
 describe("Browser Broker — capability surface", () => {
-  test("every registered browser capability is read-only", () => {
+  test("every registered browser capability is read-only, except the one deliberate Phase I mutation", () => {
     for (const key of BROWSER_CAPABILITIES) {
       const definition = getCapability(key);
       expect(definition).toBeTruthy();
+      if (key === "browser.submit_form") {
+        expect(definition.mutation).toBe(true);
+        expect(definition.operationClass).toBe("EXTERNAL_MUTATION");
+        continue;
+      }
       expect(definition.mutation).toBe(false);
       expect(["READ", "ANALYZE"]).toContain(definition.operationClass);
     }
   });
 
-  test("no click, type, submit, navigate or evaluate capability exists", () => {
-    const forbiddenShapes = /click|type|submit|navigate|evaluate|execute_js|run_script|download|upload/i;
+  test("no click, type, navigate or evaluate capability exists", () => {
+    // `browser.submit_form` is the one deliberate exception (Phase I) — it is
+    // not a clicker, see the "governed mutation" describe block below for why.
+    const forbiddenShapes = /click|navigate|evaluate|execute_js|run_script|download|upload/i;
     const offenders = Object.keys(CAPABILITIES).filter(
-      (key) => key.startsWith("browser.") && forbiddenShapes.test(key)
+      (key) =>
+        key.startsWith("browser.") &&
+        key !== "browser.submit_form" &&
+        forbiddenShapes.test(key)
     );
     expect(offenders).toEqual([]);
   });
@@ -332,6 +342,31 @@ describe("Browser Broker — verification semantics", () => {
     expect(verification.evidence.contentDigest).toBe(
       execution.result.contentDigest
     );
+  });
+});
+
+describe("Browser Broker — governed mutation (Phase I)", () => {
+  test("browser.submit_form is the only mutation-class browser capability", () => {
+    const mutating = Object.keys(CAPABILITIES).filter(
+      (key) => key.startsWith("browser.") && CAPABILITIES[key].mutation
+    );
+    expect(mutating).toEqual(["browser.submit_form"]);
+    expect(getCapability("browser.submit_form")).toMatchObject({
+      operationClass: "EXTERNAL_MUTATION",
+      defaultRisk: "L3",
+      defaultOutcome: "REQUIRE_APPROVAL",
+      idempotency: "SERVER_KEY_RECONCILE",
+    });
+  });
+
+  test("the production form registry ships empty", () => {
+    const { FORMS } = require("../../../domain/yusufOS/adapters/browser/formRegistry");
+    expect(Object.keys(FORMS)).toEqual([]);
+  });
+
+  test("no Agent role may hold browser.submit_form yet", () => {
+    for (const agentKey of Object.keys(AGENT_DEFINITIONS))
+      expect(isCapabilityAllowedForAgent(agentKey, "browser.submit_form")).toBe(false);
   });
 });
 

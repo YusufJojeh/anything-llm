@@ -136,6 +136,49 @@ class CdpBrowserDriver {
     };
   }
 
+  /**
+   * Fills allowlisted fields and clicks the server-owned submit control.
+   *
+   * `submitSelector` and every field's `selector` come from the code-owned form descriptor
+   * (`formRegistry.js`), never from a model — this method never receives anything an Agent chose.
+   * `fields` is `{ [name]: { selector, value } }`, not a bare `{ [name]: value }` map: the selector
+   * must travel alongside the value all the way to this call, or a real page ends up typed into
+   * whatever the field's semantic name happens to resolve to as a selector rather than the
+   * descriptor's actual element.
+   */
+  async submitForm(tabId, { submitSelector, fields = {} } = {}) {
+    const page = await this.#page(tabId);
+    const url = page.url();
+    if (!evaluateOrigin(url).allowed)
+      throw new Error("tab navigated to a non-allowlisted origin");
+    page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
+    try {
+      for (const { selector, value } of Object.values(fields))
+        await page.type(selector, String(value));
+    } catch (error) {
+      // Nothing was submitted: a field that could not be filled is a
+      // certain, pre-effect failure, never a blind retry candidate.
+      throw Object.assign(error, { effectCertain: true });
+    }
+    // Started together so a fast navigation triggered by the click is not
+    // missed by attaching the navigation watcher too late. A form that never
+    // navigates (an AJAX submit, say) is not an error — `waitForNavigation`
+    // timing out is swallowed exactly as before. Only the click itself
+    // determines effectCertain: a click that never dispatched (bad selector,
+    // detached element) is a certain pre-effect failure, whereas verifying
+    // whether a dispatched click's submission actually landed is what
+    // `#verifySubmission`/`reconcile` independently re-check afterward.
+    const [clickResult] = await Promise.allSettled([
+      page.click(submitSelector),
+      page
+        .waitForNavigation({ timeout: NAVIGATION_TIMEOUT_MS })
+        .catch(() => null),
+    ]);
+    if (clickResult.status === "rejected")
+      throw Object.assign(clickResult.reason, { effectCertain: true });
+    return { url: page.url() };
+  }
+
   async close() {
     // Disconnect, never close: the browser belongs to Yusuf, not to us.
     if (this.browser) await this.browser.disconnect().catch(() => {});

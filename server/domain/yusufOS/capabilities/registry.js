@@ -312,6 +312,27 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SAFE_RETRY",
     hardFlags: [],
   }),
+
+  // --- Phase I: governed browser mutation ---------------------------------
+  // The single mutation capability the Browser Broker exposes. It is not a
+  // clicker: a model supplies only a server-owned `formKey` and allowlisted
+  // field values (see adapters/browser/formRegistry.js); the origin, page,
+  // submit control and permitted fields all come from a code-owned
+  // descriptor. Real forms (Gmail reply, LinkedIn post, ...) are added to
+  // that registry one integration at a time — the registry ships empty.
+  "browser.submit_form": definition({
+    key: "browser.submit_form",
+    domain: "browser",
+    description:
+      "Submit one server-registered browser form by its semantic key, with allowlisted field values.",
+    operationClass: "EXTERNAL_MUTATION",
+    defaultRisk: RISK_LEVELS.L3,
+    defaultOutcome: POLICY_OUTCOMES.REQUIRE_APPROVAL,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY_RECONCILE",
+    hardFlags: [],
+  }),
 });
 
 const HARD_FORBIDDEN = Object.freeze([
