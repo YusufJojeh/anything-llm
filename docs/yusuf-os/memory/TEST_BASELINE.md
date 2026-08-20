@@ -1,5 +1,44 @@
 # Test Baseline
 
+## Phase J (Knowledge/Evidence/Memory split) [VERIFIED_BY_TEST — 2026-08-20]
+
+```bash
+YUSUF_OS_AUDIT_HMAC_KEY="<32+ char test value>" YUSUF_OS_CONTROL_TOKEN="<32+ char test value>" \
+  npx jest server
+```
+→ **58 suites, 705 tests, 0 failed** (was 56 / 666; adds 39).
+
+New files:
+- `server/__tests__/yusufOS/integration/knowledgeMemoryLifecycle.test.js` — 24 tests through the
+  real Intent -> Policy -> Execution -> Verify chain: Engineering writes Knowledge, Reviewer reads
+  it back; Reviewer has no `knowledge.write` tool; two writes with identical content produce two
+  distinct entries (never silently merged); tag-based Knowledge read; PROJECT/AGENT/TASK-scoped
+  Memory write+read succeeding for the owning identity and refused for a mismatched one; PERSONAL
+  scope refused for an Agent principal even though `memory.write` is granted; same-key Memory
+  writes upsert instead of duplicating; `recordEvidence` refuses `SECRET_FORBIDDEN` outright;
+  retention-derived `expiresAt`; `tombstoneExpiredEvidence` truncates content while preserving
+  digest/classification and writes exactly one audit event; a failed audit append inside the
+  tombstone transaction leaves the row completely untouched (the P1 fix below); not-yet-expired
+  evidence is left alone.
+- `server/__tests__/yusufOS/unit/knowledgeMemoryValidation.test.js` — 15 tests: Knowledge/Memory
+  request-builder validation (missing/oversized fields, unknown enum values, too many tags), the
+  server always minting a fresh Knowledge uuid, `assertScopeOwnership`'s pure logic for every
+  Memory scope against a stub db, and `EVIDENCE_RETENTION_DAYS` ordering sanity.
+- `agentRuntimeSecurity.test.js` gained four `test.each` rows: Reviewer/Chief-of-Staff refused a
+  grant of `knowledge.write`/`memory.write` (the existing generic loops already covered the
+  toolset-level exclusion since both were added to `MUTATION_CAPABILITIES`).
+- `migrationSafety.test.js` updated to expect the new migration in the applied-migrations list.
+
+New migration: `20260818090000_add_yusuf_os_knowledge_evidence_memory` — additive `evidenceClass`/
+`expiresAt`/`tombstonedAt` columns on `yusuf_run_evidence`, plus `yusuf_knowledge_entries` and
+`yusuf_memory_entries`.
+
+**Independent review caught one real bug before commit**: `tombstoneExpiredEvidence` truncated a
+row and appended its audit event as two separate calls — a failure in the audit step could destroy
+evidence content with no audit record, the exact silent-forgetting failure ADR-008 exists to
+prevent. Fixed by wrapping both in one `db.$transaction`; a failed row is now left fully untouched
+(still eligible for the next run) rather than half-truncated. See `GATE_HISTORY.md`.
+
 ## Organization model (Department/AutonomyLevel) [VERIFIED_BY_TEST — 2026-08-20]
 
 ```bash

@@ -1,5 +1,30 @@
 # Deferred Work
 
+## Deferred after Phase J (Knowledge/Evidence/Memory split) — 2026-08-20
+
+Phase J is **done** — see `CURRENT_GATE.md`. Still deferred:
+
+- **Knowledge/Memory retention** — Evidence now has a class-derived `expiresAt` + tombstone
+  mechanism; Knowledge and Memory have neither. Accepted as a known limitation in the design note,
+  not fixed this phase.
+- **A scheduled trigger for `EvidenceRetention.tombstoneExpiredEvidence`** — the function exists and
+  is tested; nothing calls it on a schedule yet. A job-runner wiring decision, deferred with
+  whichever phase first needs scheduled system-owned jobs generally.
+- **Command Center UI surfacing of Knowledge/Memory/Evidence classification** — backend-only this
+  phase, same pattern as Gate F and the Organization model.
+- **Wider Agent grants** — only Engineering (`knowledge.*`, `memory.*`) and Reviewer
+  (`knowledge.read` only) were granted. Chief of Staff was deliberately left with `[]`; any future
+  specialist Agent gets Knowledge/Memory grants decided alongside that Agent's own phase.
+- **Memory Curator role/Department** — still a name only, per the Organization model's own
+  deferred-Department list; Phase J did not build a real Agent for it.
+- The pre-existing `preflight()`-failure-orphans-the-intent framework gap (a `preflight()` throw
+  isn't caught by `ExecutionCoordinator`'s failure-finalization try/catch) was confirmed to predate
+  this phase and affect every capability, not just Knowledge/Memory — documented as an accepted,
+  out-of-scope limitation, not "deferred work" to fix without further instruction.
+- **Phase K (Monitoring)**, and everything after it in the CAVEMAN MODE order — Career, Marketing,
+  Founder, Research, Sales/Inbox, Integrations, Model routing/cost, Command Center expansion,
+  security/reliability hardening, release/ops, end-to-end scenarios — not started.
+
 ## Deferred after the Organization model — 2026-08-20
 
 The Department/AutonomyLevel organization model is **done** — see `CURRENT_GATE.md`. Still

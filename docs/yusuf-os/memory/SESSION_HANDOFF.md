@@ -1,5 +1,38 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-20 — Phase J: Knowledge/Evidence/Memory split (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
+
+**What was done:** Yusuf chose "Full vertical slice" (design note + schema + governed
+read/write capabilities + real Agent wiring, same depth as Gate H/I) when asked how much of
+ADR-008's Knowledge/Evidence/Memory split to build this phase. Wrote
+`docs/yusuf-os/gate-b/knowledge-evidence-memory.md` first, then implemented: Evidence gained a
+classification enum + class-derived retention + tombstone truncation (additive columns only);
+Knowledge (`yusuf_knowledge_entries`) and Memory (`yusuf_memory_entries`) are brand-new tables
+behind brand-new governed capabilities. Granted `knowledge.*`/`memory.*` to Engineering and
+`knowledge.read` to Reviewer — the first phase in this pattern to grant, not just leave reachable.
+
+**One thing worth carrying forward:** this is the first governed adapter whose "external effect"
+is a write to Yusuf OS's *own* database rather than something outside it (filesystem/git/browser).
+Decided explicitly that this still needs the full Intent -> Policy -> Execution -> Verification ->
+Audit chain, not an Evidence-style ungoverned domain call, because Knowledge/Memory are new facts
+an Agent *asserts from its own reasoning* — the same trust boundary as `project.write_file`. Also
+worth remembering: request builders cannot host scope-ownership checks (they never see
+`intent.agentId`/`taskId`) — that check has to live in the adapter's `preflight()`/`prepare()`,
+same placement as `assertRepositoryMatchesTask` for git/project capabilities, for the same reason.
+
+**Independent review earned its keep a sixth time.** Everything looked done and tests were green;
+review still found `tombstoneExpiredEvidence` truncating a row and writing its audit event as two
+separate un-transacted calls — a mid-batch audit failure would destroy evidence content with zero
+audit trail and no way to retry. Fixed with one `db.$transaction` + `appendInTransaction` (an
+existing pattern, not a new one). Three P2s were reviewed and explicitly accepted rather than
+fixed, with reasons recorded in the design note's new "Known limitations" section.
+
+**Evidence:** 58 server suites / **705 tests** (was 56/666). Lint clean. Local commit `713bb560`.
+
+**Exact next action:** Phase K (Monitoring), per the CAVEMAN MODE implementation order. No gate-b
+design doc exists for it yet — check first, same as Phase J and the Organization model did.
+
+
 ## 2026-08-20 — Organization model: Department/AutonomyLevel (Claude Code, Sonnet 5) — CAVEMAN MODE continuous run
 
 **What was done:** Next phase in the same continuous run as Phase I below. No gate-b design doc

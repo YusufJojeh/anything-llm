@@ -1,5 +1,86 @@
 # Gate History
 
+## Phase J — Knowledge/Evidence/Memory split — 2026-08-20 — PASS
+
+Implements ADR-008 (accepted at Gate B, never built until now): Conversational Memory, sourced
+Knowledge, and execution Evidence are separate concepts, previously living undifferentiated inside
+`yusuf_run_evidence`. Yusuf chose the "Full vertical slice" scope: design note, schema, governed
+read/write capabilities, and real Agent wiring — same depth as Gate H/I. Design note:
+`docs/yusuf-os/gate-b/knowledge-evidence-memory.md`.
+
+### What was built
+
+- **Evidence classification + retention** (additive to `yusuf_run_evidence`): `evidenceClass`
+  (`PUBLIC_METADATA`/`SANITIZED_OUTPUT`/`SENSITIVE_OPERATIONAL`/`SCREENSHOT`/`SECRET_FORBIDDEN`),
+  `expiresAt` (derived from a code-owned `EVIDENCE_RETENTION_DAYS` table; `SECRET_FORBIDDEN`
+  deliberately has no entry), `tombstonedAt`. `AgentRunCoordinator.recordEvidence` now refuses
+  `SECRET_FORBIDDEN` outright (`ACTION_FORBIDDEN`) rather than ever persisting it.
+  `EvidenceRetention.tombstoneExpiredEvidence(db, {now})` truncates `summary`/`payload` on expired
+  rows to a fixed marker, preserving `digest`/`evidenceClass`/`kind`/`runId`/`taskId`, and writes one
+  `evidence.tombstoned` audit event per row. Not agent-invokable, not a capability — plain
+  system-owned truncation of data Yusuf OS already owns, at the same trust tier Gate E already gave
+  Evidence. No scheduled trigger wired yet (deferred).
+- **Knowledge** (`yusuf_knowledge_entries`, new table) — sourced facts (`AGENT_DERIVED`/
+  `USER_PROVIDED`/`DOCUMENT_CITED`) via `knowledge.read`/`knowledge.write` (L0/L1, ALLOW). Every
+  write is a true create with a server-minted `uuid` (`randomUUID()`, never model-supplied) — two
+  identical-content writes produce two distinct rows, proven by test.
+- **Memory** (`yusuf_memory_entries`, new table) — scoped key/value facts
+  (`PERSONAL`/`PROJECT`/`AGENT`/`TASK`/`CONVERSATION`) via `memory.read`/`memory.write` (L0/L1,
+  ALLOW). `@@unique([scope, scopeRef, key])` makes a write a true upsert; original
+  `createdByPrincipalType`/`Id` are set only on create, never overwritten by a later update.
+- **First-ever governed adapter whose "external effect" is a Prisma write, not something outside
+  the schema.** Decided (design note, "New adapter class" section) that Knowledge/Memory still go
+  through the full Intent -> Policy -> Execution -> Verification -> Audit boundary — unlike
+  Evidence's ungoverned domain-service write — because these are new facts an Agent *asserts from
+  its own reasoning*, the same trust boundary as `project.write_file`.
+- **Memory scope-ownership enforcement** (`adapters/memory/scopeIdentity.js`,
+  `assertScopeOwnership`): checked server-side against `intent.agentId`/`taskId`/
+  `requestedByPrincipalType` at both `preflight()` and `prepare()` (defense in depth, mirroring
+  `assertRepositoryMatchesTask`'s placement for git/project capabilities — for the identical
+  structural reason: request builders never see the intent's identity fields, only the adapter
+  does). `PERSONAL` scope is hard-refused for any non-`USER` principal regardless of grant
+  (`SCOPE_FORBIDDEN_FOR_AGENT`); `AGENT`/`TASK`/`CONVERSATION`/`PROJECT` scope each require
+  `scopeRef` to match the acting identity (`SCOPE_NOT_OWNED` otherwise).
+- **Agent grants** — the first *granted* (not merely reachable) capabilities in this pattern:
+  Engineering: `knowledge.read`, `knowledge.write`, `memory.read`, `memory.write`. Reviewer:
+  `knowledge.read` only. Chief of Staff: untouched, `[]` — considered and rejected in the design
+  note (an orchestrator that can read/write Memory is a step toward it acting on its own judgment
+  rather than delegating, which the Organization model's `autonomyLevel` for Chief of Staff already
+  says it should not do yet).
+
+### Independent review
+
+Found one real P1 and three P2s, none blocking.
+
+- **P1 (fixed)** — `tombstoneExpiredEvidence` performed the row-truncation `update()` and the
+  `audit.append()` call as two separate, un-transacted operations. A failure in the audit call after
+  truncation would destroy evidence content with zero audit trail, and the row's `tombstonedAt` gate
+  would permanently exclude it from any future retry — directly undermining ADR-008's own stated
+  invariant against silently erasing audit history. **Fixed** by wrapping both operations in one
+  `db.$transaction`, using the existing `AuditService.appendInTransaction(tx, ...)` method (already
+  used by `IntentService.create`) instead of the queued `audit.append()`. Verified by a dedicated
+  test that unsets `YUSUF_OS_AUDIT_HMAC_KEY` mid-test to force the transaction to fail, then asserts
+  the row is left completely untouched (not half-truncated) and the failure surfaces in
+  `result.errors`.
+- **P2 (accepted, not fixed)** — Knowledge/Memory have no retention/expiry mechanism of their own;
+  documented as a known limitation.
+- **P2 (accepted, not fixed)** — the migration's `CHECK` constraints on `sourceType`/`scope` aren't
+  mirrored in `schema.prisma`'s plain-`String` column declarations. Verified via `grep` that
+  `yusuf_handoffs.status` already exhibits the identical pattern in already-shipped Gate E schema —
+  concluded this is established codebase convention, not a new inconsistency, and left it alone
+  rather than remove a real DB-level security backstop for cosmetic consistency.
+- **P2 (accepted, not fixed)** — a `preflight()` throw does not transition the intent to a terminal
+  `FAILED` state (`ExecutionCoordinator`'s failure-handling try/catch only wraps `prepare()`/
+  `execute()`). Confirmed pre-existing across every capability, not introduced by this phase; left
+  as an accepted, documented, out-of-scope framework gap.
+
+**Evidence:** 58 suites / 705 tests (was 56/666), lint clean. See `TEST_BASELINE.md`. Local commit
+`713bb560` — "feat(yusuf-os): Phase J — Knowledge/Evidence/Memory split", 19 files changed, 1909
+insertions.
+
+**What remains:** no Command Center UI surfacing this phase; no scheduled retention trigger; no
+Memory Curator role. See `DEFERRED_WORK.md`.
+
 ## Organization model — Department / AutonomyLevel — 2026-08-20 — PASS
 
 Gives future specialist roles a place to attach to before they exist, without producing "137 fake

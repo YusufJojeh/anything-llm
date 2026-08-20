@@ -1,5 +1,66 @@
 # Current Gate
 
+## Phase J — Knowledge/Evidence/Memory split — status: COMPLETE
+
+**Objective:** implement ADR-008 (accepted at Gate B, never built until now) — separate
+conversational Memory, sourced Knowledge, and execution Evidence, which had been living only as a
+single undifferentiated `yusuf_run_evidence` table.
+**Design note:** `docs/yusuf-os/gate-b/knowledge-evidence-memory.md`, written before code, corrected
+twice after implementation and after independent review.
+**Implemented:**
+- **Evidence classification + retention** (additive to `yusuf_run_evidence`): `evidenceClass` (one
+  of `PUBLIC_METADATA`/`SANITIZED_OUTPUT`/`SENSITIVE_OPERATIONAL`/`SCREENSHOT`/`SECRET_FORBIDDEN`),
+  `expiresAt` derived from a code-owned retention table, `tombstonedAt`. `SECRET_FORBIDDEN` exists
+  only to be refused at write time — `AgentRunCoordinator.recordEvidence` throws `ACTION_FORBIDDEN`
+  rather than ever persisting it. `EvidenceRetention.tombstoneExpiredEvidence` truncates expired
+  rows' `summary`/`payload` while preserving `digest`/`evidenceClass`/`kind`; not agent-invokable,
+  not a capability — plain system-owned truncation, same trust tier Gate E already gave Evidence.
+- **Knowledge** (`yusuf_knowledge_entries`, new table) — sourced facts (`AGENT_DERIVED`/
+  `USER_PROVIDED`/`DOCUMENT_CITED`) an Agent asserts. `knowledge.read`/`knowledge.write`, both L0/L1
+  ALLOW, no approval. Every write is a true create with a server-minted uuid — two calls with
+  identical content produce two distinct rows, proven by test, because Knowledge is meant to
+  accumulate observations, not overwrite them.
+- **Memory** (`yusuf_memory_entries`, new table) — scoped key/value facts
+  (`PERSONAL`/`PROJECT`/`AGENT`/`TASK`/`CONVERSATION`), `@@unique([scope, scopeRef, key])` so a
+  write is a true upsert. `memory.read`/`memory.write`, both L0/L1 ALLOW.
+- **First-ever governed adapter whose "external effect" is a Prisma write, not something outside
+  the schema** (unlike LocalGit/Project/Browser). Decided (and documented) that this still goes
+  through the full Intent -> Policy -> Execution -> Verification -> Audit boundary rather than
+  Evidence's ungoverned pattern, because Knowledge/Memory are new facts an Agent chooses to assert
+  from its own reasoning — the same trust boundary as `project.write_file`, not system narration
+  about an already-governed run.
+- **Memory scope-ownership enforcement** (`adapters/memory/scopeIdentity.js`,
+  `assertScopeOwnership`): checked server-side against `intent.agentId`/`taskId`/
+  `requestedByPrincipalType` — never a client-supplied string — at both `preflight()` and
+  `prepare()` (defense in depth, mirroring `assertRepositoryMatchesTask`'s placement). `PERSONAL`
+  scope is hard-refused for any non-`USER` principal regardless of grant; `AGENT`/`TASK`/
+  `CONVERSATION`/`PROJECT` scope each require the `scopeRef` to actually match the acting identity.
+- **Agent grants** (the first *granted*, not just *reachable*, capabilities for this pattern):
+  Engineering gets `knowledge.read`, `knowledge.write`, `memory.read`, `memory.write`; Reviewer gets
+  `knowledge.read` only; Chief of Staff untouched (`[]`) — considered and rejected, see design note.
+**The one invariant:** unchanged — every Knowledge/Memory write still passes through
+`YusufActionBoundary` -> Policy -> Execution Coordinator -> Verification -> Audit like any other
+governed capability; nothing about this phase's new "effect is our own database" adapter class was
+allowed to become a shortcut around that chain.
+**Tests:** `knowledgeMemoryLifecycle.test.js` (24 integration/lifecycle cases),
+`knowledgeMemoryValidation.test.js` (15 unit cases), plus `agentRuntimeSecurity.test.js` and
+`migrationSafety.test.js` updates. **58 suites / 705 tests** (was 56/666). See `TEST_BASELINE.md`.
+**Independent review caught one real P1 bug**: `tombstoneExpiredEvidence` originally truncated a
+row and appended its audit event as two separate, un-transacted calls — a failure in the audit step
+after truncation would destroy evidence content with zero audit trail, and the row's `tombstonedAt`
+gate would permanently exclude it from ever being retried. Fixed by wrapping both operations in one
+`db.$transaction` using the existing `AuditService.appendInTransaction` pattern (already used by
+`IntentService.create`). Verified by a dedicated test that forces the transaction to fail and
+asserts the row is left completely untouched, not half-truncated. Three P2 findings were reviewed
+and explicitly accepted rather than fixed (Knowledge/Memory have no retention mechanism yet; the
+migration's CHECK constraints aren't mirrored in `schema.prisma`'s plain-`String` columns — verified
+this is pre-existing convention, not a new bug, via `yusuf_handoffs.status`; a `preflight()` throw
+still doesn't transition the intent to a terminal state — a pre-existing framework gap, not
+introduced by this phase). See `GATE_HISTORY.md` and the design note's "Known limitations" section.
+**Remaining:** no Command Center UI surfacing this phase (same pattern as Gate F/organization
+model); no scheduled trigger wired to call `tombstoneExpiredEvidence`; no Memory Curator role yet.
+**Next automatic phase:** Phase K (Monitoring), per the CAVEMAN MODE implementation order.
+
 ## Organization model (Department/AutonomyLevel) — status: COMPLETE
 
 **Objective:** give future specialist roles (Research, Monitoring, Marketing, Career, Founder,
@@ -18,7 +79,7 @@ a regression test that greps the security kernel files for either concept and fa
 **Tests:** `organizationModel.test.js`, 14 cases. Independent review: no P0/P1.
 **Remaining:** no UI change this phase (same pattern as Gate F — backend model first). A third
 Department appears only when a phase builds a real Agent that belongs in it.
-**Next automatic phase:** Phase J (Knowledge/Evidence/Memory split).
+**Next automatic phase:** Phase J (Knowledge/Evidence/Memory split) — **COMPLETE, see above.**
 
 ## Phase I — governed browser mutations — status: COMPLETE
 
