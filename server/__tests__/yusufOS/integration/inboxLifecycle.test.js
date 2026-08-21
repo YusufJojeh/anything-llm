@@ -286,13 +286,7 @@ describe("Phase P — Inbox governed lifecycle", () => {
       runtimeContext: careerCreateContext,
     });
     const { uuid: opportunityUuid } = JSON.parse(opportunity.sanitizedResult);
-    const { context: applyContext } = await seedRun(fixture.career, careerTask);
-    await invokeCapability({
-      toolset: careerToolset,
-      capabilityKey: "career.update_status",
-      args: { uuid: opportunityUuid, status: "APPLIED" },
-      runtimeContext: applyContext,
-    });
+    await db.yusuf_career_opportunities.update({ where: { uuid: opportunityUuid }, data: { status: "APPLIED" } });
 
     const inboxTask = await makeTask(fixture.inbox);
     const inboxToolset = buildAgentToolset({ agentKey: AGENT_KEYS.INBOX, db });
@@ -360,13 +354,7 @@ describe("Phase P — Inbox governed lifecycle", () => {
       runtimeContext: c1,
     });
     const { uuid: oppAUuid } = JSON.parse(oppA.sanitizedResult);
-    const { context: applyContext } = await seedRun(fixture.career, careerTask);
-    await invokeCapability({
-      toolset: careerToolset,
-      capabilityKey: "career.update_status",
-      args: { uuid: oppAUuid, status: "APPLIED" },
-      runtimeContext: applyContext,
-    });
+    await db.yusuf_career_opportunities.update({ where: { uuid: oppAUuid }, data: { status: "APPLIED" } });
     const { context: c2 } = await seedRun(fixture.career, careerTask);
     const oppB = await invokeCapability({
       toolset: careerToolset,
