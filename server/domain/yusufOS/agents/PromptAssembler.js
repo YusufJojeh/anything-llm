@@ -79,6 +79,7 @@ class PromptAssembler {
     memory = [],
     knowledge = [],
     evidenceRefs = [],
+    reviewContext = null,
     recentToolResults = [],
     capabilities = [],
     policySummary,
@@ -127,6 +128,9 @@ class PromptAssembler {
       untrustedSection("Scoped memory", memory),
       untrustedSection("Scoped knowledge", knowledge),
       untrustedSection("Evidence references", evidenceRefs),
+      ...(reviewContext
+        ? [untrustedSection("Independent review context", reviewContext)]
+        : []),
       untrustedSection(
         "Recent safe tool results",
         recentToolResults.slice(-MAX_RECENT_TOOL_RESULTS)

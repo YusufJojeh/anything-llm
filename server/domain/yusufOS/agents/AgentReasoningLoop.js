@@ -5,6 +5,7 @@ const {
   RUN_KINDS,
   RUN_FAILURE_KINDS,
   PRINCIPAL_TYPES,
+  EVIDENCE_KINDS,
 } = require("../constants");
 const { getCapability } = require("../capabilities/registry");
 const { canonicalHash } = require("../security/canonicalJson");
@@ -162,7 +163,12 @@ class AgentReasoningLoop {
       where: { id: Number(runId) },
       include: {
         agent: true,
-        task: { include: { project: true, evidence: true } },
+        task: {
+          include: {
+            project: { include: { gitRepositories: true, commands: true } },
+            evidence: true,
+          },
+        },
       },
     });
     if (!run)
@@ -170,6 +176,121 @@ class AgentReasoningLoop {
         status: 404,
       });
     return run;
+  }
+
+  async #projectGovernedEvidence(run) {
+    if (run.agent?.key !== "engineering") return;
+    const existing = await this.db.yusuf_run_evidence.findMany({
+      where: { runId: run.id },
+      select: { payload: true },
+    });
+    const recorded = new Set();
+    for (const row of existing) {
+      try {
+        const intentUuid = JSON.parse(row.payload || "{}").intentUuid;
+        if (intentUuid) recorded.add(intentUuid);
+      } catch {
+        // A malformed older evidence payload is ignored; it cannot suppress
+        // projection of a real governed receipt.
+      }
+    }
+    const intents = await this.db.yusuf_action_intents.findMany({
+      where: {
+        runId: run.id,
+        capabilityKey: { in: ["project.write_file", "project.run_command"] },
+      },
+      include: { receipt: true },
+      orderBy: { id: "asc" },
+    });
+    for (const intent of intents) {
+      if (!intent.receipt || recorded.has(intent.uuid)) continue;
+      const target = JSON.parse(intent.canonicalTarget || "{}");
+      if (intent.capabilityKey === "project.write_file") {
+        if (intent.receipt.verificationStatus !== "VERIFIED") continue;
+        await this.runs.recordEvidence({
+          runId: run.id,
+          taskId: run.taskId,
+          kind: EVIDENCE_KINDS.IMPLEMENTATION,
+          status: "INFO",
+          summary: `Governed write verified for ${target.relativePath || "project file"}.`,
+          payload: {
+            intentUuid: intent.uuid,
+            changedPaths: target.relativePath ? [target.relativePath] : [],
+          },
+        });
+      } else {
+        await this.runs.recordEvidence({
+          runId: run.id,
+          taskId: run.taskId,
+          kind: EVIDENCE_KINDS.VALIDATION,
+          summary: `Governed validation executed: ${target.commandKey || "registered command"}.`,
+          payload: { intentUuid: intent.uuid, commandKey: target.commandKey },
+          intentUuid: intent.uuid,
+        });
+      }
+      recorded.add(intent.uuid);
+    }
+  }
+
+  async #reviewContext(run) {
+    if (run.agent?.key !== "reviewer") return null;
+    const inbound = await this.db.yusuf_handoffs.findFirst({
+      where: { toRunId: run.id, status: "ACCEPTED" },
+      orderBy: { id: "desc" },
+    });
+    if (!inbound?.fromRunId) return null;
+    const [targetRun, evidence, intents] = await Promise.all([
+      this.db.yusuf_agent_runs.findUnique({
+        where: { id: inbound.fromRunId },
+        include: { agent: true },
+      }),
+      this.db.yusuf_run_evidence.findMany({
+        where: { taskId: run.taskId },
+        orderBy: { id: "asc" },
+        select: { uuid: true, kind: true, status: true, summary: true, digest: true },
+      }),
+      this.db.yusuf_action_intents.findMany({
+        where: { taskId: run.taskId, runId: inbound.fromRunId },
+        orderBy: { id: "asc" },
+        include: {
+          receipt: true,
+          policyDecisions: {
+            orderBy: { decisionVersion: "desc" },
+            take: 1,
+          },
+        },
+      }),
+    ]);
+    return {
+      targetRun: targetRun
+        ? {
+            uuid: targetRun.uuid,
+            agent: targetRun.agent?.key || null,
+            status: targetRun.status,
+            runKind: targetRun.runKind,
+          }
+        : null,
+      handoff: { reason: inbound.reason, artifacts: inbound.artifacts },
+      evidence,
+      actions: intents.map((intent) => ({
+        intentUuid: intent.uuid,
+        capability: intent.capabilityKey,
+        status: intent.status,
+        policy: intent.policyDecisions[0]
+          ? {
+              outcome: intent.policyDecisions[0].outcome,
+              riskLevel: intent.policyDecisions[0].riskLevel,
+            }
+          : null,
+        receipt: intent.receipt
+          ? {
+              outcome: intent.receipt.outcome,
+              verificationStatus: intent.receipt.verificationStatus,
+              sanitizedResult: intent.receipt.sanitizedResult,
+            }
+          : null,
+      })),
+    };
   }
 
   async #acquireLease({ runId, leaseId, maxWallClockMs }) {
@@ -518,6 +639,7 @@ class AgentReasoningLoop {
     let handoffs = Math.max(reasoningState.handoffs, persistedHandoffs);
     reasoningState.handoffs = handoffs;
     const retryState = { count: reasoningState.retries };
+    await this.#projectGovernedEvidence(run);
     await this.#saveReasoningState(run.id, leaseId, reasoningState);
 
     while (reasoningState.steps < limits.maxReasoningSteps) {
@@ -527,6 +649,7 @@ class AgentReasoningLoop {
       reasoningState.steps += 1;
       const step = reasoningState.steps;
       await this.#saveReasoningState(run.id, leaseId, reasoningState);
+      const reviewContext = await this.#reviewContext(run);
       const promptInput = {
         agentDefinition: definition,
         objective: run.task.objective,
@@ -536,6 +659,20 @@ class AgentReasoningLoop {
               key: run.task.project.key,
               name: run.task.project.name,
               metadata: run.task.project.metadata,
+              repositories: run.task.project.gitRepositories.map((repository) => ({
+                uuid: repository.uuid,
+                key: repository.key,
+                defaultBranch: repository.defaultBranch,
+                protectedBranches: repository.protectedBranches,
+                allowLocalCommit: repository.allowLocalCommit,
+                allowFeaturePush: repository.allowFeaturePush,
+              })),
+              commands: run.task.project.commands
+                .filter((command) => command.enabled)
+                .map((command) => ({
+                  key: command.key,
+                  description: command.description,
+                })),
             }
           : null,
         memory: scopedMemory,
@@ -546,6 +683,7 @@ class AgentReasoningLoop {
           status: item.status,
           digest: item.digest,
         })),
+        reviewContext,
         recentToolResults,
         capabilities,
         policySummary:
@@ -770,6 +908,7 @@ class AgentReasoningLoop {
           capability: decision.capability,
           result: boundedResult(result),
         });
+        await this.#projectGovernedEvidence(run);
         const status = await this.#runStatus(run.id);
         if (status === RUN_STATUSES.WAITING_APPROVAL)
           return {
