@@ -19,6 +19,8 @@ import { join, resolve } from "node:path";
  * look like the harness. That leak is guarded here too.
  */
 
+// Vitest exposes CommonJS-style __dirname for this static filesystem suite.
+// eslint-disable-next-line no-undef
 const FRONTEND = resolve(__dirname, "../../../..");
 const SRC = join(FRONTEND, "src");
 const HARNESS_HTML = join(FRONTEND, "yusuf-os-harness.html");
@@ -65,6 +67,7 @@ describe("1. /os resolves to the real Yusuf OS Command Center", () => {
       "Tasks",
       "Approvals",
       "Runs",
+      "Runtime",
       "Projects",
       "System",
     ])

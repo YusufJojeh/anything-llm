@@ -119,6 +119,7 @@ export const yusufApi = {
   lock: () => call("/session", { method: "DELETE" }),
 
   dashboard: (options) => call("/dashboard", options),
+  runtime: (options) => call("/runtime", options),
   events: (after, limit = 100) =>
     call(`/events?after=${encodeURIComponent(after)}&limit=${limit}`),
   roster: (options) => call("/agents/roster", options),

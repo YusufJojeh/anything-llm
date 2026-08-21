@@ -55,6 +55,7 @@ export const SESSION = Object.freeze({
 const STALE_AFTER_MS = 45000;
 // Collapses a burst of resync triggers into one refetch.
 const RESYNC_DEBOUNCE_MS = 350;
+const RUNTIME_REFRESH_MS = 30000;
 
 export function YusufOSProvider({ children }) {
   const [session, setSession] = useState(SESSION.CHECKING);
@@ -62,6 +63,9 @@ export function YusufOSProvider({ children }) {
   const [error, setError] = useState(null);
   const [dashboard, setDashboard] = useState(null);
   const [roster, setRoster] = useState(null);
+  const [runtime, setRuntime] = useState(null);
+  const [runtimePhase, setRuntimePhase] = useState(PHASES.LOADING);
+  const [runtimeError, setRuntimeError] = useState(null);
   const [realtime, dispatch] = useReducer(
     realtimeReducer,
     0,
@@ -72,6 +76,7 @@ export function YusufOSProvider({ children }) {
   const staleTimerRef = useRef(null);
   const resyncTimerRef = useRef(null);
   const inFlightRef = useRef(null);
+  const runtimeInFlightRef = useRef(null);
 
   /** Reads the durable snapshot. This is the only thing that can clear a resync. */
   const loadSnapshot = useCallback(async ({ silent = false } = {}) => {
@@ -111,6 +116,30 @@ export function YusufOSProvider({ children }) {
     // previous view; including it would re-create the callback on every poll.
   }, []);
 
+  const loadRuntime = useCallback(async ({ silent = false } = {}) => {
+    if (runtimeInFlightRef.current) runtimeInFlightRef.current.abort();
+    const controller = new AbortController();
+    runtimeInFlightRef.current = controller;
+    if (!silent) setRuntimePhase(PHASES.LOADING);
+    try {
+      const nextRuntime = await yusufApi.runtime({ signal: controller.signal });
+      setRuntime(nextRuntime);
+      setRuntimeError(null);
+      setRuntimePhase(PHASES.READY);
+      return true;
+    } catch (cause) {
+      if (cause?.name === "AbortError") return false;
+      setRuntimeError(cause);
+      setRuntimePhase((previous) =>
+        silent && previous === PHASES.READY ? previous : PHASES.ERROR
+      );
+      return false;
+    } finally {
+      if (runtimeInFlightRef.current === controller)
+        runtimeInFlightRef.current = null;
+    }
+  }, []);
+
   /** Session bootstrap. */
   const refreshSession = useCallback(async () => {
     try {
@@ -141,6 +170,9 @@ export function YusufOSProvider({ children }) {
       setSession(SESSION.LOCKED);
       setDashboard(null);
       setRoster(null);
+      setRuntime(null);
+      setRuntimeError(null);
+      setRuntimePhase(PHASES.LOADING);
       setPhase(PHASES.LOADING);
     }
   }, []);
@@ -155,6 +187,19 @@ export function YusufOSProvider({ children }) {
     loadSnapshot();
     return () => inFlightRef.current?.abort();
   }, [session, loadSnapshot]);
+
+  useEffect(() => {
+    if (session !== SESSION.UNLOCKED) return undefined;
+    loadRuntime();
+    const interval = setInterval(
+      () => loadRuntime({ silent: true }),
+      RUNTIME_REFRESH_MS
+    );
+    return () => {
+      clearInterval(interval);
+      runtimeInFlightRef.current?.abort();
+    };
+  }, [session, loadRuntime]);
 
   /**
    * Stream connection. Opened only after the first snapshot has been applied,
@@ -260,6 +305,10 @@ export function YusufOSProvider({ children }) {
       error,
       dashboard,
       roster,
+      runtime,
+      runtimePhase,
+      runtimeError,
+      refreshRuntime: () => loadRuntime({ silent: true }),
       model,
       realtime,
       connection: realtime.connection,
@@ -279,9 +328,13 @@ export function YusufOSProvider({ children }) {
       error,
       dashboard,
       roster,
+      runtime,
+      runtimePhase,
+      runtimeError,
       model,
       realtime,
       loadSnapshot,
+      loadRuntime,
       unlock,
       lock,
       refreshSession,

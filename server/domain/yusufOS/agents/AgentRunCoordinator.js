@@ -64,7 +64,16 @@ class AgentRunCoordinator {
             status: RUN_STATUSES.QUEUED,
             runKind,
             idempotencyKey,
-            modelRef: modelRef ? JSON.stringify(modelRef) : null,
+            // Completion provenance is reserved for
+            // recordModelCompletion(); callers may record intended identity
+            // here but cannot pre-mark a run as a completed model call.
+            modelRef:
+              modelRef && typeof modelRef === "object"
+                ? JSON.stringify({
+                    provider: String(modelRef.provider || "unknown"),
+                    model: String(modelRef.model || "unknown"),
+                  })
+                : null,
             promptDigest,
             requestId,
           },
@@ -381,6 +390,7 @@ class AgentRunCoordinator {
       where: { id: Number(runId) },
       data: {
         modelRef: JSON.stringify({
+          telemetryKind: "ROUTED_COMPLETION",
           provider: String(routed.provider || "unknown"),
           model: String(routed.model || "unknown"),
           policy: routed.policy || null,

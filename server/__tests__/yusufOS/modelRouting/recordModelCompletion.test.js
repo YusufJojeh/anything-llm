@@ -6,7 +6,10 @@ const {
 const {
   AgentRunCoordinator,
 } = require("../../../domain/yusufOS/agents/AgentRunCoordinator");
-const { CONFIDENCE, PROVIDER_KINDS } = require("../../../domain/yusufOS/models/constants");
+const {
+  CONFIDENCE,
+  PROVIDER_KINDS,
+} = require("../../../domain/yusufOS/models/constants");
 
 describe("Phase R — AgentRunCoordinator.recordModelCompletion", () => {
   let testDatabase;
@@ -72,13 +75,21 @@ describe("Phase R — AgentRunCoordinator.recordModelCompletion", () => {
         policy: "FALLBACK_CHAIN",
         fallbackOccurred: true,
         latencyMs: 123,
-        usage: { confidence: CONFIDENCE.KNOWN, promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+        usage: {
+          confidence: CONFIDENCE.KNOWN,
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+        },
         cost: { confidence: CONFIDENCE.ESTIMATED, amountMicros: 42 },
       },
     });
-    const updated = await db.yusuf_agent_runs.findUnique({ where: { id: run.id } });
+    const updated = await db.yusuf_agent_runs.findUnique({
+      where: { id: run.id },
+    });
     const modelRef = JSON.parse(updated.modelRef);
     expect(modelRef).toMatchObject({
+      telemetryKind: "ROUTED_COMPLETION",
       provider: PROVIDER_KINDS.OPENAI,
       model: "gpt-4o-mini",
       policy: "FALLBACK_CHAIN",
@@ -106,10 +117,32 @@ describe("Phase R — AgentRunCoordinator.recordModelCompletion", () => {
         cost: { confidence: CONFIDENCE.UNAVAILABLE, amountMicros: null },
       },
     });
-    const updated = await db.yusuf_agent_runs.findUnique({ where: { id: run.id } });
+    const updated = await db.yusuf_agent_runs.findUnique({
+      where: { id: run.id },
+    });
     expect(updated.estimatedCostMicros).toBeNull();
     const modelRef = JSON.parse(updated.modelRef);
     expect(modelRef.costConfidence).toBe(CONFIDENCE.UNAVAILABLE);
     expect(modelRef.usageConfidence).toBe(CONFIDENCE.UNAVAILABLE);
+  });
+
+  test("createRun cannot forge routed-completion provenance", async () => {
+    const seeded = await seedRun();
+    await db.yusuf_agent_runs.delete({ where: { id: seeded.id } });
+    const created = await coordinator.createRun({
+      taskId: seeded.taskId,
+      agentId: seeded.agentId,
+      principal: { type: "AGENT", id: "test-agent" },
+      requestId: randomUUID(),
+      modelRef: {
+        telemetryKind: "ROUTED_COMPLETION",
+        provider: "forged-provider",
+        model: "forged-model",
+      },
+    });
+    expect(JSON.parse(created.modelRef)).toEqual({
+      provider: "forged-provider",
+      model: "forged-model",
+    });
   });
 });

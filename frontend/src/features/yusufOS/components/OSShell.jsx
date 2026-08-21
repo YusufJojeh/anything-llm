@@ -6,6 +6,7 @@ import {
   Pulse,
   CirclesThree,
   Cpu,
+  HardDrives,
   GitBranch,
   Lock,
   ShieldCheck,
@@ -39,6 +40,7 @@ const SECTIONS = [
   { to: "/os/tasks", key: "tasks", Icon: Stack },
   { to: "/os/approvals", key: "approvals", Icon: ShieldCheck },
   { to: "/os/runs", key: "runs", Icon: Cpu },
+  { to: "/os/runtime", key: "runtime", Icon: HardDrives },
   { to: "/os/projects", key: "projects", Icon: GitBranch },
   { to: "/os/system", key: "system", Icon: Pulse },
 ];

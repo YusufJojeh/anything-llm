@@ -521,6 +521,15 @@ const router = createBrowserRouter([
             },
           },
           {
+            path: "runtime",
+            lazy: async () => {
+              const { default: Runtime } = await import(
+                "@/pages/YusufOS/Runtime"
+              );
+              return { element: <Runtime /> };
+            },
+          },
+          {
             path: "system",
             lazy: async () => {
               const { default: System } = await import(

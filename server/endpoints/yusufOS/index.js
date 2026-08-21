@@ -42,6 +42,9 @@ const {
 const {
   DetailProjections,
 } = require("../../domain/yusufOS/projections/DetailProjections");
+const {
+  RuntimeProjection,
+} = require("../../domain/yusufOS/projections/RuntimeProjection");
 
 function asyncRoute(handler) {
   return async (request, response) => {
@@ -430,6 +433,20 @@ function yusufOSEndpoints(
           taskLimit: request.query.taskLimit,
         })
       );
+    })
+  );
+
+  // Phase S: model runtime / Department-Agent-Skill-Job / Monitoring history
+  // / Knowledge-Evidence-Memory projections. Static, config-shaped data
+  // (Ollama/OpenAI status, agent model policies, departments) alongside a
+  // few live-changing fields (recent completions, monitoring history) — all
+  // read-only, no capability boundary needed, same trust tier as `/dashboard`.
+  app.get(
+    path("/runtime"),
+    guard,
+    asyncRoute(async (_request, response) => {
+      const projection = new RuntimeProjection(db);
+      response.status(200).json(await projection.build());
     })
   );
 
