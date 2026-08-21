@@ -32,6 +32,7 @@ const {
 } = require("../../../domain/yusufOS/execution/ExecutionCoordinator");
 const { LocalGitAdapter } = require("../../../domain/yusufOS/adapters/localGit/LocalGitAdapter");
 const { AuditService } = require("../../../domain/yusufOS/audit/AuditService");
+const { canonicalHash } = require("../../../domain/yusufOS/security/canonicalJson");
 
 describe("Gate E — end-to-end governed AI staff lifecycle", () => {
   let testDatabase;
@@ -151,11 +152,32 @@ describe("Gate E — end-to-end governed AI staff lifecycle", () => {
         runId: reviewRun.id,
       },
     });
+    const rawVerdict = { verdict, summary, findings: [] };
+    await bindRoutedReview(reviewRun, rawVerdict);
     return chief.submitReview({
       reviewRunId: reviewRun.id,
       targetRunId,
-      rawVerdict: { verdict, summary, findings: [] },
+      rawVerdict,
       requestId: randomUUID(),
+    });
+  }
+
+  async function bindRoutedReview(reviewRun, rawVerdict) {
+    await db.yusuf_agent_runs.update({
+      where: { id: reviewRun.id },
+      data: {
+        modelRef: JSON.stringify({
+          telemetryKind: "ROUTED_COMPLETION",
+          provider: "DETERMINISTIC_TEST",
+          model: "review-fixture-v1",
+        }),
+        promptDigest: canonicalHash({ test: "review-prompt" }),
+        reviewDecisionDigest: canonicalHash({
+          verdict: rawVerdict.verdict,
+          summary: rawVerdict.summary,
+          findings: rawVerdict.findings || [],
+        }),
+      },
     });
   }
 
@@ -417,14 +439,18 @@ describe("Gate E — end-to-end governed AI staff lifecycle", () => {
       requestId: randomUUID(),
     });
     await runs.startRun({ runId: review.reviewRun.id, requestId: randomUUID() });
+    const warningVerdict = {
+      verdict: REVIEW_VERDICTS.PASS_WITH_WARNINGS,
+      summary: "Correct but undocumented.",
+      findings: [
+        { severity: "low", area: "maintainability", detail: "No JSDoc." },
+      ],
+    };
+    await bindRoutedReview(review.reviewRun, warningVerdict);
     await new ReviewService(db).submitVerdict({
       reviewRunId: review.reviewRun.id,
       targetRunId: delegation.run.id,
-      rawVerdict: {
-        verdict: REVIEW_VERDICTS.PASS_WITH_WARNINGS,
-        summary: "Correct but undocumented.",
-        findings: [{ severity: "low", area: "maintainability", detail: "No JSDoc." }],
-      },
+      rawVerdict: warningVerdict,
       requestId: randomUUID(),
     });
 

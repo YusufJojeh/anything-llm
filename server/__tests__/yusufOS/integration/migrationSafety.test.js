@@ -42,6 +42,7 @@ describe("Yusuf OS additive migration safety", () => {
       "20260820170000_add_yusuf_os_research",
       "20260820180000_add_yusuf_os_inbox",
       "20260820190000_add_yusuf_os_career_application_notes",
+      "20260821120000_add_yusuf_os_reasoning_lease",
     ]);
   });
 
@@ -57,6 +58,7 @@ describe("Yusuf OS additive migration safety", () => {
         "yusuf_tasks_assignedAgentId_status_idx",
         "yusuf_agent_runs_taskId_status_idx",
         "yusuf_agent_runs_agentId_status_idx",
+        "yusuf_agent_runs_reasoningLeaseExpiresAt_idx",
         "yusuf_audit_events_occurredAt_id_idx",
       ])
     );

@@ -3,6 +3,8 @@ const prisma = require("../../../utils/prisma");
 const {
   REVIEW_VERDICTS,
   RUN_KINDS,
+  RUN_STATUSES,
+  HANDOFF_STATUSES,
   PRINCIPAL_TYPES,
   AGENT_KEYS,
 } = require("../constants");
@@ -38,12 +40,14 @@ class ReviewService {
     targetRunId = null,
     rawVerdict,
     requestId,
+    finalizeRun = false,
+    leaseId = null,
   }) {
     const contract = ReviewVerdict(rawVerdict);
 
     const reviewRun = await this.db.yusuf_agent_runs.findUnique({
       where: { id: Number(reviewRunId) },
-      include: { agent: true },
+      include: { agent: true, task: true },
     });
     if (!reviewRun)
       throw new YusufOSError(ErrorCodes.NOT_FOUND, "Review run not found.", {
@@ -67,12 +71,54 @@ class ReviewService {
         "The reviewer Agent is not active.",
         { status: 403 }
       );
+    if (
+      reviewRun.status !== RUN_STATUSES.RUNNING ||
+      Number(reviewRun.task.assignedAgentId) !== Number(reviewRun.agentId)
+    )
+      throw new YusufOSError(
+        ErrorCodes.UNAUTHORIZED,
+        "A verdict requires the active Reviewer run currently assigned to the task.",
+        { status: 403 }
+      );
+    let routedModelRef = null;
+    try {
+      routedModelRef = JSON.parse(reviewRun.modelRef || "null");
+    } catch {
+      routedModelRef = null;
+    }
+    if (
+      routedModelRef?.telemetryKind !== "ROUTED_COMPLETION" ||
+      !reviewRun.promptDigest ||
+      reviewRun.reviewDecisionDigest !==
+        canonicalHash({
+          verdict: contract.verdict,
+          summary: contract.summary,
+          findings: contract.findings,
+        })
+    )
+      throw new YusufOSError(
+        ErrorCodes.UNAUTHORIZED,
+        "A verdict must be bound to this run's routed model completion.",
+        { status: 403 }
+      );
     if (targetRunId && Number(targetRunId) === Number(reviewRunId))
       throw new YusufOSError(
         ErrorCodes.VALIDATION_ERROR,
         "A review run cannot review itself.",
         { status: 422 }
       );
+    if (targetRunId) {
+      const target = await this.db.yusuf_agent_runs.findUnique({
+        where: { id: Number(targetRunId) },
+        select: { taskId: true },
+      });
+      if (!target || Number(target.taskId) !== Number(reviewRun.taskId))
+        throw new YusufOSError(
+          ErrorCodes.UNAUTHORIZED,
+          "The reviewed run must belong to the same task.",
+          { status: 403 }
+        );
+    }
 
     // Bind the verdict to the exact evidence that existed when it was made, so
     // a later claim of "the reviewer approved this" can be checked against the
@@ -116,6 +162,80 @@ class ReviewService {
           },
           requestId,
         });
+        if (finalizeRun) {
+          const completedRun = await tx.yusuf_agent_runs.updateMany({
+            where: {
+              id: reviewRun.id,
+              status: RUN_STATUSES.RUNNING,
+              reasoningLeaseId: leaseId,
+              reviewDecisionDigest: reviewRun.reviewDecisionDigest,
+            },
+            data: {
+              status: RUN_STATUSES.COMPLETED,
+              completedAt: new Date(),
+              reasoningLeaseId: null,
+              reasoningLeaseExpiresAt: null,
+              version: { increment: 1 },
+            },
+          });
+          if (completedRun.count !== 1)
+            throw new YusufOSError(
+              ErrorCodes.CONFLICT,
+              "Review finalization lost the active routed-completion lease.",
+              { status: 409 }
+            );
+          const inbound = await tx.yusuf_handoffs.findFirst({
+            where: {
+              toRunId: reviewRun.id,
+              status: HANDOFF_STATUSES.ACCEPTED,
+            },
+            orderBy: { id: "desc" },
+          });
+          if (inbound) {
+            const completedHandoff = await tx.yusuf_handoffs.updateMany({
+              where: {
+                id: inbound.id,
+                version: inbound.version,
+                status: HANDOFF_STATUSES.ACCEPTED,
+              },
+              data: {
+                status: HANDOFF_STATUSES.COMPLETED,
+                completedAt: new Date(),
+                version: { increment: 1 },
+              },
+            });
+            if (completedHandoff.count !== 1)
+              throw new YusufOSError(
+                ErrorCodes.CONFLICT,
+                "Review handoff finalization lost state ownership.",
+                { status: 409 }
+              );
+            await this.audit.appendInTransaction(tx, {
+              eventType: "handoff.completed",
+              principal: {
+                type: PRINCIPAL_TYPES.SYSTEM,
+                id: "review-service",
+              },
+              taskRef: reviewRun.taskId,
+              runRef: reviewRun.id,
+              outcome: HANDOFF_STATUSES.COMPLETED,
+              metadata: { handoffId: inbound.uuid },
+              requestId,
+            });
+          }
+          await this.audit.appendInTransaction(tx, {
+            eventType: "agent.run.completed",
+            principal: {
+              type: PRINCIPAL_TYPES.SYSTEM,
+              id: "review-service",
+            },
+            taskRef: reviewRun.taskId,
+            runRef: reviewRun.id,
+            outcome: RUN_STATUSES.COMPLETED,
+            metadata: { verdictId: created.uuid },
+            requestId,
+          });
+        }
         return created;
       });
     } catch (error) {

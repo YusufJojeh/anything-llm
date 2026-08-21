@@ -50,7 +50,11 @@ describe("Phase R — RoutedModelClient (production ModelClient, no bypass)", ()
       modelPolicy: reviewerPolicy,
     });
     expect(route).toHaveBeenCalledWith(
-      expect.objectContaining({ policy: "EXPLICIT_MODEL", model: "gpt-4o-mini" })
+      expect.objectContaining({
+        policy: "EXPLICIT_MODEL",
+        model: "gpt-4o-mini",
+        explicitProvider: "OPENAI",
+      })
     );
     // Engineering's own default policy is a different routing policy value,
     // proving these are independently configurable per agent.

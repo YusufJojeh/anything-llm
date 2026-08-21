@@ -30,6 +30,7 @@ const {
 } = require("../../../domain/yusufOS/agents/AgentRunCoordinator");
 const contracts = require("../../../domain/yusufOS/agents/contracts");
 const { HARD_FORBIDDEN } = require("../../../domain/yusufOS/capabilities/registry");
+const { canonicalHash } = require("../../../domain/yusufOS/security/canonicalJson");
 
 describe("Gate E — agent capability isolation", () => {
   test("Reviewer holds no mutation capability at the role-definition level", () => {
@@ -367,6 +368,32 @@ describe("Gate E — reviewer independence is structural", () => {
     return { task, run };
   }
 
+  async function bindRoutedReviewerRun({ task, run, rawVerdict }) {
+    await db.yusuf_tasks.update({
+      where: { id: task.id },
+      data: { assignedAgentId: fixture.reviewer.id },
+    });
+    await db.yusuf_agent_runs.update({
+      where: { id: run.id },
+      data: {
+        status: RUN_STATUSES.RUNNING,
+        modelRef: JSON.stringify({
+          telemetryKind: "ROUTED_COMPLETION",
+          provider: "DETERMINISTIC_TEST",
+          model: "review-fixture-v1",
+        }),
+        promptDigest: canonicalHash({ test: "review-prompt" }),
+        reviewDecisionDigest: canonicalHash({
+          verdict: rawVerdict.verdict,
+          summary: rawVerdict.summary,
+          findings: rawVerdict.findings || [],
+        }),
+        reasoningLeaseId: "test-review-lease",
+        reasoningLeaseExpiresAt: new Date(Date.now() + 60000),
+      },
+    });
+  }
+
   test("Engineering cannot record a review verdict from its own run", async () => {
     const { run } = await makeRun(fixture.engineering.id, RUN_KINDS.IMPLEMENTATION);
     await expect(
@@ -393,32 +420,123 @@ describe("Gate E — reviewer independence is structural", () => {
   });
 
   test("a reviewer run records exactly one immutable verdict", async () => {
-    const { run } = await makeRun(fixture.reviewer.id, RUN_KINDS.REVIEW);
+    const { task, run } = await makeRun(fixture.reviewer.id, RUN_KINDS.REVIEW);
     const service = new ReviewService(db);
+    const blockVerdict = {
+      verdict: REVIEW_VERDICTS.BLOCK,
+      summary: "broken",
+      findings: [],
+    };
+    await bindRoutedReviewerRun({ task, run, rawVerdict: blockVerdict });
     await service.submitVerdict({
       reviewRunId: run.id,
-      rawVerdict: { verdict: REVIEW_VERDICTS.BLOCK, summary: "broken" },
+      rawVerdict: blockVerdict,
       requestId: randomUUID(),
     });
     await expect(
       service.submitVerdict({
         reviewRunId: run.id,
-        rawVerdict: { verdict: REVIEW_VERDICTS.PASS, summary: "changed my mind" },
+        rawVerdict: blockVerdict,
         requestId: randomUUID(),
       })
     ).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      service.submitVerdict({
+        reviewRunId: run.id,
+        rawVerdict: {
+          verdict: REVIEW_VERDICTS.PASS,
+          summary: "changed my mind",
+          findings: [],
+        },
+        requestId: randomUUID(),
+      })
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     const stored = await db.yusuf_review_verdicts.findMany();
     expect(stored).toHaveLength(1);
     expect(stored[0].verdict).toBe(REVIEW_VERDICTS.BLOCK);
   });
 
+  test("caller-supplied Reviewer prose without routed-completion provenance is refused", async () => {
+    const { task, run } = await makeRun(
+      fixture.reviewer.id,
+      RUN_KINDS.REVIEW
+    );
+    await db.yusuf_tasks.update({
+      where: { id: task.id },
+      data: { assignedAgentId: fixture.reviewer.id },
+    });
+    await db.yusuf_agent_runs.update({
+      where: { id: run.id },
+      data: { status: RUN_STATUSES.RUNNING },
+    });
+    await expect(
+      new ReviewService(db).submitVerdict({
+        reviewRunId: run.id,
+        rawVerdict: {
+          verdict: REVIEW_VERDICTS.PASS,
+          summary: "forged caller verdict",
+          findings: [],
+        },
+        requestId: randomUUID(),
+      })
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
+  test("routed verdict insertion rolls back if atomic review lifecycle finalization fails", async () => {
+    const { task, run } = await makeRun(
+      fixture.reviewer.id,
+      RUN_KINDS.REVIEW
+    );
+    const rawVerdict = {
+      verdict: REVIEW_VERDICTS.PASS,
+      summary: "Atomic review.",
+      findings: [],
+    };
+    await bindRoutedReviewerRun({ task, run, rawVerdict });
+    await db.$executeRawUnsafe(`
+      CREATE TRIGGER fail_review_finalize
+      BEFORE UPDATE OF status ON yusuf_agent_runs
+      WHEN NEW.id = ${Number(run.id)} AND NEW.status = 'COMPLETED'
+      BEGIN
+        SELECT RAISE(ABORT, 'injected review finalization failure');
+      END
+    `);
+    try {
+      await expect(
+        new ReviewService(db).submitVerdict({
+          reviewRunId: run.id,
+          rawVerdict,
+          requestId: randomUUID(),
+          finalizeRun: true,
+          leaseId: "test-review-lease",
+        })
+      ).rejects.toThrow();
+      expect(
+        await db.yusuf_review_verdicts.count({
+          where: { reviewRunId: run.id },
+        })
+      ).toBe(0);
+      expect(
+        await db.yusuf_agent_runs.findUnique({ where: { id: run.id } })
+      ).toMatchObject({ status: RUN_STATUSES.RUNNING });
+    } finally {
+      await db.$executeRawUnsafe("DROP TRIGGER IF EXISTS fail_review_finalize");
+    }
+  });
+
   test("a review run cannot review itself", async () => {
-    const { run } = await makeRun(fixture.reviewer.id, RUN_KINDS.REVIEW);
+    const { task, run } = await makeRun(fixture.reviewer.id, RUN_KINDS.REVIEW);
+    const rawVerdict = {
+      verdict: REVIEW_VERDICTS.PASS,
+      summary: "circular",
+      findings: [],
+    };
+    await bindRoutedReviewerRun({ task, run, rawVerdict });
     await expect(
       new ReviewService(db).submitVerdict({
         reviewRunId: run.id,
         targetRunId: run.id,
-        rawVerdict: { verdict: REVIEW_VERDICTS.PASS, summary: "circular" },
+        rawVerdict,
         requestId: randomUUID(),
       })
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });

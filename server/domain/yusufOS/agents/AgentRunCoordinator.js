@@ -45,12 +45,14 @@ class AgentRunCoordinator {
     attempt = 1,
     modelRef = null,
     promptDigest = null,
+    deferStart = false,
   }) {
     const idempotencyKey = canonicalHash({
       taskId: Number(taskId),
       agentId: Number(agentId),
       runKind,
       attempt: Number(attempt),
+      deferStart: Boolean(deferStart),
     });
     try {
       const run = await this.db.$transaction(async (tx) => {
@@ -61,7 +63,9 @@ class AgentRunCoordinator {
             agentId: Number(agentId),
             requestedByPrincipalType: principal.type,
             requestedByPrincipalId: String(principal.id),
-            status: RUN_STATUSES.QUEUED,
+            status: deferStart
+              ? RUN_STATUSES.WAITING_DEPENDENCY
+              : RUN_STATUSES.QUEUED,
             runKind,
             idempotencyKey,
             // Completion provenance is reserved for
@@ -83,8 +87,8 @@ class AgentRunCoordinator {
           principal,
           taskRef: taskId,
           runRef: created.id,
-          outcome: RUN_STATUSES.QUEUED,
-          metadata: { runKind, attempt, runId: created.uuid },
+          outcome: created.status,
+          metadata: { runKind, attempt, runId: created.uuid, deferStart },
           requestId,
         });
         return created;
@@ -94,6 +98,161 @@ class AgentRunCoordinator {
       if (error?.code !== "P2002") throw error;
       return this.db.yusuf_agent_runs.findUnique({ where: { idempotencyKey } });
     }
+  }
+
+  /**
+   * Atomically parks the source and releases a deferred successor. Until this
+   * transaction commits, startRun() cannot claim the successor because it is
+   * WAITING_DEPENDENCY rather than QUEUED.
+   */
+  async activateHandoff({ sourceRunId, targetRunId, requestId }) {
+    return this.db.$transaction(async (tx) => {
+      const [source, target] = await Promise.all([
+        tx.yusuf_agent_runs.findUnique({ where: { id: Number(sourceRunId) } }),
+        tx.yusuf_agent_runs.findUnique({ where: { id: Number(targetRunId) } }),
+      ]);
+      if (!source || !target)
+        throw new YusufOSError(
+          ErrorCodes.NOT_FOUND,
+          "Handoff source or target run was not found.",
+          { status: 404 }
+        );
+      const sourceUpdate = await tx.yusuf_agent_runs.updateMany({
+        where: {
+          id: source.id,
+          version: source.version,
+          status: RUN_STATUSES.RUNNING,
+        },
+        data: {
+          status: RUN_STATUSES.WAITING_HANDOFF,
+          version: { increment: 1 },
+        },
+      });
+      const targetUpdate = await tx.yusuf_agent_runs.updateMany({
+        where: {
+          id: target.id,
+          version: target.version,
+          status: RUN_STATUSES.WAITING_DEPENDENCY,
+        },
+        data: {
+          status: RUN_STATUSES.QUEUED,
+          version: { increment: 1 },
+        },
+      });
+      if (sourceUpdate.count !== 1 || targetUpdate.count !== 1)
+        throw new YusufOSError(
+          ErrorCodes.CONFLICT,
+          "Handoff activation lost run-state ownership.",
+          { status: 409 }
+        );
+      await this.audit.appendInTransaction(tx, {
+        eventType: "agent.run.waiting_handoff",
+        principal: {
+          type: PRINCIPAL_TYPES.SYSTEM,
+          id: "agent-run-coordinator",
+        },
+        taskRef: source.taskId,
+        runRef: source.id,
+        outcome: RUN_STATUSES.WAITING_HANDOFF,
+        metadata: { targetRunId: target.uuid },
+        requestId: requestId || source.requestId,
+      });
+      await this.audit.appendInTransaction(tx, {
+        eventType: "agent.run.handoff_released",
+        principal: {
+          type: PRINCIPAL_TYPES.SYSTEM,
+          id: "agent-run-coordinator",
+        },
+        taskRef: target.taskId,
+        runRef: target.id,
+        outcome: RUN_STATUSES.QUEUED,
+        metadata: { sourceRunId: source.uuid },
+        requestId: requestId || target.requestId,
+      });
+      return { sourceRun: source.id, targetRun: target.id };
+    });
+  }
+
+  async terminalizeReasoningFailure({
+    runId,
+    leaseId,
+    cancelled,
+    failureKind,
+    message,
+    requestId,
+  }) {
+    return this.db.$transaction(async (tx) => {
+      const run = await tx.yusuf_agent_runs.findUnique({
+        where: { id: Number(runId) },
+      });
+      if (!run || run.reasoningLeaseId !== leaseId) return false;
+      const terminalStatus = cancelled
+        ? RUN_STATUSES.CANCELLED
+        : RUN_STATUSES.FAILED;
+      const updated = await tx.yusuf_agent_runs.updateMany({
+        where: {
+          id: run.id,
+          version: run.version,
+          reasoningLeaseId: leaseId,
+          status: {
+            in: [
+              RUN_STATUSES.RUNNING,
+              RUN_STATUSES.WAITING_TOOL,
+              RUN_STATUSES.VERIFYING,
+            ],
+          },
+        },
+        data: {
+          status: terminalStatus,
+          failureKind: cancelled ? null : failureKind,
+          blockedReason: cancelled
+            ? null
+            : String(message || "").slice(0, 1000),
+          completedAt: new Date(),
+          reasoningLeaseId: null,
+          reasoningLeaseExpiresAt: null,
+          version: { increment: 1 },
+        },
+      });
+      if (updated.count !== 1) return false;
+      await this.audit.appendInTransaction(tx, {
+        eventType: cancelled ? "agent.run.cancelled" : "agent.run.failed",
+        principal: {
+          type: PRINCIPAL_TYPES.SYSTEM,
+          id: "agent-run-coordinator",
+        },
+        taskRef: run.taskId,
+        runRef: run.id,
+        outcome: terminalStatus,
+        metadata: cancelled
+          ? {}
+          : redactForPersistence({ failureKind, reason: message }),
+        requestId: requestId || run.requestId,
+      });
+      return true;
+    });
+  }
+
+  async recordRoutedReviewDecision({ runId, leaseId, decision }) {
+    const digest = canonicalHash(decision);
+    const updated = await this.db.yusuf_agent_runs.updateMany({
+      where: {
+        id: Number(runId),
+        status: RUN_STATUSES.RUNNING,
+        reasoningLeaseId: leaseId,
+        runKind: RUN_KINDS.REVIEW,
+        modelRef: { not: null },
+        promptDigest: { not: null },
+      },
+      data: { reviewDecisionDigest: digest },
+    });
+    if (updated.count !== 1)
+      throw new YusufOSError(
+        ErrorCodes.UNAUTHORIZED,
+        "A review verdict requires a current routed-completion lease.",
+        { status: 403 }
+      );
+    return digest;
   }
 
   /**
@@ -386,13 +545,17 @@ class AgentRunCoordinator {
       routed.cost?.amountMicros == null
         ? null
         : Number(routed.cost.amountMicros);
-    return this.db.yusuf_agent_runs.update({
+    const updated = await this.db.yusuf_agent_runs.update({
       where: { id: Number(runId) },
       data: {
         modelRef: JSON.stringify({
           telemetryKind: "ROUTED_COMPLETION",
-          provider: String(routed.provider || "unknown"),
-          model: String(routed.model || "unknown"),
+          provider: String(routed.provider || "unknown").slice(0, 80),
+          model: String(routed.model || "unknown").slice(0, 200),
+          requestedModel: routed.requestedModel
+            ? String(routed.requestedModel).slice(0, 200)
+            : null,
+          modelMismatch: Boolean(routed.modelMismatch),
           policy: routed.policy || null,
           fallbackOccurred: Boolean(routed.fallbackOccurred),
           latencyMs: Number.isFinite(routed.latencyMs)
@@ -405,6 +568,32 @@ class AgentRunCoordinator {
         estimatedCostMicros,
       },
     });
+    await this.audit.append({
+      eventType: "agent.model.completed",
+      principal: { type: PRINCIPAL_TYPES.SYSTEM, id: "model-router" },
+      taskRef: updated.taskId,
+      runRef: updated.id,
+      outcome: "COMPLETED",
+      metadata: {
+        provider: String(routed.provider || "unknown").slice(0, 80),
+        model: String(routed.model || "unknown").slice(0, 200),
+        requestedModel: routed.requestedModel
+          ? String(routed.requestedModel).slice(0, 200)
+          : null,
+        modelMismatch: Boolean(routed.modelMismatch),
+        policy: routed.policy || null,
+        fallbackOccurred: Boolean(routed.fallbackOccurred),
+        latencyMs: Number.isFinite(routed.latencyMs) ? routed.latencyMs : null,
+        usageConfidence,
+        promptUnits: usage?.promptTokens ?? null,
+        completionUnits: usage?.completionTokens ?? null,
+        totalUnits: usage?.totalTokens ?? null,
+        costConfidence,
+        amountMicros: estimatedCostMicros,
+      },
+      requestId: updated.requestId,
+    });
+    return updated;
   }
 
   activeRunsFor(agentId) {

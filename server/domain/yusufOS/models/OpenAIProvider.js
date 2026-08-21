@@ -4,6 +4,11 @@ const {
   OPENAI_DEFAULT_TIMEOUT_MS,
   OPENAI_DEFAULT_MODEL,
 } = require("./constants");
+const { MODEL_SUPPORT } = require("./ModelCapabilities");
+const { readLimitedJson, readLimitedText } = require("./limitedResponse");
+
+const MAX_COMPLETION_RESPONSE_BYTES = 128 * 1024;
+const MAX_ERROR_RESPONSE_BYTES = 8 * 1024;
 
 // Rough per-model pricing table, informational only — never influences
 // Policy/Approval. Missing entries yield UNAVAILABLE cost, never 0.
@@ -34,6 +39,74 @@ class OpenAIProvider {
     return Boolean(this._apiKeyProvider());
   }
 
+  estimateMaximumCostMicros({
+    model = OPENAI_DEFAULT_MODEL,
+    promptTokens,
+    maxCompletionTokens,
+  }) {
+    const priced = PRICE_MICROS_PER_TOKEN[model];
+    if (
+      !priced ||
+      !Number.isSafeInteger(promptTokens) ||
+      !Number.isSafeInteger(maxCompletionTokens) ||
+      promptTokens < 0 ||
+      maxCompletionTokens < 0
+    )
+      return null;
+    return Math.ceil(
+      promptTokens * priced.prompt + maxCompletionTokens * priced.completion
+    );
+  }
+
+  describeModel(model = OPENAI_DEFAULT_MODEL) {
+    // OpenAI does not expose a model-capability discovery endpoint. Keep the
+    // small default profile explicit and allow operators to supply profiles
+    // for configurable IDs; missing metadata remains UNKNOWN and is refused.
+    const configured = process.env.YUSUF_OS_OPENAI_MODEL_CAPABILITIES;
+    let profiles = {};
+    if (configured) {
+      try {
+        profiles = JSON.parse(configured);
+      } catch {
+        profiles = {};
+      }
+    }
+    const builtIn =
+      model === OPENAI_DEFAULT_MODEL
+        ? {
+            text: true,
+            vision: true,
+            structured_output: true,
+            tool_reasoning: true,
+            reasoning: false,
+            contextLength: 128000,
+          }
+        : profiles[model];
+    const value = builtIn || {};
+    const normalized = (key) =>
+      value[key] === true
+        ? MODEL_SUPPORT.SUPPORTED
+        : value[key] === false
+          ? MODEL_SUPPORT.UNSUPPORTED
+          : MODEL_SUPPORT.UNKNOWN;
+    return {
+      fullName: model,
+      profile: {
+        capabilities: {
+          text: normalized("text"),
+          vision: normalized("vision"),
+          structured_output: normalized("structured_output"),
+          tool_reasoning: normalized("tool_reasoning"),
+          reasoning: normalized("reasoning"),
+        },
+        contextLength: Number.isFinite(Number(value.contextLength))
+          ? Number(value.contextLength)
+          : null,
+      },
+      confidence: builtIn ? CONFIDENCE.KNOWN : CONFIDENCE.UNAVAILABLE,
+    };
+  }
+
   async health() {
     return {
       status: this.hasApiKey() ? "CONFIGURED" : "MISSING_KEY",
@@ -41,7 +114,14 @@ class OpenAIProvider {
     };
   }
 
-  async complete({ model = OPENAI_DEFAULT_MODEL, messages, temperature = 0 }) {
+  async complete({
+    model = OPENAI_DEFAULT_MODEL,
+    messages,
+    temperature = 0,
+    structuredOutput = false,
+    maxCompletionTokens,
+    signal,
+  }) {
     const apiKey = this._apiKeyProvider();
     if (!apiKey) {
       const error = new Error("OPENAI_API_KEY is not set.");
@@ -57,6 +137,9 @@ class OpenAIProvider {
     }
     const started = Date.now();
     const controller = new AbortController();
+    const abortFromCaller = () => controller.abort();
+    if (signal?.aborted) controller.abort();
+    else signal?.addEventListener("abort", abortFromCaller, { once: true });
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     let res;
     try {
@@ -69,10 +152,21 @@ class OpenAIProvider {
           // appears in any returned object below.
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({ model, messages, temperature }),
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature,
+          response_format: structuredOutput
+            ? { type: "json_object" }
+            : undefined,
+          max_tokens: Number.isInteger(maxCompletionTokens)
+            ? maxCompletionTokens
+            : undefined,
+        }),
       });
     } catch (error) {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abortFromCaller);
       const wrapped = new Error(
         error?.name === "AbortError"
           ? "OpenAI request timed out."
@@ -81,81 +175,96 @@ class OpenAIProvider {
       wrapped.code = error?.name === "AbortError" ? "TIMEOUT" : "NETWORK";
       throw wrapped;
     }
-    clearTimeout(timer);
     const latencyMs = Date.now() - started;
-
-    if (!res.ok) {
-      let bodyText = "";
-      try {
-        bodyText = await res.text();
-      } catch {
-        /* ignore */
-      }
-      const error = new Error(
-        `OpenAI API error (${res.status}): ${bodyText.slice(0, 200)}`
-      );
-      error.code =
-        res.status === 401
-          ? "AUTH_FAILED"
-          : res.status === 429
-            ? "RATE_LIMITED"
-            : res.status === 404
-              ? "MODEL_UNAVAILABLE"
-              : "API_ERROR";
-      error.status = res.status;
-      throw error;
-    }
-
-    let json;
     try {
-      json = await res.json();
-    } catch {
-      const error = new Error("OpenAI returned a malformed response.");
-      error.code = "MALFORMED_RESPONSE";
-      throw error;
-    }
+      if (!res.ok) {
+        let bodyText = "";
+        try {
+          bodyText = await readLimitedText(res, MAX_ERROR_RESPONSE_BYTES, {
+            signal: controller.signal,
+          });
+        } catch {
+          /* keep the bounded provider error below */
+        }
+        const error = new Error(
+          `OpenAI API error (${res.status}): ${bodyText.slice(0, 200)}`
+        );
+        error.code =
+          res.status === 401
+            ? "AUTH_FAILED"
+            : res.status === 429
+              ? "RATE_LIMITED"
+              : res.status === 404
+                ? "MODEL_UNAVAILABLE"
+                : "API_ERROR";
+        error.status = res.status;
+        throw error;
+      }
 
-    const content = json?.choices?.[0]?.message?.content;
-    const usage = json?.usage;
-    const promptTokens = Number.isFinite(usage?.prompt_tokens)
-      ? usage.prompt_tokens
-      : null;
-    const completionTokens = Number.isFinite(usage?.completion_tokens)
-      ? usage.completion_tokens
-      : null;
-    const priced = PRICE_MICROS_PER_TOKEN[model];
-    const cost =
-      priced && promptTokens !== null && completionTokens !== null
-        ? {
-            confidence: CONFIDENCE.ESTIMATED,
-            amountMicros: Math.round(
-              promptTokens * priced.prompt +
-                completionTokens * priced.completion
-            ),
-          }
-        : { confidence: CONFIDENCE.UNAVAILABLE, amountMicros: null };
+      let json;
+      try {
+        json = await readLimitedJson(res, MAX_COMPLETION_RESPONSE_BYTES, {
+          signal: controller.signal,
+        });
+      } catch (cause) {
+        const error = new Error(
+          controller.signal.aborted
+            ? "OpenAI response reading timed out."
+            : "OpenAI returned a malformed response."
+        );
+        error.code = controller.signal.aborted
+          ? "TIMEOUT"
+          : cause?.code || "MALFORMED_RESPONSE";
+        throw error;
+      }
 
-    return {
-      content: typeof content === "string" ? content : "",
-      provider: PROVIDER_KINDS.OPENAI,
-      // Ground truth for which model actually served the call: OpenAI echoes
-      // this back on `json.model`; fall back to the requested id only if the
-      // provider omitted it, but never let a caller override this value.
-      model: typeof json?.model === "string" && json.model ? json.model : model,
-      latencyMs,
-      usage:
-        promptTokens !== null && completionTokens !== null
+      const content = json?.choices?.[0]?.message?.content;
+      const usage = json?.usage;
+      const promptTokens =
+        Number.isSafeInteger(usage?.prompt_tokens) && usage.prompt_tokens >= 0
+          ? usage.prompt_tokens
+          : null;
+      const completionTokens =
+        Number.isSafeInteger(usage?.completion_tokens) &&
+        usage.completion_tokens >= 0
+          ? usage.completion_tokens
+          : null;
+      const priced = PRICE_MICROS_PER_TOKEN[model];
+      const cost =
+        priced && promptTokens !== null && completionTokens !== null
           ? {
-              confidence: CONFIDENCE.KNOWN,
-              promptTokens,
-              completionTokens,
-              totalTokens: Number.isFinite(usage?.total_tokens)
-                ? usage.total_tokens
-                : promptTokens + completionTokens,
+              confidence: CONFIDENCE.ESTIMATED,
+              amountMicros: Math.round(
+                promptTokens * priced.prompt +
+                  completionTokens * priced.completion
+              ),
             }
-          : { confidence: CONFIDENCE.UNAVAILABLE },
-      cost,
-    };
+          : { confidence: CONFIDENCE.UNAVAILABLE, amountMicros: null };
+
+      return {
+        content: typeof content === "string" ? content : "",
+        provider: PROVIDER_KINDS.OPENAI,
+        // Ground truth for which model actually served the call: OpenAI echoes
+        // this back on `json.model`; fall back to the requested id only if the
+        // provider omitted it, but never let a caller override this value.
+        model:
+          typeof json?.model === "string" && json.model ? json.model : model,
+        latencyMs,
+        usage:
+          promptTokens !== null && completionTokens !== null
+            ? {
+                confidence: CONFIDENCE.KNOWN,
+                promptTokens,
+                completionTokens,
+                totalTokens: promptTokens + completionTokens,
+              }
+            : { confidence: CONFIDENCE.UNAVAILABLE },
+        cost,
+      };
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abortFromCaller);
+    }
   }
 }
 

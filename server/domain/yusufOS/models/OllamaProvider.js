@@ -5,6 +5,11 @@ const {
   OLLAMA_DEFAULT_BASE_URL,
   OLLAMA_DEFAULT_TIMEOUT_MS,
 } = require("./constants");
+const { ollamaProfile } = require("./ModelCapabilities");
+const { readLimitedJson } = require("./limitedResponse");
+
+const MAX_METADATA_RESPONSE_BYTES = 2 * 1024 * 1024;
+const MAX_COMPLETION_RESPONSE_BYTES = 128 * 1024;
 
 /**
  * Provider-neutral adapter over a local Ollama daemon. Read-only HTTP only:
@@ -25,7 +30,15 @@ class OllamaProvider {
     this.fetchImpl = fetchImpl;
   }
 
-  async _fetchJson(path, { method = "GET", body } = {}) {
+  async _fetchJson(
+    path,
+    {
+      method = "GET",
+      body,
+      signal,
+      maxResponseBytes = MAX_METADATA_RESPONSE_BYTES,
+    } = {}
+  ) {
     if (!this.fetchImpl)
       return {
         ok: false,
@@ -33,6 +46,9 @@ class OllamaProvider {
         error: "no fetch implementation available",
       };
     const controller = new AbortController();
+    const abortFromCaller = () => controller.abort();
+    if (signal?.aborted) controller.abort();
+    else signal?.addEventListener("abort", abortFromCaller, { once: true });
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
@@ -47,17 +63,21 @@ class OllamaProvider {
           health: PROVIDER_HEALTH.ERROR,
           error: `HTTP ${res.status}`,
         };
-      let json;
       try {
-        json = await res.json();
-      } catch {
+        const json = await readLimitedJson(res, maxResponseBytes, {
+          signal: controller.signal,
+        });
+        return { ok: true, json };
+      } catch (error) {
         return {
           ok: false,
           health: PROVIDER_HEALTH.ERROR,
-          error: "malformed JSON response",
+          error:
+            error?.code === "RESPONSE_TOO_LARGE"
+              ? "response too large"
+              : "malformed JSON response",
         };
       }
-      return { ok: true, json };
     } catch (error) {
       const health =
         error?.name === "AbortError"
@@ -66,6 +86,7 @@ class OllamaProvider {
       return { ok: false, health, error: String(error?.message || error) };
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abortFromCaller);
     }
   }
 
@@ -127,10 +148,16 @@ class OllamaProvider {
       body: { name: fullName },
     });
     if (!result.ok)
-      return { fullName, metadata: null, confidence: CONFIDENCE.UNAVAILABLE };
+      return {
+        fullName,
+        metadata: null,
+        profile: ollamaProfile(null),
+        confidence: CONFIDENCE.UNAVAILABLE,
+      };
     return {
       fullName,
       metadata: result.json,
+      profile: ollamaProfile(result.json),
       confidence: CONFIDENCE.KNOWN,
     };
   }
@@ -141,7 +168,14 @@ class OllamaProvider {
    * provider by construction; usage tokens are KNOWN when the daemon
    * reports eval counts, else UNAVAILABLE (never coerced to 0).
    */
-  async complete({ model, messages, temperature = 0 }) {
+  async complete({
+    model,
+    messages,
+    temperature = 0,
+    structuredOutput = false,
+    maxCompletionTokens,
+    signal,
+  }) {
     const started = Date.now();
     const result = await this._fetchJson("/api/generate", {
       method: "POST",
@@ -149,8 +183,16 @@ class OllamaProvider {
         model,
         prompt: messages.map((m) => `${m.role}: ${m.content}`).join("\n"),
         stream: false,
-        options: { temperature },
+        format: structuredOutput ? "json" : undefined,
+        options: {
+          temperature,
+          num_predict: Number.isInteger(maxCompletionTokens)
+            ? maxCompletionTokens
+            : undefined,
+        },
       },
+      signal,
+      maxResponseBytes: MAX_COMPLETION_RESPONSE_BYTES,
     });
     const latencyMs = Date.now() - started;
     if (!result.ok) {
@@ -159,12 +201,15 @@ class OllamaProvider {
       throw error;
     }
     const json = result.json || {};
-    const promptTokens = Number.isFinite(json.prompt_eval_count)
-      ? json.prompt_eval_count
-      : null;
-    const completionTokens = Number.isFinite(json.eval_count)
-      ? json.eval_count
-      : null;
+    const promptTokens =
+      Number.isSafeInteger(json.prompt_eval_count) &&
+      json.prompt_eval_count >= 0
+        ? json.prompt_eval_count
+        : null;
+    const completionTokens =
+      Number.isSafeInteger(json.eval_count) && json.eval_count >= 0
+        ? json.eval_count
+        : null;
     return {
       content: typeof json.response === "string" ? json.response : "",
       provider: PROVIDER_KINDS.OLLAMA,

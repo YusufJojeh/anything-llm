@@ -262,4 +262,104 @@ describe("Phase R — ExecutionCoordinator preflight-orphan regression", () => {
     });
     expect(persistedRun.status).toBe("FAILED");
   });
+
+  test.each(["availability", "preflight"])(
+    "cancellation aborts a never-settling %s stage before claim without an orphan",
+    async (stage) => {
+      const { intent, run, requestId } = await seedCareerIntent();
+      const adapter = new CareerAdapter({ db });
+      let entered;
+      const stageEntered = new Promise((resolve) => {
+        entered = resolve;
+      });
+      adapter[stage] = jest.fn(() => {
+        entered();
+        return new Promise(() => {});
+      });
+      const controller = new AbortController();
+      const executing = new ExecutionCoordinator({ db, adapter }).execute(
+        intent.id,
+        { requestId, signal: controller.signal }
+      );
+      await stageEntered;
+      controller.abort();
+      await expect(executing).rejects.toMatchObject({ code: "CONFLICT" });
+      expect(
+        await db.yusuf_action_intents.findUnique({ where: { id: intent.id } })
+      ).toMatchObject({ status: "FAILED" });
+      expect(
+        await db.yusuf_agent_runs.findUnique({ where: { id: run.id } })
+      ).toMatchObject({ status: "FAILED" });
+      expect(
+        await db.yusuf_action_receipts.findUnique({
+          where: { intentId: intent.id },
+        })
+      ).toBeNull();
+    }
+  );
+
+  test("cancellation aborts a never-settling prepare stage as definitely not applied", async () => {
+    const { intent, run, requestId } = await seedCareerIntent();
+    const adapter = new CareerAdapter({ db });
+    let entered;
+    const stageEntered = new Promise((resolve) => {
+      entered = resolve;
+    });
+    adapter.prepare = jest.fn(() => {
+      entered();
+      return new Promise(() => {});
+    });
+    const controller = new AbortController();
+    const executing = new ExecutionCoordinator({ db, adapter }).execute(
+      intent.id,
+      { requestId, signal: controller.signal }
+    );
+    await stageEntered;
+    controller.abort();
+    await expect(executing).resolves.toMatchObject({
+      outcome: "FAILED",
+      verificationStatus: "NOT_APPLIED",
+    });
+    expect(
+      await db.yusuf_action_intents.findUnique({ where: { id: intent.id } })
+    ).toMatchObject({ status: "FAILED" });
+    expect(
+      await db.yusuf_agent_runs.findUnique({ where: { id: run.id } })
+    ).toMatchObject({ status: "FAILED" });
+  });
+
+  test("cancellation aborts a never-settling verify stage as unknown after effect", async () => {
+    const { intent, run, requestId } = await seedCareerIntent();
+    const adapter = new CareerAdapter({ db });
+    adapter.execute = jest.fn().mockResolvedValue({
+      outcome: "SUCCEEDED",
+      externalReference: "test:effect-applied",
+      result: { digest: "applied-digest" },
+    });
+    let entered;
+    const stageEntered = new Promise((resolve) => {
+      entered = resolve;
+    });
+    adapter.verify = jest.fn(() => {
+      entered();
+      return new Promise(() => {});
+    });
+    const controller = new AbortController();
+    const executing = new ExecutionCoordinator({ db, adapter }).execute(
+      intent.id,
+      { requestId, signal: controller.signal }
+    );
+    await stageEntered;
+    controller.abort();
+    await expect(executing).resolves.toMatchObject({
+      outcome: "UNKNOWN",
+      verificationStatus: "UNKNOWN",
+    });
+    expect(
+      await db.yusuf_action_intents.findUnique({ where: { id: intent.id } })
+    ).toMatchObject({ status: "FAILED_UNKNOWN" });
+    expect(
+      await db.yusuf_agent_runs.findUnique({ where: { id: run.id } })
+    ).toMatchObject({ status: "FAILED_UNKNOWN" });
+  });
 });

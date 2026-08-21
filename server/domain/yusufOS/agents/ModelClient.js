@@ -52,6 +52,7 @@ class DeterministicModelClient extends ModelClient {
     this.provider = provider;
     this.model = model;
     this.calls = [];
+    this.positions = new Map();
   }
 
   describe() {
@@ -61,13 +62,24 @@ class DeterministicModelClient extends ModelClient {
   async complete({ agentKey, phase, context = {} }) {
     const key = `${agentKey}:${phase}`;
     this.calls.push({ key, context });
-    const entry = this.script[key];
+    let entry = this.script[key];
     if (entry === undefined)
       throw new YusufOSError(
         ErrorCodes.NOT_FOUND,
         `No deterministic model response scripted for ${key}.`,
         { status: 503 }
       );
+    if (Array.isArray(entry)) {
+      const position = this.positions.get(key) || 0;
+      if (position >= entry.length)
+        throw new YusufOSError(
+          ErrorCodes.NOT_FOUND,
+          `No deterministic model response remaining for ${key}.`,
+          { status: 503 }
+        );
+      this.positions.set(key, position + 1);
+      entry = entry[position];
+    }
     const value = typeof entry === "function" ? await entry(context) : entry;
     if (value instanceof Error) throw value;
     const content = typeof value === "string" ? value : JSON.stringify(value);
@@ -124,7 +136,17 @@ class RoutedModelClient extends ModelClient {
    * conversation; everything outside of `<<<UNTRUSTED...>>>` wrapping is
    * assumed to already have been assembled by the caller via wrapUntrusted.
    */
-  async complete({ agentKey, phase, context = {}, modelPolicy = {} }) {
+  async complete({
+    agentKey,
+    phase,
+    context = {},
+    modelPolicy = {},
+    requiredCapabilities = [],
+    maxCompletionTokens,
+    signal,
+    promptTokenEstimate,
+    maxKnownCostMicros,
+  }) {
     const messages = context.messages || [
       { role: "user", content: context.prompt || "" },
     ];
@@ -134,8 +156,14 @@ class RoutedModelClient extends ModelClient {
     const routed = await this.router.route({
       policy,
       model: modelPolicy.explicitModel || undefined,
+      explicitProvider: modelPolicy.explicitProvider || undefined,
       messages,
       temperature: modelPolicy.temperature ?? 0,
+      requiredCapabilities,
+      maxCompletionTokens,
+      signal,
+      promptTokenEstimate,
+      maxKnownCostMicros,
     });
     return {
       content: routed.content,

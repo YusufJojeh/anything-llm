@@ -11,6 +11,41 @@ const { redactForPersistence, redactString } = require("../security/redaction");
 const { canonicalize, canonicalHash } = require("../security/canonicalJson");
 const { YusufOSError, ErrorCodes } = require("../errors/YusufOSError");
 
+function cancellationError({ effectCertain = true } = {}) {
+  return Object.assign(
+    new YusufOSError(
+      ErrorCodes.CONFLICT,
+      "Governed capability execution was cancelled.",
+      { status: 409 }
+    ),
+    { effectCertain }
+  );
+}
+
+function withExecutionAbort(promise, signal, { effectCertain = false } = {}) {
+  if (!signal) return promise;
+  if (signal.aborted)
+    return Promise.reject(cancellationError({ effectCertain }));
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      cleanup();
+      reject(cancellationError({ effectCertain }));
+    };
+    const cleanup = () => signal.removeEventListener("abort", onAbort);
+    signal.addEventListener("abort", onAbort, { once: true });
+    Promise.resolve(promise).then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      }
+    );
+  });
+}
+
 class ExecutionCoordinator {
   constructor({ db = prisma, adapter }) {
     this.db = db;
@@ -20,6 +55,7 @@ class ExecutionCoordinator {
   }
 
   async execute(intentId, context = {}) {
+    if (context.signal?.aborted) throw cancellationError();
     const numericIntentId = Number(intentId);
     const existing = await this.db.yusuf_action_receipts.findUnique({
       where: { intentId: numericIntentId },
@@ -79,14 +115,25 @@ class ExecutionCoordinator {
     let availability;
     let preflight;
     try {
-      availability = await this.adapter.availability(context);
+      availability = await withExecutionAbort(
+        Promise.resolve().then(() => this.adapter.availability(context)),
+        context.signal,
+        { effectCertain: true }
+      );
       if (availability?.status !== "AVAILABLE")
         throw new YusufOSError(
           ErrorCodes.POLICY_DENIED,
           "The governed execution adapter is not available.",
           { status: 503, details: { availability: "UNAVAILABLE" } }
         );
-      preflight = await this.adapter.preflight(intentSnapshot, context);
+      preflight = await withExecutionAbort(
+        Promise.resolve().then(() =>
+          this.adapter.preflight(intentSnapshot, context)
+        ),
+        context.signal,
+        { effectCertain: true }
+      );
+      if (context.signal?.aborted) throw cancellationError();
     } catch (error) {
       await this.terminalizePreClaimFailure(intentSnapshot, error, context);
       throw error;
@@ -244,12 +291,24 @@ class ExecutionCoordinator {
 
     let executionResult;
     try {
-      const prepared = await this.adapter.prepare(claim.intent, context);
-      executionResult = await this.adapter.execute(prepared, {
-        intentId: claim.intent.id,
-        executionKey: claim.executionKey,
-        attempt: 1,
-      });
+      if (context.signal?.aborted) throw cancellationError();
+      const prepared = await withExecutionAbort(
+        Promise.resolve().then(() =>
+          this.adapter.prepare(claim.intent, context)
+        ),
+        context.signal,
+        { effectCertain: true }
+      );
+      if (context.signal?.aborted) throw cancellationError();
+      executionResult = await withExecutionAbort(
+        this.adapter.execute(prepared, {
+          intentId: claim.intent.id,
+          executionKey: claim.executionKey,
+          attempt: 1,
+          signal: context.signal,
+        }),
+        context.signal
+      );
     } catch (error) {
       return this.finalizeFailure(
         claim,
@@ -261,10 +320,12 @@ class ExecutionCoordinator {
 
     await this.persistExecutionResult(claim, executionResult);
     try {
-      const verification = await this.adapter.verify(
-        claim.intent,
-        executionResult,
-        context
+      const verification = await withExecutionAbort(
+        Promise.resolve().then(() =>
+          this.adapter.verify(claim.intent, executionResult, context)
+        ),
+        context.signal,
+        { effectCertain: false }
       );
       return this.finalizeVerification(claim, verification, context, {
         expectedReceiptVersion: 2,

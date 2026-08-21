@@ -11,6 +11,15 @@ const RUNTIME_OWNED_FIELDS = Object.freeze([
   "requestId",
 ]);
 
+function assertNotCancelled(signal) {
+  if (signal?.aborted)
+    throw new YusufOSError(
+      ErrorCodes.CONFLICT,
+      "Governed capability dispatch was cancelled.",
+      { status: 409 }
+    );
+}
+
 /**
  * The sole runtime entry point for Yusuf-governed tool execution.
  * A governed tool's legacy handler is deliberately never called here.
@@ -77,7 +86,9 @@ class YusufActionBoundary {
         "A governed runtime requires a server correlation ID.",
         { status: 422 }
       );
+    assertNotCancelled(runtimeContext.signal);
     const semanticRequest = await binding.buildActionRequest(args);
+    assertNotCancelled(runtimeContext.signal);
     const suppliedIdentity = RUNTIME_OWNED_FIELDS.filter((field) =>
       Object.prototype.hasOwnProperty.call(semanticRequest || {}, field)
     );
@@ -132,4 +143,8 @@ class YusufActionBoundary {
   }
 }
 
-module.exports = { YusufActionBoundary, RUNTIME_OWNED_FIELDS };
+module.exports = {
+  YusufActionBoundary,
+  RUNTIME_OWNED_FIELDS,
+  assertNotCancelled,
+};

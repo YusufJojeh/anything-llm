@@ -100,6 +100,55 @@ describe("Phase R — OpenAIProvider (mocked)", () => {
     ).rejects.toMatchObject({ code: "MALFORMED_RESPONSE" });
   });
 
+  test("streaming completion bodies are cancelled and refused at the transport byte limit", async () => {
+    let cancelled = false;
+    const oversized = new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(129 * 1024));
+        },
+        cancel() {
+          cancelled = true;
+        },
+      }),
+      { status: 200 }
+    );
+    const provider = new OpenAIProvider({
+      fetchImpl: jest.fn().mockResolvedValue(oversized),
+      apiKeyProvider: () => SECRET_KEY,
+    });
+    await expect(
+      provider.complete({ messages: [{ role: "user", content: "hi" }] })
+    ).rejects.toMatchObject({ code: "RESPONSE_TOO_LARGE" });
+    expect(cancelled).toBe(true);
+  });
+
+  test("caller cancellation remains active while a response body is stalled", async () => {
+    let bodyCancelled = false;
+    const stalled = new Response(
+      new ReadableStream({
+        cancel() {
+          bodyCancelled = true;
+        },
+      }),
+      { status: 200 }
+    );
+    const provider = new OpenAIProvider({
+      fetchImpl: jest.fn().mockResolvedValue(stalled),
+      apiKeyProvider: () => SECRET_KEY,
+      timeoutMs: 60000,
+    });
+    const controller = new AbortController();
+    const completion = provider.complete({
+      messages: [{ role: "user", content: "hi" }],
+      signal: controller.signal,
+    });
+    await Promise.resolve();
+    controller.abort();
+    await expect(completion).rejects.toMatchObject({ code: "TIMEOUT" });
+    expect(bodyCancelled).toBe(true);
+  });
+
   test("provider/model spoofing: the model field reflects what OpenAI itself echoed back, not the request", async () => {
     const fetchImpl = jest.fn().mockResolvedValue(
       jsonResponse({

@@ -11,10 +11,10 @@ function fakeOllama({ health, completeImpl } = {}) {
       models.some((m) => m.fullName === requested || m.name === requested),
     complete:
       completeImpl ||
-      (async () => ({
+      (async ({ model }) => ({
         content: "ok",
         provider: PROVIDER_KINDS.OLLAMA,
-        model: "gemma4:latest",
+        model,
         latencyMs: 10,
         usage: { confidence: CONFIDENCE.KNOWN, promptTokens: 1, completionTokens: 1, totalTokens: 2 },
         cost: { confidence: CONFIDENCE.UNAVAILABLE, amountMicros: null },
@@ -28,10 +28,10 @@ function fakeOpenAI({ hasKey = true, completeImpl } = {}) {
     hasApiKey: () => hasKey,
     complete:
       completeImpl ||
-      (async () => ({
+      (async ({ model }) => ({
         content: "ok",
         provider: PROVIDER_KINDS.OPENAI,
-        model: "gpt-4o-mini",
+        model,
         latencyMs: 20,
         usage: { confidence: CONFIDENCE.KNOWN, promptTokens: 1, completionTokens: 1, totalTokens: 2 },
         cost: { confidence: CONFIDENCE.ESTIMATED, amountMicros: 5 },
@@ -139,6 +139,27 @@ describe("Phase R — ModelRouter attack matrix", () => {
     ).rejects.toMatchObject({ code: ErrorCodes.MODEL_UNAVAILABLE });
   });
 
+  test("a known provider cost ceiling is refused before completion dispatch", async () => {
+    const openai = fakeOpenAI();
+    openai.complete = jest.fn();
+    openai.estimateMaximumCostMicros = jest.fn(() => 101);
+    const router = new ModelRouter({
+      ollama: fakeOllama({ health: { available: false, models: [] } }),
+      openai,
+    });
+    await expect(
+      router.route({
+        policy: ROUTING_POLICIES.EXPLICIT_MODEL,
+        explicitProvider: PROVIDER_KINDS.OPENAI,
+        messages,
+        promptTokenEstimate: 10,
+        maxCompletionTokens: 10,
+        maxKnownCostMicros: 100,
+      })
+    ).rejects.toMatchObject({ code: ErrorCodes.MODEL_UNAVAILABLE });
+    expect(openai.complete).not.toHaveBeenCalled();
+  });
+
   test("OpenAI missing key -> not eligible, FALLBACK_CHAIN still succeeds via Ollama", async () => {
     const router = new ModelRouter({
       ollama: fakeOllama({ health: { available: true, models: [{ fullName: "llama3:latest", name: "llama3" }] } }),
@@ -175,14 +196,23 @@ describe("Phase R — ModelRouter attack matrix", () => {
     expect(result.usage.totalTokens).toBeUndefined();
   });
 
-  test("provider/model spoofing: router-recorded provider/model reflects what actually served, not any caller-suppliable field", async () => {
+  test("provider/model spoofing: an unexpected served model fails closed", async () => {
     const router = new ModelRouter({
       ollama: fakeOllama({ health: { available: true, models: [{ fullName: "llama3:latest", name: "llama3" }] } }),
       openai: fakeOpenAI(),
     });
-    const result = await router.route({ policy: ROUTING_POLICIES.LOCAL_ONLY, model: "llama3", messages });
-    expect(result.provider).toBe(PROVIDER_KINDS.OLLAMA);
-    expect(result.model).toBe("gemma4:latest"); // taken verbatim from the fake provider's own response, not from the request
+    router.ollama.complete = async () => ({
+      content: "ok",
+      provider: PROVIDER_KINDS.OLLAMA,
+      model: "gemma4:latest",
+    });
+    await expect(
+      router.route({
+        policy: ROUTING_POLICIES.LOCAL_ONLY,
+        model: "llama3",
+        messages,
+      })
+    ).rejects.toMatchObject({ code: ErrorCodes.MODEL_UNAVAILABLE });
   });
 
   test("malicious model output is returned as inert string content — never eval'd", async () => {

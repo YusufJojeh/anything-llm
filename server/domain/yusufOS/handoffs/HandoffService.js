@@ -13,9 +13,14 @@ const { YusufOSError, ErrorCodes } = require("../errors/YusufOSError");
 // Which role may hand off to which. Code-owned so that a compromised prompt
 // cannot invent a delegation edge (e.g. Engineering handing work to itself to
 // skip review, or an Agent creating a handoff "from" the Reviewer).
+const SPECIALIST_KEYS = Object.freeze(
+  Object.values(AGENT_KEYS).filter((key) => key !== AGENT_KEYS.CHIEF_OF_STAFF)
+);
 const ALLOWED_HANDOFFS = Object.freeze([
-  `${AGENT_KEYS.CHIEF_OF_STAFF}->${AGENT_KEYS.ENGINEERING}`,
-  `${AGENT_KEYS.CHIEF_OF_STAFF}->${AGENT_KEYS.REVIEWER}`,
+  ...SPECIALIST_KEYS.map((key) => `${AGENT_KEYS.CHIEF_OF_STAFF}->${key}`),
+  ...SPECIALIST_KEYS.filter(
+    (key) => key !== AGENT_KEYS.REVIEWER && key !== AGENT_KEYS.ENGINEERING
+  ).map((key) => `${key}->${AGENT_KEYS.CHIEF_OF_STAFF}`),
   `${AGENT_KEYS.ENGINEERING}->${AGENT_KEYS.REVIEWER}`,
   `${AGENT_KEYS.REVIEWER}->${AGENT_KEYS.ENGINEERING}`,
 ]);
@@ -74,9 +79,14 @@ class HandoffService {
       );
     reason = reason.trim();
 
-    const [fromAgent, toAgent] = await Promise.all([
+    const [fromAgent, toAgent, fromRun] = await Promise.all([
       this.db.yusuf_agents.findUnique({ where: { id: Number(fromAgentId) } }),
       this.db.yusuf_agents.findUnique({ where: { id: Number(toAgentId) } }),
+      fromRunId
+        ? this.db.yusuf_agent_runs.findUnique({
+            where: { id: Number(fromRunId) },
+          })
+        : null,
     ]);
     if (!fromAgent || !toAgent)
       throw new YusufOSError(ErrorCodes.NOT_FOUND, "Handoff agent not found.", {
@@ -88,6 +98,17 @@ class HandoffService {
         ErrorCodes.ACTION_FORBIDDEN,
         `Handoff ${edge} is not an allowed delegation edge.`,
         { status: 403, details: { edge } }
+      );
+    if (
+      fromRunId &&
+      (!fromRun ||
+        Number(fromRun.taskId) !== Number(taskId) ||
+        Number(fromRun.agentId) !== Number(fromAgentId))
+    )
+      throw new YusufOSError(
+        ErrorCodes.UNAUTHORIZED,
+        "A handoff's source run must belong to its task and source Agent.",
+        { status: 403 }
       );
 
     const idempotencyKey = canonicalHash({

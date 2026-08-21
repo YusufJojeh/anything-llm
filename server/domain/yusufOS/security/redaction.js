@@ -16,6 +16,11 @@ const SECRET_KEYS = new Set([
   "privatekey",
   "credential",
   "credentials",
+  "databaseurl",
+  "smtpurl",
+  "redisurl",
+  "connectionstring",
+  "dsn",
 ]);
 
 const STRING_PATTERNS = [
@@ -25,6 +30,8 @@ const STRING_PATTERNS = [
   /\b(access_token|refresh_token|client_secret|api_key|password)\s*[:=]\s*[^\s,;]+/gi,
   /(^|[\s,{;])([A-Z0-9_]*(?:TOKEN|PASSWORD|SECRET|API_KEY|PRIVATE_KEY|COOKIE)[A-Z0-9_]*)\s*[:=]\s*[^\s,;]+/gim,
   /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{20,})\b/g,
+  /\b[a-z][a-z0-9+.-]*:\/\/[^/\s:@]+:[^@\s/]+@[^\s,;]+/gi,
+  /\b(?:DATABASE_URL|SMTP_URL|REDIS_URL|CONNECTION_STRING|DSN)\s*[:=]\s*[^\s,;]+/gi,
 ];
 
 function normalizedKey(key) {
@@ -37,7 +44,7 @@ function isSensitiveKey(key) {
   const normalized = normalizedKey(key);
   return (
     SECRET_KEYS.has(normalized) ||
-    /(secret|token|password|passwd|credential|authorization|cookie|privatekey|apikey)/.test(
+    /(secret|token|password|passwd|credential|authorization|cookie|privatekey|apikey|databaseurl|smtpurl|redisurl|connectionstring|dsn)/.test(
       normalized
     )
   );

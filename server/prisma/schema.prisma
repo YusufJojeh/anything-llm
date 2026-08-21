@@ -622,6 +622,10 @@ model yusuf_agent_runs {
   promptDigest             String?
   tokenUsage               String?
   estimatedCostMicros      Int?
+  reasoningState           String                  @default("{}")
+  reasoningLeaseId         String?
+  reasoningLeaseExpiresAt  DateTime?
+  reviewDecisionDigest     String?
   requestId                String
   version                  Int                     @default(1)
   startedAt                DateTime?
@@ -640,6 +644,7 @@ model yusuf_agent_runs {
   @@index([taskId, status])
   @@index([agentId, status])
   @@index([requestId])
+  @@index([reasoningLeaseExpiresAt])
 }
 
 model yusuf_agent_capabilities {
