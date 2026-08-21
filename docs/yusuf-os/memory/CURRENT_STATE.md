@@ -1,6 +1,14 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-22, Phase V pass._
+_Last verified: 2026-08-22, Phase W pass._
+
+**Phase W added:** a deterministic real-loop Career vertical: cited Research evidence, evidence
+read-back, opportunity and local draft, exact L3 browser approval, independent fixture-browser
+verification, server-proof-bound APPLIED, hostile Inbox classification, linked INTERVIEWING, and
+task-scoped Command Center work products/actions. Fresh review: P0=0/P1=0/P2=2. Commits
+`270c2a6e`, `3876a449`.
+
+**Current next phase:** X, Real Browser Integration Readiness.
 
 **Phase V added:** a deterministic, disposable-git Agentic Engineering E2E. A scripted routed
 model now decides the actual Chief handoff, Engineering’s governed branch/read/write/test/stage/

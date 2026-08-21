@@ -1,5 +1,13 @@
 # Test Baseline
 
+## Phase W baseline — 2026-08-22 [VERIFIED_BY_TEST]
+
+- Full Yusuf OS: `npx jest --runInBand __tests__/yusufOS` → **55 suites passed; 730 passed,
+  one optional live Ollama smoke skipped, 0 failed**.
+- Final focused Career/Browser regression: **3 suites, 26 passed, 0 failed**; fixture alone passed.
+- Server lint and `git diff --check`: passed.
+- Fresh independent review: **P0=0/P1=0/P2=2**, gate PASS.
+
 ## Phase V baseline — 2026-08-22 [VERIFIED_BY_TEST]
 
 - Yusuf OS baseline excluding the unfinished Phase W fixture:

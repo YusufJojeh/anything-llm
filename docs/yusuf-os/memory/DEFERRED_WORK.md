@@ -1,5 +1,12 @@
 # Deferred Work
 
+## Deferred after Phase W (Agentic Career E2E) — 2026-08-22
+
+- Add a comprehensive rejection matrix for invalid `career.confirm_verified_application` proofs.
+- Replace legacy direct-database APPLIED setup with a digest-consistent governed fixture helper.
+- Phase X is readiness validation only; real submissions still require Yusuf's live browser,
+  explicit origin/form registration, enabled broker, and per-intent L3 approval.
+
 ## Deferred after Phase V (Agentic Engineering E2E) — 2026-08-22
 
 - Phase V is complete. Phase W Agentic Career E2E is now the critical path.

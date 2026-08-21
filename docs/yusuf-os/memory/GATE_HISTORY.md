@@ -1,5 +1,13 @@
 # Gate History
 
+## Phase W — Agentic Career E2E [VERIFIED_BY_TEST, 2026-08-22]
+
+Proved the real model-driven Career path including cited evidence, exact L3 approval, zero
+pre-approval external effect, independently verified fixture submission, causal APPLIED status,
+hostile Inbox containment, linked INTERVIEWING, and Command Center visibility. A fresh review
+found and closed four P1s plus an internal-UUID disclosure introduced during hardening. Final gate:
+PASS, P0=0/P1=0/P2=2. Commits `270c2a6e`, `3876a449`.
+
 ## Phase V — Agentic Engineering E2E [VERIFIED_BY_TEST, 2026-08-22]
 
 Proved the real model-driven engineering path with a disposable local git fixture: Chief handoff,
