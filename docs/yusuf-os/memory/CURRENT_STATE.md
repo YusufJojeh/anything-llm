@@ -1,6 +1,15 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-21, Phase U pass._
+_Last verified: 2026-08-22, Phase V pass._
+
+**Phase V added:** a deterministic, disposable-git Agentic Engineering E2E. A scripted routed
+model now decides the actual Chief handoff, Engineering’s governed branch/read/write/test/stage/
+local-commit sequence, and the Reviewer’s independent read-only review. The loop projects
+completion evidence from governed receipts and supplies the Reviewer bounded, redacted task
+context. Fresh review: P0=0/P1=0/P2=1. Baseline excluding the in-progress Phase W test: 54 suites,
+729 passed plus one optional Ollama skip. Commits `614f6f48`, `d63e451c`.
+
+**Current next phase:** W, Agentic Career E2E Fixture.
 
 **Phase U added:** privacy-gated, local-first STT/TTS; push-to-talk with cancellation and explicit
 playback controls; English/Arabic and RTL-safe rendering; and a voice-command path through the

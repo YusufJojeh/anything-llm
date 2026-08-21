@@ -1,5 +1,14 @@
 # Gate History
 
+## Phase V — Agentic Engineering E2E [VERIFIED_BY_TEST, 2026-08-22]
+
+Proved the real model-driven engineering path with a disposable local git fixture: Chief handoff,
+Engineering’s governed branch/read/write/test/stage/commit operations, receipt-derived evidence,
+bounded independent review context, Reviewer read-only verdict, and server-owned task completion.
+Fresh review passed P0=0/P1=0/P2=1. Baseline excluding the unfinished Phase W fixture: 54 suites,
+729 passed plus one optional Ollama skip; lint and diff checks passed. Commits `614f6f48` and
+`d63e451c`.
+
 ## Phase U — Voice / Audio Plane [VERIFIED_BY_TEST, 2026-08-21]
 
 Added the privacy-governed Voice Plane: local-first STT/TTS with explicit browser/cloud opt-in,

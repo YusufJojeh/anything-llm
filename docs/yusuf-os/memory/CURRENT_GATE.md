@@ -1,5 +1,24 @@
 # Current Gate
 
+## Phase V — Agentic Engineering E2E — status: COMPLETE
+
+Implemented the deterministic disposable-repository proof that a structured model drives the real
+Chief → Engineering → Reviewer chain: the model selects the bounded branch/read/write/test/stage/
+local-commit capabilities through `AgentReasoningLoop`; server-owned evidence is projected from
+verified governed receipts; the independent Reviewer receives bounded untrusted receipt, policy,
+and evidence context, reads the committed change, and returns the authoritative routed verdict.
+Completion remains server-owned and reads persisted evidence, receipts, and review state.
+
+Independent review: **P0=0/P1=0/P2=1**. The remaining P2 is a dedicated resume/re-entry evidence
+projection idempotence test; the full fixture already asserts exactly two projected records after
+repeated loop checkpoints.
+
+Evidence (`VERIFIED_BY_TEST`, 2026-08-22): Yusuf OS baseline excluding the unfinished Phase W
+fixture **54/54 suites, 729 passed, one optional Ollama smoke skipped**; focused Phase V E2E
+**2/2 passed**; server lint and `git diff --check` passed. Code commits: `614f6f48`, `d63e451c`.
+
+**Next:** Phase W — Agentic Career E2E Fixture.
+
 ## Phase U — Voice / Audio Plane — status: COMPLETE
 
 Implemented a privacy-governed push-to-talk interface in `/os`, bounded STT/TTS provider

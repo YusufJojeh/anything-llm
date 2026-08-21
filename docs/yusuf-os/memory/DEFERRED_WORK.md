@@ -1,5 +1,14 @@
 # Deferred Work
 
+## Deferred after Phase V (Agentic Engineering E2E) — 2026-08-22
+
+- Phase V is complete. Phase W Agentic Career E2E is now the critical path.
+- Add a direct regression for receipt-evidence projection idempotence after process recovery or
+  loop re-entry; the E2E already verifies no duplicate evidence across normal repeated loop
+  checkpoints.
+- Live Ollama Agent-loop behavior remains environment-gated. The smoke runs automatically when a
+  compatible local daemon/model is available; this session had none.
+
 ## Deferred after Phase U (Voice / Audio Plane) — 2026-08-21
 
 - Phase U is complete. Phase V Agentic Engineering E2E is now the critical path.

@@ -1,5 +1,15 @@
 # Test Baseline
 
+## Phase V baseline — 2026-08-22 [VERIFIED_BY_TEST]
+
+- Yusuf OS baseline excluding the unfinished Phase W fixture:
+  `npx jest --runInBand __tests__/yusufOS --testPathIgnorePatterns=careerAgenticE2E` →
+  **54 suites passed; 729 passed, one optional live Ollama smoke skipped, 0 failed**.
+- Phase V fixture: `engineeringAgenticE2E.test.js` → **2 passed** (the optional live Ollama
+  Agent-loop smoke skipped because no local daemon/model was reachable).
+- Server lint and `git diff --check`: passed.
+- Fresh independent review: **P0=0/P1=0/P2=1**, gate PASS.
+
 ## Phase U baseline — 2026-08-21 [VERIFIED_BY_TEST]
 
 - Full server: `npx jest --runInBand` → **84 suites passed; 1,030 passed, one optional live
