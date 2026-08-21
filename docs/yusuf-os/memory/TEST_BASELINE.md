@@ -1,5 +1,14 @@
 # Test Baseline
 
+## Phase T baseline — 2026-08-21 [VERIFIED_BY_TEST]
+
+- Full Yusuf OS backend: `npx jest --runInBand __tests__/yusufOS` → **51 suites passed;
+  712 passed, one optional live Ollama smoke skipped, 0 failed**.
+- Fresh independent review focused run: **11 suites; 228 passed, one optional skip, 0 failed**.
+- Prisma schema validation and additive migration-safety suite passed.
+- Targeted Yusuf OS domain ESLint and `git diff --check` passed.
+- Live Ollama/OpenAI behavior remains environment-unvalidated; mocked provider attack matrices pass.
+
 ## Phase S baseline — 2026-08-21 [VERIFIED_BY_TEST]
 
 - Full server: `npx jest server --maxWorkers=2` → **77 suites, 969 tests** (968 passed, one

@@ -1,5 +1,14 @@
 # Gate History
 
+## Phase T — Real Agentic Reasoning Loop [VERIFIED_BY_TEST, 2026-08-21]
+
+Built the real provider-routed Agent reasoning loop with strict decisions, trust-separated prompt
+assembly, governed capability invocation, durable safety leases/counters, honest model capability
+matching, bounded streaming provider responses, and independent routed Reviewer verdicts. Fresh
+review initially found substantive budget, cancellation, concurrency, prompt, provider, and review
+provenance issues; all P1s were fixed. Final review: P0=0/P1=0/P2=3. Full Yusuf OS backend:
+51/51 suites, 712 passed, one optional live Ollama smoke skipped. Commit `fe7ebac8`.
+
 ## Phase S — Runtime Command Center [VERIFIED_BY_TEST, 2026-08-21]
 
 Completed the interrupted runtime projection/API/UI work and preserved `/` plus the existing

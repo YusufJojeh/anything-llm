@@ -1,5 +1,24 @@
 # Current Gate
 
+## Phase T — Real Agentic Reasoning Loop — status: COMPLETE
+
+Implemented the production Task→Agent→PromptAssembler→RoutedModelClient→strict decision→
+`toolBinding.invokeCapability`→safe result→reason-again loop. Decisions are closed JSON contracts;
+prompts separate trusted policy, assigned objective, and delimited untrusted data; provider
+responses are streamed under byte/time limits; model/capability/context matching fails honestly;
+all safety budgets, fingerprints, and leases are durable. Reviewer verdicts require an independently
+routed Reviewer completion and atomically finalize verdict, run, and handoff.
+
+Independent review: **P0=0/P1=0/P2=3**. Remaining P2s: multi-transaction handoff crash
+reconciliation, preferred-provider fallback observability, and OpenAI body-inclusive latency.
+
+Evidence (`VERIFIED_BY_TEST`, 2026-08-21): full Yusuf OS backend **51/51 suites, 712 passed,
+one optional live Ollama smoke skipped**; focused reviewer run 228 passed/one optional skip;
+targeted ESLint, Prisma validate, migration safety, and `git diff --check` passed. Code commit:
+`fe7ebac8`.
+
+**Next:** Phase U — Voice / Audio Plane.
+
 ## Phase S — Runtime Command Center — status: COMPLETE
 
 **Objective:** finish the interrupted Phase S work without rebuilding the existing `/os` Command

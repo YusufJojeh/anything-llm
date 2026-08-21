@@ -1,6 +1,17 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-21, Phase S (Runtime Command Center) pass. See `CURRENT_GATE.md` for
+_Last verified: 2026-08-21, Phase T pass._
+
+**Phase T added:** a real governed reasoning loop wired to `RoutedModelClient`, strict structured
+decisions, central trust-separated prompt assembly, capability/context-aware routing, durable
+leases and aggregate budgets, cancellation across model/provider/adapter stages, and routed
+Reviewer verdict provenance with atomic lifecycle finalization. Fresh review: P0=0/P1=0/P2=3.
+Full Yusuf OS backend: 51 suites, 712 passed, one optional live Ollama smoke skipped. Commit
+`fe7ebac8`.
+
+**Current next phase:** U, the Voice / Audio Plane.
+
+_Prior Phase S orientation record (2026-08-21). See `CURRENT_GATE.md` for
 the full record; Phases H, I, the Organization model, J, K, L, M, N, O, P, Q, and R have all landed
 since the line below was last true — read `CURRENT_GATE.md` top-to-bottom rather than trusting
 this summary's detail below, which is not fully re-verified this pass._

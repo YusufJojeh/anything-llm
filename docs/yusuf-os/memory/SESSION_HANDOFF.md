@@ -1,5 +1,21 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-21 — Phase T: Real Agentic Reasoning Loop (Codex)
+
+Phase T is complete at commit `fe7ebac8`. The production loop now performs prompt assembly,
+provider routing, strict structured decisions, governed semantic capability calls, safe result
+feedback, repeated reasoning, handoff, wait, completion, and a special independently routed
+Reviewer verdict path. Safety state and deadlines survive process recovery behind an exclusive
+lease; cancellation covers provider streams and every adapter stage; unknown model capabilities
+never count as supported.
+
+Final independent review: P0=0/P1=0/P2=3. Full Yusuf OS backend: 51/51 suites, 712 passed, one
+optional live Ollama smoke skipped. Prisma validate, migration safety, targeted lint, and diff
+check passed. Nothing pushed. `.claude/` remains untouched/untracked.
+
+Exact next action: Phase U, Voice / Audio Plane. Reuse existing AnythingLLM speech paths where
+sound; voice remains only an interface and may never bypass ActionIntent/approval policy.
+
 ## 2026-08-21 — Phase S: Runtime Command Center (Codex)
 
 Recovered the interrupted Phase S working tree and completed it. `/api/yusuf-os/runtime` and

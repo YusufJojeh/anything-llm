@@ -1,5 +1,15 @@
 # Deferred Work
 
+## Deferred after Phase T (Real Agentic Reasoning Loop) — 2026-08-21
+
+- Phase T is complete. Phase U Voice / Audio is now the critical path.
+- Add durable reconciliation for a process crash between the handoff reservation transactions.
+- Distinguish policy-preference deviation from attempted-provider fallback in routing telemetry.
+- Measure OpenAI latency after bounded response-body transfer/parsing, not at response headers.
+- Live Ollama/OpenAI completion validation remains blocked by unavailable local credentials/services.
+- The scheduler/always-on phase must add the production trigger that starts eligible queued runs;
+  Phase T deliberately provides the safe executor, not a background scheduler.
+
 ## Deferred after Phase S (Runtime Command Center) — 2026-08-21
 
 - Phase S is complete. Live Ollama/OpenAI validation remains environment-blocked and honestly
