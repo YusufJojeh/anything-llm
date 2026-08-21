@@ -247,7 +247,13 @@ class AgentReasoningLoop {
       this.db.yusuf_run_evidence.findMany({
         where: { taskId: run.taskId },
         orderBy: { id: "asc" },
-        select: { uuid: true, kind: true, status: true, summary: true, digest: true },
+        select: {
+          uuid: true,
+          kind: true,
+          status: true,
+          summary: true,
+          digest: true,
+        },
       }),
       this.db.yusuf_action_intents.findMany({
         where: { taskId: run.taskId, runId: inbound.fromRunId },
@@ -659,14 +665,16 @@ class AgentReasoningLoop {
               key: run.task.project.key,
               name: run.task.project.name,
               metadata: run.task.project.metadata,
-              repositories: run.task.project.gitRepositories.map((repository) => ({
-                uuid: repository.uuid,
-                key: repository.key,
-                defaultBranch: repository.defaultBranch,
-                protectedBranches: repository.protectedBranches,
-                allowLocalCommit: repository.allowLocalCommit,
-                allowFeaturePush: repository.allowFeaturePush,
-              })),
+              repositories: run.task.project.gitRepositories.map(
+                (repository) => ({
+                  uuid: repository.uuid,
+                  key: repository.key,
+                  defaultBranch: repository.defaultBranch,
+                  protectedBranches: repository.protectedBranches,
+                  allowLocalCommit: repository.allowLocalCommit,
+                  allowFeaturePush: repository.allowFeaturePush,
+                })
+              ),
               commands: run.task.project.commands
                 .filter((command) => command.enabled)
                 .map((command) => ({
