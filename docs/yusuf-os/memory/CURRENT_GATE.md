@@ -1,5 +1,21 @@
 # Current Gate
 
+## Phase U — Voice / Audio Plane — status: COMPLETE
+
+Implemented a privacy-governed push-to-talk interface in `/os`, bounded STT/TTS provider
+selection with local-first fallback, request cancellation, and a voice-command bridge into the
+real Chief-of-Staff reasoning loop. Voice is input/output only: L3 commands still create the
+same durable, digest-bound approval and cannot execute without it.
+
+Independent review: **P0=0/P1=0/P2=2**. Remaining P2s are server-provider voice selection in the
+UI and expansion of the explicit audio edge-case fixture matrix.
+
+Evidence (`VERIFIED_BY_TEST`, 2026-08-21): full server **84/84 suites, 1,030 passed, one optional
+live Ollama smoke skipped**; frontend **10/10 suites, 139 passed**; server/frontend lint,
+production build, focused voice suites, and `git diff --check` passed. Code commit: `cc51b443`.
+
+**Next:** Phase V — Agentic Engineering E2E.
+
 ## Phase T — Real Agentic Reasoning Loop — status: COMPLETE
 
 Implemented the production Task→Agent→PromptAssembler→RoutedModelClient→strict decision→

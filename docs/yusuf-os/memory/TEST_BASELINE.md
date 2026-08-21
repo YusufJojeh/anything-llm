@@ -1,5 +1,14 @@
 # Test Baseline
 
+## Phase U baseline — 2026-08-21 [VERIFIED_BY_TEST]
+
+- Full server: `npx jest --runInBand` → **84 suites passed; 1,030 passed, one optional live
+  Ollama smoke skipped, 0 failed**.
+- Frontend: `npx vitest run --config vitest.config.js` → **10 suites, 139 passed, 0 failed**.
+- Focused voice backend: **3 suites, 22 passed**; focused voice frontend: **6 passed**.
+- Server and frontend lint, frontend production build, and `git diff --check`: passed.
+- Fresh independent review: **P0=0/P1=0/P2=2**, gate PASS.
+
 ## Phase T baseline — 2026-08-21 [VERIFIED_BY_TEST]
 
 - Full Yusuf OS backend: `npx jest --runInBand __tests__/yusufOS` → **51 suites passed;

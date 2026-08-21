@@ -1,5 +1,20 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-21 — Phase U: Voice / Audio Plane (Codex)
+
+Phase U is complete at code commit `cc51b443`. `/os` now has accessible push-to-talk, bounded
+recording, cancellation, visible transcript/response/approval state, and explicit TTS controls.
+The server uses privacy-scoped, local-first provider selection, explicit cloud/browser opt-ins,
+bounded operations, abort propagation, safe uploads, and the existing governed reasoning loop.
+Voice never turns speech into approval: L3 remains a durable exact-intent approval boundary.
+
+Fresh independent review passed at P0=0/P1=0/P2=2. Full server: 84/84 suites, 1,030 passed plus
+one optional Ollama skip. Frontend: 10/10 suites, 139 passed; production build and lint passed.
+Nothing pushed. `.claude/` remains untouched/untracked.
+
+Exact next action: Phase V, Agentic Engineering E2E using a disposable git fixture and a
+deterministic fake model whose structured decisions drive the real loop.
+
 ## 2026-08-21 — Phase T: Real Agentic Reasoning Loop (Codex)
 
 Phase T is complete at commit `fe7ebac8`. The production loop now performs prompt assembly,

@@ -1,6 +1,14 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-21, Phase T pass._
+_Last verified: 2026-08-21, Phase U pass._
+
+**Phase U added:** privacy-gated, local-first STT/TTS; push-to-talk with cancellation and explicit
+playback controls; English/Arabic and RTL-safe rendering; and a voice-command path through the
+real Chief reasoning loop. Voice cannot approve or bypass L3 policy. Fresh review:
+P0=0/P1=0/P2=2. Full server: 84 suites, 1,030 passed plus one optional skip. Frontend: 10 suites,
+139 passed; build and lint passed. Commit `cc51b443`.
+
+**Current next phase:** V, Agentic Engineering E2E.
 
 **Phase T added:** a real governed reasoning loop wired to `RoutedModelClient`, strict structured
 decisions, central trust-separated prompt assembly, capability/context-aware routing, durable
@@ -9,7 +17,7 @@ Reviewer verdict provenance with atomic lifecycle finalization. Fresh review: P0
 Full Yusuf OS backend: 51 suites, 712 passed, one optional live Ollama smoke skipped. Commit
 `fe7ebac8`.
 
-**Current next phase:** U, the Voice / Audio Plane.
+**Phase T next phase at that checkpoint:** U, the Voice / Audio Plane.
 
 _Prior Phase S orientation record (2026-08-21). See `CURRENT_GATE.md` for
 the full record; Phases H, I, the Organization model, J, K, L, M, N, O, P, Q, and R have all landed

@@ -1,5 +1,17 @@
 # Deferred Work
 
+## Deferred after Phase U (Voice / Audio Plane) — 2026-08-21
+
+- Phase U is complete. Phase V Agentic Engineering E2E is now the critical path.
+- Expose server-provider voice catalogs/selection in `/os` when the configured provider offers
+  voices; the current selector intentionally contains browser speech-synthesis voices only.
+- Expand the deterministic audio matrix for microphone unavailable, automatic 60-second stop,
+  remote browser-voice exclusion, repeated playback, Arabic STT, hostile transcript/audio
+  injection, and direct non-persistence assertions.
+- Wake-word detection remains optional and must not block V1; push-to-talk is the supported V1
+  interaction.
+- Live provider checks remain environment-gated; no cloud speech or paid API was invoked.
+
 ## Deferred after Phase T (Real Agentic Reasoning Loop) — 2026-08-21
 
 - Phase T is complete. Phase U Voice / Audio is now the critical path.

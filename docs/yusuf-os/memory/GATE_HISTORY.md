@@ -1,5 +1,15 @@
 # Gate History
 
+## Phase U — Voice / Audio Plane [VERIFIED_BY_TEST, 2026-08-21]
+
+Added the privacy-governed Voice Plane: local-first STT/TTS with explicit browser/cloud opt-in,
+bounded and abortable provider calls, safe audio upload handling, push-to-talk and explicit
+playback controls in `/os`, Arabic/English handling, and voice commands routed through the real
+Chief-of-Staff reasoning loop. L3 speech remains subject to the existing durable approval gate.
+Fresh independent review: P0=0/P1=0/P2=2, PASS. Full server: 84 suites, 1,030 passed plus one
+optional live Ollama skip. Frontend: 10 suites, 139 passed; lint/build/diff checks passed. Code
+commit `cc51b443`.
+
 ## Phase T — Real Agentic Reasoning Loop [VERIFIED_BY_TEST, 2026-08-21]
 
 Built the real provider-routed Agent reasoning loop with strict decisions, trust-separated prompt
