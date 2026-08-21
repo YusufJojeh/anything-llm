@@ -9,11 +9,31 @@ const {
   sanitizeAccountIdentity,
   countInjectionMarkers,
 } = require("../../../domain/yusufOS/adapters/browser/pageSanitizer");
+const {
+  normalizeEndpoint,
+} = require("../../../domain/yusufOS/adapters/browser/drivers/CdpBrowserDriver");
 
 const allowlist = () =>
   configuredOrigins("https://github.com https://mail.google.com http://localhost:7788");
 
 describe("Browser Broker origin policy", () => {
+  test("CDP attachment accepts only credential-free loopback HTTP endpoints", () => {
+    expect(normalizeEndpoint("http://127.0.0.1:9222")).toBe(
+      "http://127.0.0.1:9222"
+    );
+    expect(normalizeEndpoint("http://localhost:9222/")).toBe(
+      "http://localhost:9222"
+    );
+    for (const endpoint of [
+      "https://127.0.0.1:9222",
+      "http://192.168.1.5:9222",
+      "http://attacker.example:9222",
+      "http://user:pass@127.0.0.1:9222",
+      "http://127.0.0.1:9222/json?token=secret",
+      "not-a-url",
+    ])
+      expect(normalizeEndpoint(endpoint)).toBeNull();
+  });
   test("allows an exactly matching allowlisted origin", () => {
     expect(evaluateOrigin("https://github.com/YusufJojeh", { allowlist: allowlist() }))
       .toMatchObject({ allowed: true, origin: "https://github.com" });
