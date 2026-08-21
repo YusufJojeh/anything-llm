@@ -449,4 +449,47 @@ export default {
     unavailable:
       "There is no command surface in the backend yet, so Yusuf OS does not pretend to offer one.",
   },
+  voice: {
+    title: "Voice command",
+    start: "Start listening",
+    stop: "Stop listening",
+    cancel: "Cancel recording",
+    level: "Microphone input level",
+    transcript: "Transcript",
+    response: "Response",
+    approvalRequired: "Review required approval",
+    failed: "The voice command failed.",
+    unsupported: "Voice recording is not supported in this browser.",
+    providerUnavailable:
+      "Speech recognition is unavailable under the current privacy policy.",
+    transcriptionFailed: "The recording could not be transcribed.",
+    browserSttUnavailable:
+      "This browser does not provide local speech recognition.",
+    micDenied: "Microphone access was not granted.",
+    speechFailed: "The response could not be played.",
+    retry: "Retry command",
+    stopSpeaking: "Stop speaking",
+    replay: "Play response",
+    unmute: "Unmute",
+    mute: "Mute",
+    rate: "Rate",
+    voice: "Voice",
+    securityNote:
+      "Voice is an input and playback interface only. It cannot approve or bypass a governed action.",
+    permission: {
+      prompt: "Microphone permission not decided",
+      granted: "Microphone permission granted",
+      denied: "Microphone permission denied",
+    },
+    phase: {
+      IDLE: "Ready to listen",
+      LISTENING: "Listening",
+      TRANSCRIBING: "Transcribing",
+      PROCESSING: "Processing",
+      READY: "Response ready",
+      APPROVAL_REQUIRED: "Approval required",
+      ERROR: "Voice unavailable",
+      SPEAKING: "Speaking",
+    },
+  },
 };

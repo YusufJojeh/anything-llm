@@ -37,7 +37,7 @@ class GenericOpenAiSTT {
    * @param {string} filename - Original filename, used to hint the audio container/codec to the service.
    * @returns {Promise<string>} The transcribed text.
    */
-  async transcribe(audioBuffer, filename = "audio.webm") {
+  async transcribe(audioBuffer, filename = "audio.webm", { signal } = {}) {
     const { toFile } = require("openai");
     const extension = path.extname(filename).toLowerCase() || ".webm";
     let payloadBuffer = audioBuffer;
@@ -47,10 +47,11 @@ class GenericOpenAiSTT {
       payloadFilename = "audio.wav";
     }
     const file = await toFile(payloadBuffer, payloadFilename);
-    const result = await this.openai.audio.transcriptions.create({
-      file,
-      model: this.model,
-    });
+    if (signal?.aborted) throw new Error("Transcription cancelled.");
+    const payload = { file, model: this.model };
+    const result = signal
+      ? await this.openai.audio.transcriptions.create(payload, { signal })
+      : await this.openai.audio.transcriptions.create(payload);
     return result?.text ?? "";
   }
 }

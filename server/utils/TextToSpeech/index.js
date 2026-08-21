@@ -1,5 +1,4 @@
-function getTTSProvider() {
-  const provider = process.env.TTS_PROVIDER || "openai";
+function getTTSProvider(provider = process.env.TTS_PROVIDER || "openai") {
   switch (provider) {
     case "openai":
       const { OpenAiTTS } = require("./openAi");

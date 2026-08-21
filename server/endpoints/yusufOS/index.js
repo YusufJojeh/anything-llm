@@ -45,6 +45,11 @@ const {
 const {
   RuntimeProjection,
 } = require("../../domain/yusufOS/projections/RuntimeProjection");
+const { VoiceService } = require("../../domain/yusufOS/voice/VoiceService");
+const {
+  handleYusufAudioUpload,
+} = require("../../utils/SpeechToText/audioUpload");
+const { getAudioFileInfo } = require("../../utils/TextToSpeech/audioFormat");
 
 function asyncRoute(handler) {
   return async (request, response) => {
@@ -79,6 +84,7 @@ function yusufOSEndpoints(
   const settings = new SecuritySettings(db);
   const approvals = new ApprovalService(db);
   const details = new DetailProjections(db);
+  const voice = new VoiceService({ db });
   const path = (suffix) => `${basePath}${suffix}`;
 
   app.get(
@@ -447,6 +453,105 @@ function yusufOSEndpoints(
     asyncRoute(async (_request, response) => {
       const projection = new RuntimeProjection(db);
       response.status(200).json(await projection.build());
+    })
+  );
+
+  // Phase U: voice is an interface over the same task/run/action boundary.
+  // Transcription and speech reuse AnythingLLM's configured provider
+  // adapters; command execution still crosses AgentReasoningLoop and never
+  // treats a spoken request as approval.
+  app.get(
+    path("/voice/status"),
+    guard,
+    asyncRoute(async (_request, response) => {
+      response.status(200).json(voice.status());
+    })
+  );
+
+  app.post(
+    path("/voice/transcribe"),
+    [...guard, handleYusufAudioUpload],
+    asyncRoute(async (request, response) => {
+      if (!request.file?.buffer)
+        throw new YusufOSError(
+          ErrorCodes.VALIDATION_ERROR,
+          "No voice audio was uploaded.",
+          { status: 422 }
+        );
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      request.once("aborted", abort);
+      response.once("close", abort);
+      try {
+        response.status(200).json({
+          text: await voice.transcribe(
+            request.file.buffer,
+            request.file.originalname || "audio.webm",
+            { signal: controller.signal }
+          ),
+        });
+      } finally {
+        request.removeListener("aborted", abort);
+        response.removeListener("close", abort);
+      }
+    })
+  );
+
+  app.post(
+    path("/voice/speak"),
+    guard,
+    asyncRoute(async (request, response) => {
+      const body = validateObject(reqBody(request), {
+        allowed: ["text"],
+        required: ["text"],
+      });
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      request.once("aborted", abort);
+      response.once("close", abort);
+      let buffer;
+      try {
+        buffer = await voice.speak(
+          stringValue(body.text, "text", { max: 4096 }),
+          { signal: controller.signal }
+        );
+      } finally {
+        request.removeListener("aborted", abort);
+        response.removeListener("close", abort);
+      }
+      const audio = getAudioFileInfo(buffer);
+      response.setHeader("Content-Type", audio.mime);
+      response.setHeader("Cache-Control", "no-store");
+      response.setHeader("X-Content-Type-Options", "nosniff");
+      response.status(200).send(buffer);
+    })
+  );
+
+  app.post(
+    path("/voice/commands"),
+    guard,
+    asyncRoute(async (request, response) => {
+      const body = validateObject(reqBody(request), {
+        allowed: ["utterance"],
+        required: ["utterance"],
+      });
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      request.once("aborted", abort);
+      try {
+        response.status(200).json(
+          await voice.command({
+            utterance: stringValue(body.utterance, "utterance", {
+              max: 10000,
+            }),
+            principal: response.locals.yusufOS.principal,
+            requestId: response.locals.yusufOS.requestId,
+            signal: controller.signal,
+          })
+        );
+      } finally {
+        request.removeListener("aborted", abort);
+      }
     })
   );
 

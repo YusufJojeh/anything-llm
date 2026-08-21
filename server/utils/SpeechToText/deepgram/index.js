@@ -42,7 +42,7 @@ class DeepgramSTT {
    * @param {string} filename - Original filename, used to hint the audio container/codec to Deepgram.
    * @returns {Promise<string>} The transcribed text.
    */
-  async transcribe(audioBuffer, filename = "audio.webm") {
+  async transcribe(audioBuffer, filename = "audio.webm", { signal } = {}) {
     const url = new URL(this.endpoint);
     url.searchParams.set("model", this.model);
     url.searchParams.set("smart_format", "true");
@@ -54,6 +54,7 @@ class DeepgramSTT {
         "Content-Type": this.#contentTypeFromFilename(filename),
       },
       body: audioBuffer,
+      ...(signal ? { signal } : {}),
     })
       .then(async (response) => {
         if (!response.ok) {

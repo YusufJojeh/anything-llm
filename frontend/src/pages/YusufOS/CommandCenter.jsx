@@ -9,6 +9,7 @@ import AgentRoster from "@/features/yusufOS/components/AgentRoster";
 import AttentionQueue from "@/features/yusufOS/components/AttentionQueue";
 import AgentDetailPanel from "@/features/yusufOS/components/AgentDetailPanel";
 import SystemHealth from "@/features/yusufOS/components/SystemHealth";
+import VoiceConsole from "@/features/yusufOS/components/VoiceConsole";
 import Drawer from "@/features/yusufOS/components/Drawer";
 import {
   Count,
@@ -218,6 +219,8 @@ export default function CommandCenter() {
             onOpen={openCore}
           />
         )}
+
+        <VoiceConsole />
 
         <Panel aria-labelledby={attentionHeadingId}>
           <SectionTitle id={attentionHeadingId} className="px-4 pt-4">

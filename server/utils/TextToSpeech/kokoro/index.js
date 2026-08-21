@@ -30,13 +30,16 @@ class KokoroTTS {
    * @param {string} textInput - The text to be converted to audio.
    * @returns {Promise<Buffer>} A buffer containing the audio data.
    */
-  async ttsBuffer(textInput) {
+  async ttsBuffer(textInput, { signal } = {}) {
     try {
-      const result = await this.openai.audio.speech.create({
+      const payload = {
         model: this.model,
         voice: this.voice,
         input: textInput,
-      });
+      };
+      const result = signal
+        ? await this.openai.audio.speech.create(payload, { signal })
+        : await this.openai.audio.speech.create(payload);
       return Buffer.from(await result.arrayBuffer());
     } catch (e) {
       console.error(e);

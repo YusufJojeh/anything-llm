@@ -9,13 +9,12 @@ class OpenAiTTS {
     this.voice = process.env.TTS_OPEN_AI_VOICE_MODEL ?? "alloy";
   }
 
-  async ttsBuffer(textInput) {
+  async ttsBuffer(textInput, { signal } = {}) {
     try {
-      const result = await this.openai.audio.speech.create({
-        model: "tts-1",
-        voice: this.voice,
-        input: textInput,
-      });
+      const payload = { model: "tts-1", voice: this.voice, input: textInput };
+      const result = signal
+        ? await this.openai.audio.speech.create(payload, { signal })
+        : await this.openai.audio.speech.create(payload);
       return Buffer.from(await result.arrayBuffer());
     } catch (e) {
       console.error(e);

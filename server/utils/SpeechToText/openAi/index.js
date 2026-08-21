@@ -14,13 +14,13 @@ class OpenAiSTT {
    * @param {string} filename - Original filename, used to hint the audio container/codec to OpenAI.
    * @returns {Promise<string>} The transcribed text.
    */
-  async transcribe(audioBuffer, filename = "audio.webm") {
+  async transcribe(audioBuffer, filename = "audio.webm", { signal } = {}) {
     const { toFile } = require("openai");
     const file = await toFile(audioBuffer, filename);
-    const result = await this.openai.audio.transcriptions.create({
-      file,
-      model: this.model,
-    });
+    const payload = { file, model: this.model };
+    const result = signal
+      ? await this.openai.audio.transcriptions.create(payload, { signal })
+      : await this.openai.audio.transcriptions.create(payload);
     return result?.text ?? "";
   }
 }

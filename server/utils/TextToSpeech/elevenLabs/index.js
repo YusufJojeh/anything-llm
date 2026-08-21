@@ -34,13 +34,18 @@ class ElevenLabsTTS {
     });
   }
 
-  async ttsBuffer(textInput) {
+  async ttsBuffer(textInput, { timeoutMs } = {}) {
     try {
-      const audio = await this.elevenLabs.generate({
-        voice: this.voiceId,
-        text: textInput,
-        model_id: "eleven_multilingual_v2",
-      });
+      const audio = await this.elevenLabs.generate(
+        {
+          voice: this.voiceId,
+          text: textInput,
+          model_id: "eleven_multilingual_v2",
+        },
+        timeoutMs
+          ? { timeoutInSeconds: Math.max(1, Math.ceil(timeoutMs / 1000)) }
+          : undefined
+      );
       return Buffer.from(await this.#stream2buffer(audio));
     } catch (e) {
       console.error(e);

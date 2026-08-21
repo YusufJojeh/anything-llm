@@ -78,10 +78,14 @@ async function parseError(response) {
   );
 }
 
-async function call(path, { method = "GET", body, signal } = {}) {
+async function call(
+  path,
+  { method = "GET", body, formData, signal, responseType = "json" } = {}
+) {
   const headers = {};
   const isWrite = method !== "GET" && method !== "HEAD";
-  if (body !== undefined) headers["content-type"] = "application/json";
+  if (body !== undefined && !formData)
+    headers["content-type"] = "application/json";
   if (isWrite && csrfToken) headers[CSRF_HEADER] = csrfToken;
 
   let response;
@@ -91,7 +95,11 @@ async function call(path, { method = "GET", body, signal } = {}) {
       headers,
       // Same-origin only: this never becomes a cross-site credentialed call.
       credentials: "same-origin",
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: formData
+        ? formData
+        : body === undefined
+          ? undefined
+          : JSON.stringify(body),
       signal,
     });
   } catch (cause) {
@@ -108,6 +116,7 @@ async function call(path, { method = "GET", body, signal } = {}) {
   }
   if (!response.ok) throw await parseError(response);
   if (response.status === 204) return null;
+  if (responseType === "blob") return response.blob();
   return response.json();
 }
 
@@ -120,6 +129,29 @@ export const yusufApi = {
 
   dashboard: (options) => call("/dashboard", options),
   runtime: (options) => call("/runtime", options),
+  voiceStatus: (options) => call("/voice/status", options),
+  transcribeVoice: (audio, filename = "audio.webm", options = {}) => {
+    const formData = new FormData();
+    formData.append("audio", audio, filename);
+    return call("/voice/transcribe", {
+      ...options,
+      method: "POST",
+      formData,
+    });
+  },
+  runVoiceCommand: (utterance, options = {}) =>
+    call("/voice/commands", {
+      ...options,
+      method: "POST",
+      body: { utterance },
+    }),
+  speakVoiceResponse: (text, options = {}) =>
+    call("/voice/speak", {
+      ...options,
+      method: "POST",
+      body: { text },
+      responseType: "blob",
+    }),
   events: (after, limit = 100) =>
     call(`/events?after=${encodeURIComponent(after)}&limit=${limit}`),
   roster: (options) => call("/agents/roster", options),

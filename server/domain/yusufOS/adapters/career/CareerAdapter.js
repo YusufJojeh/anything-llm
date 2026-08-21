@@ -16,8 +16,22 @@ function certainFailure(message) {
   return Object.assign(new Error(message), { effectCertain: true });
 }
 
-function entryDigest({ company, role, source, status, notes, applicationNotes }) {
-  return canonicalHash({ company, role, source, status, notes, applicationNotes });
+function entryDigest({
+  company,
+  role,
+  source,
+  status,
+  notes,
+  applicationNotes,
+}) {
+  return canonicalHash({
+    company,
+    role,
+    source,
+    status,
+    notes,
+    applicationNotes,
+  });
 }
 
 function toReadResult(row) {

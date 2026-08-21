@@ -18,7 +18,10 @@ const CAPABILITIES = Object.freeze([
   "inbox.advance_linked_career_status",
 ]);
 const RESOURCE_TYPE = "INBOX_MESSAGE";
-const CAREER_ADVANCING_CLASSIFICATIONS = Object.freeze(["INTERVIEW", "REJECTION"]);
+const CAREER_ADVANCING_CLASSIFICATIONS = Object.freeze([
+  "INTERVIEW",
+  "REJECTION",
+]);
 const LIST_SCAN_LIMIT = 500;
 
 function certainFailure(message) {
@@ -95,9 +98,7 @@ class InboxAdapter extends GovernedAdapter {
   async preflight(intentSnapshot) {
     const target = JSON.parse(intentSnapshot.canonicalTarget || "{}");
     let resourceVersion = "N/A";
-    if (
-      intentSnapshot.capabilityKey === "inbox.advance_linked_career_status"
-    ) {
+    if (intentSnapshot.capabilityKey === "inbox.advance_linked_career_status") {
       if (target.uuid) {
         const row = await this.db.yusuf_career_opportunities.findUnique({
           where: { uuid: target.uuid },
@@ -308,13 +309,16 @@ class InboxAdapter extends GovernedAdapter {
             throw certainFailure(
               `Inbox message ${message.uuid} is not linked to career opportunity ${target.uuid}.`
             );
-          if (!CAREER_ADVANCING_CLASSIFICATIONS.includes(message.classification))
+          if (
+            !CAREER_ADVANCING_CLASSIFICATIONS.includes(message.classification)
+          )
             throw certainFailure(
               `Inbox message classification ${message.classification} does not authorize a career status change.`
             );
-          const opportunity = await this.db.yusuf_career_opportunities.findUnique({
-            where: { uuid: target.uuid },
-          });
+          const opportunity =
+            await this.db.yusuf_career_opportunities.findUnique({
+              where: { uuid: target.uuid },
+            });
           if (!opportunity)
             throw certainFailure(`Unknown career opportunity: ${target.uuid}`);
           if (!isValidCareerTransition(opportunity.status, target.status))

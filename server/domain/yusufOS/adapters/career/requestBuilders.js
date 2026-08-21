@@ -139,7 +139,10 @@ async function buildPrepareApplicationRequest(args = {}, db = prisma) {
       "applicationNotes must be a non-empty string.",
       { status: 422 }
     );
-  if (Buffer.byteLength(args.applicationNotes, "utf8") > MAX_APPLICATION_NOTES_BYTES)
+  if (
+    Buffer.byteLength(args.applicationNotes, "utf8") >
+    MAX_APPLICATION_NOTES_BYTES
+  )
     throw new YusufOSError(
       ErrorCodes.VALIDATION_ERROR,
       "applicationNotes exceeds the governed Career entry size limit.",

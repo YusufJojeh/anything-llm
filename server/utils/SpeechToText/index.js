@@ -1,5 +1,4 @@
-function getSTTProvider() {
-  const provider = process.env.STT_PROVIDER || "native";
+function getSTTProvider(provider = process.env.STT_PROVIDER || "native") {
   switch (provider) {
     case "openai":
       const { OpenAiSTT } = require("./openAi");

@@ -70,6 +70,52 @@ describe("Yusuf OS internal API boundary", () => {
     });
   });
 
+  test("voice routes inherit authentication and reject approval authority", async () => {
+    const unauthenticated = await fetch(`${baseUrl}/voice/status`);
+    expect(unauthenticated.status).toBe(401);
+
+    const status = await request("/voice/status");
+    expect(status.status).toBe(200);
+    expect(await status.json()).toMatchObject({
+      allowCloud: false,
+      stt: {
+        provider: "native",
+        scope: "BROWSER",
+        eligible: false,
+        reason: "BROWSER_SPEECH_DISABLED",
+      },
+      wakeWord: "DEFERRED",
+    });
+
+    const forgedApproval = await request("/voice/commands", {
+      method: "POST",
+      body: JSON.stringify({ utterance: "apply", approved: true }),
+    });
+    expect(forgedApproval.status).toBe(422);
+    expect(await forgedApproval.json()).toMatchObject({
+      error: {
+        code: "VALIDATION_ERROR",
+        details: { unknownFields: ["approved"] },
+      },
+    });
+
+    const invalidAudio = new FormData();
+    invalidAudio.append(
+      "audio",
+      new Blob(["not audio"], { type: "text/plain" }),
+      "payload.txt"
+    );
+    const invalidUpload = await fetch(`${baseUrl}/voice/transcribe`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: invalidAudio,
+    });
+    expect(invalidUpload.status).toBe(422);
+    expect(await invalidUpload.json()).toMatchObject({
+      error: { code: "VALIDATION_ERROR", message: "Invalid voice audio upload." },
+    });
+  });
+
   test("validation rejects unknown authority fields with stable 422 envelope", async () => {
     const response = await request("/agents", {
       method: "POST",
