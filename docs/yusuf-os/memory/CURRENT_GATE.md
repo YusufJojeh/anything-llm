@@ -1,5 +1,29 @@
 # Current Gate
 
+## Phase S — Runtime Command Center — status: COMPLETE
+
+**Objective:** finish the interrupted Phase S work without rebuilding the existing `/os` Command
+Center. Added a guarded read-only `/api/yusuf-os/runtime` projection and a real `/os/runtime`
+surface for model/provider state, routed completion telemetry, organization/job counts,
+Monitoring history, and safe Knowledge/Evidence/Memory counts.
+
+**Security and truth guarantees:** OpenAI is presence-only; Ollama endpoint output is origin-only;
+model/error strings are bounded, redacted, and bidi-safe; only code-marked routed completions are
+shown; unavailable cost never becomes zero; Knowledge/Memory free text and scope references never
+enter the projection; Runtime failure cannot blank the existing Command Center; state polls every
+30 seconds and renders its observation timestamp.
+
+**Independent review:** initial P0=0/P1=5/P2=2. All findings fixed and re-reviewed to
+**P0=0/P1=0/P2=0**.
+
+**Evidence (`VERIFIED_BY_TEST`, 2026-08-21):** full server regression 77 suites / 969 tests
+(968 passed, one live-provider smoke skipped); Yusuf OS frontend 9 suites / 133 tests; frontend
+production build passed; targeted server/frontend lint and `git diff --check` passed. Ollama and
+OpenAI remain `NOT LIVE-VALIDATED` because neither provider was available. Local code commit:
+`47da3247`.
+
+**Next:** Phase T — real Agentic Reasoning Loop — not yet implemented.
+
 ## Phase R — Model runtime (ModelRouter) — status: COMPLETE
 
 **Objective:** at Yusuf's explicit direction, give Yusuf OS a provider-neutral model runtime

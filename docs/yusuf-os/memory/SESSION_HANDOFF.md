@@ -1,5 +1,26 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-21 — Phase S: Runtime Command Center (Codex)
+
+Recovered the interrupted Phase S working tree and completed it. `/api/yusuf-os/runtime` and
+`/os/runtime` now show real provider/model telemetry, Departments→Agents→autonomy→skills→job
+counts, Monitoring history, and safe counts-only Knowledge/Evidence/Memory data. Runtime polling
+is isolated from the existing Command Center snapshot, so a provider/runtime failure cannot break
+tasks, approvals, or System Health.
+
+Independent review initially found five P1 and two P2 issues (free-text scope leaks, URL/model
+leaks, false completion attribution, global snapshot failure coupling, stale live-looking state,
+bidi isolation, and missing frontend behavior coverage). Every issue was fixed; final review:
+P0=0/P1=0/P2=0. Full server: 77/77 suites, 968 passed + one live-provider smoke skipped.
+Frontend: 9/9 suites, 133/133 tests; production build passed. Local code commit `47da3247`.
+
+Skills used: `project-conventions`, `backend-engineering-loop`, `backend-security`,
+`frontend-architecture`, `frontend-accessibility`, `internationalization-rtl`,
+`responsive-ui-engineer`, `realtime-engineer`, `state-data-flow-engineer`, and
+`Agentic UX Design - Relationship-Centric Interfaces`.
+
+Exact next action: Phase T, the real structured Agentic Reasoning Loop.
+
 ## 2026-08-21 — Phase R: Model runtime / ModelRouter (Claude Code, Sonnet 5)
 
 **What was done:** built a provider-neutral `ModelRouter` under `server/domain/yusufOS/models/`

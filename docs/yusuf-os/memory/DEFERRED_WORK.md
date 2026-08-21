@@ -1,5 +1,18 @@
 # Deferred Work
 
+## Deferred after Phase S (Runtime Command Center) — 2026-08-21
+
+- Phase S is complete. Live Ollama/OpenAI validation remains environment-blocked and honestly
+  reported in `HUMAN_ACTION_REQUIRED.md`.
+- The runtime page intentionally exposes Knowledge/Memory counts and code-owned enum groupings
+  only; free-text titles, keys, values, payloads, and scope references remain hidden until an
+  explicit visibility contract exists.
+- The next critical-path work is Phase T: a real structured Agent reasoning loop. No current
+  production caller invokes `RoutedModelClient` yet.
+- Voice, agentic E2E fixtures, real browser integrations, scheduler/notifications, full
+  operational UI, hardening, live validation, and release/ops remain later phases in the approved
+  S→AE order.
+
 ## Deferred after Phase R (Model runtime / ModelRouter) — 2026-08-21
 
 Phase R is **done** — see `CURRENT_GATE.md`. Still deferred:

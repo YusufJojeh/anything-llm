@@ -1,9 +1,16 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-21, Phase R (Model runtime / ModelRouter) pass. See `CURRENT_GATE.md` for
+_Last verified: 2026-08-21, Phase S (Runtime Command Center) pass. See `CURRENT_GATE.md` for
 the full record; Phases H, I, the Organization model, J, K, L, M, N, O, P, Q, and R have all landed
 since the line below was last true — read `CURRENT_GATE.md` top-to-bottom rather than trusting
 this summary's detail below, which is not fully re-verified this pass._
+
+**Phase S added:** guarded real runtime projections plus `/os/runtime`, with honest provider/model
+telemetry, organization/job counts, Monitoring history, and counts-only Knowledge/Memory/Evidence
+visibility. Runtime refresh is isolated from the existing dashboard and explicitly timestamped.
+Independent review is clean at P0/P1/P2 = 0 after fixing seven findings. Commit `47da3247`.
+
+**Current next phase:** T, the real Agentic Reasoning Loop. It is not built yet.
 
 **Phase R added:** a provider-neutral model runtime (`server/domain/yusufOS/models/`) — Ollama
 (local, auto-discovered, never auto-pulls) and OpenAI (env-key-only) behind one `ModelRouter`, with

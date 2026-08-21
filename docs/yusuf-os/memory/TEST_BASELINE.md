@@ -1,5 +1,17 @@
 # Test Baseline
 
+## Phase S baseline — 2026-08-21 [VERIFIED_BY_TEST]
+
+- Full server: `npx jest server --maxWorkers=2` → **77 suites, 969 tests** (968 passed, one
+  Ollama live smoke skipped because no daemon was reachable).
+- Yusuf OS server: `npx jest server/__tests__/yusufOS --maxWorkers=2` → **46 suites, 666 tests**
+  (665 passed, the same one live smoke skipped).
+- Frontend Yusuf OS: `npx vitest run --config vitest.config.js` → **9 suites, 133 tests passed**.
+- Frontend production build: passed.
+- Targeted changed-file server/frontend ESLint: passed. Full server lint still has unrelated,
+  pre-existing Prettier failures in committed Career/Inbox files; Phase S files are clean.
+- `git diff --check`: passed.
+
 ## Phase R (Model runtime / ModelRouter) [VERIFIED_BY_TEST — 2026-08-21]
 
 ```bash
