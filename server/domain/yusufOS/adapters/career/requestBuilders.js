@@ -94,6 +94,12 @@ async function buildUpdateStatusRequest(args = {}, db = prisma) {
       `Unknown career opportunity status: ${args.status}`,
       { status: 422 }
     );
+  if (args.status === CAREER_OPPORTUNITY_STATUSES.APPLIED)
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      "APPLIED requires career.confirm_verified_application with a verified browser submission intent.",
+      { status: 422 }
+    );
   const notes = assertNotes(args.notes);
   const row = await db.yusuf_career_opportunities.findUnique({
     where: { uuid: args.uuid },
@@ -118,6 +124,71 @@ async function buildUpdateStatusRequest(args = {}, db = prisma) {
     resource: { type: RESOURCE_TYPE, id: args.uuid, version: row.digest },
     target: { uuid: args.uuid, status: args.status },
     payload: { notes },
+    environment: "LOCAL",
+  };
+}
+
+async function verifiedSubmission(args, db) {
+  assertNonEmptyString(args.submissionIntentUuid, "submissionIntentUuid");
+  const intent = await db.yusuf_action_intents.findUnique({
+    where: { uuid: args.submissionIntentUuid },
+    include: { receipt: true, approval: true },
+  });
+  const opportunityIntent = await db.yusuf_action_intents.findFirst({
+    where: {
+      capabilityKey: "career.record_opportunity",
+      resourceType: RESOURCE_TYPE,
+      resourceId: args.uuid,
+      status: "VERIFIED",
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  let payload = {};
+  try {
+    payload = JSON.parse(intent?.canonicalPayload || "{}");
+  } catch {}
+  if (
+    !intent ||
+    !opportunityIntent ||
+    intent.taskId !== opportunityIntent.taskId ||
+    intent.capabilityKey !== "browser.submit_form" ||
+    intent.status !== "VERIFIED" ||
+    intent.receipt?.outcome !== "SUCCEEDED" ||
+    intent.receipt?.verificationStatus !== "VERIFIED" ||
+    intent.approval?.status !== "CONSUMED" ||
+    payload.correlation?.resourceType !== RESOURCE_TYPE ||
+    payload.correlation?.resourceId !== args.uuid
+  )
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      "The submission intent is not a consumed, verified application for this opportunity.",
+      { status: 422 }
+    );
+  return intent;
+}
+
+async function buildConfirmVerifiedApplicationRequest(args = {}, db = prisma) {
+  assertNonEmptyString(args.uuid, "uuid");
+  const row = await db.yusuf_career_opportunities.findUnique({
+    where: { uuid: args.uuid },
+  });
+  if (!row)
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Unknown career opportunity: ${args.uuid}`,
+      { status: 422 }
+    );
+  if (!isValidTransition(row.status, CAREER_OPPORTUNITY_STATUSES.APPLIED))
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Illegal transition: ${row.status} -> APPLIED.`,
+      { status: 422 }
+    );
+  await verifiedSubmission(args, db);
+  return {
+    resource: { type: RESOURCE_TYPE, id: args.uuid, version: row.digest },
+    target: { uuid: args.uuid, status: CAREER_OPPORTUNITY_STATUSES.APPLIED },
+    payload: { submissionIntentUuid: args.submissionIntentUuid },
     environment: "LOCAL",
   };
 }
@@ -177,4 +248,6 @@ module.exports = {
   buildRecordOpportunityRequest,
   buildUpdateStatusRequest,
   buildPrepareApplicationRequest,
+  buildConfirmVerifiedApplicationRequest,
+  verifiedSubmission,
 };

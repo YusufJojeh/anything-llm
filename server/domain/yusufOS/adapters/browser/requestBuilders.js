@@ -31,6 +31,25 @@ async function buildSubmitFormRequest(args = {}, db, { driver } = {}) {
     );
   const descriptor = resolveForm(args.formKey);
   const cleanedFields = assertFieldsAllowed(descriptor, args.fields);
+  let correlation = null;
+  if (args.correlation !== undefined) {
+    if (
+      !args.correlation ||
+      args.correlation.resourceType !== "CAREER_OPPORTUNITY" ||
+      typeof args.correlation.resourceId !== "string" ||
+      args.correlation.resourceId.length === 0 ||
+      args.correlation.resourceId.length > 100
+    )
+      throw new YusufOSError(
+        ErrorCodes.VALIDATION_ERROR,
+        "correlation must be a bounded Career opportunity reference.",
+        { status: 422 }
+      );
+    correlation = {
+      resourceType: args.correlation.resourceType,
+      resourceId: args.correlation.resourceId,
+    };
+  }
 
   if (!args.tabId || typeof args.tabId !== "string")
     throw new YusufOSError(ErrorCodes.VALIDATION_ERROR, "tabId is required.", {
@@ -80,7 +99,9 @@ async function buildSubmitFormRequest(args = {}, db, { driver } = {}) {
       // narrow window between preflight and execution).
       boundAccountDigest: accountIdentityDigest(identity),
     },
-    payload: { fields: cleanedFields },
+    // Correlation is approval-covered internal metadata. BrowserAdapter sends
+    // only `fields`, so this reference never reaches the external page.
+    payload: { fields: cleanedFields, correlation },
     environment: "LOCAL",
   };
 }
