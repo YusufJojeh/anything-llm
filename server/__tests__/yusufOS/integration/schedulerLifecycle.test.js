@@ -1,5 +1,8 @@
 const { createTestDatabase, clearYusufTables } = require("../../../__testUtils__/yusufOS/testDatabase");
 const { Scheduler, failureDelaySeconds } = require("../../../domain/yusufOS/scheduling/Scheduler");
+const { SchedulerWorker } = require("../../../domain/yusufOS/scheduling/SchedulerWorker");
+const { NotificationService } = require("../../../domain/yusufOS/notifications/NotificationService");
+const { NotificationProjector } = require("../../../domain/yusufOS/notifications/NotificationProjector");
 
 describe("Phase Y — durable scheduler", () => {
   let testDatabase;
@@ -11,7 +14,7 @@ describe("Phase Y — durable scheduler", () => {
   test("claims once across concurrent ticks, persists next run, and runs only the safe retention seam", async () => {
     const now = new Date("2026-08-24T10:00:00.000Z");
     const retention = jest.fn(async () => ({ tombstonedCount: 0, errors: [] }));
-    const scheduler = new Scheduler({ db, retention });
+    const scheduler = new Scheduler({ db, retention, random: () => 0.5 });
     await scheduler.ensureEvidenceRetention({ now, intervalSeconds: 60 });
     const results = await Promise.all([scheduler.tick({ now }), scheduler.tick({ now })]);
     expect(retention).toHaveBeenCalledTimes(1);
@@ -31,6 +34,20 @@ describe("Phase Y — durable scheduler", () => {
     expect(await db.yusuf_notifications.findMany()).toEqual([expect.objectContaining({ kind: "SCHEDULER_FAILURE", status: "OPEN", dedupeKey: "scheduler:EVIDENCE_RETENTION" })]);
   });
 
+  test("retention row errors are retried and surfaced instead of being recorded as success", async () => {
+    const now = new Date("2026-08-24T10:00:00.000Z");
+    const scheduler = new Scheduler({
+      db,
+      retention: async () => ({ errors: [{ uuid: "evidence-1" }] }),
+    });
+    await scheduler.ensureEvidenceRetention({ now });
+    expect(await scheduler.tick({ now })).toEqual([
+      { scheduleKey: "EVIDENCE_RETENTION", status: "FAILED" },
+    ]);
+    expect(await db.yusuf_schedules.findUnique({ where: { scheduleKey: "EVIDENCE_RETENTION" } })).toMatchObject({ failureCount: 1, lastErrorCode: "SCHEDULE_EXECUTION_FAILED" });
+    expect(await db.yusuf_audit_events.findFirst({ where: { eventType: "scheduler.failed" } })).toBeTruthy();
+  });
+
   test("recovers an expired worker lease and lets an operator acknowledge the durable alert", async () => {
     const now = new Date("2026-08-24T10:00:00.000Z");
     const scheduler = new Scheduler({ db, retention: async () => ({ tombstonedCount: 0, errors: [] }) });
@@ -45,9 +62,75 @@ describe("Phase Y — durable scheduler", () => {
     expect(await db.yusuf_notifications.findUnique({ where: { uuid: notice.uuid } })).toMatchObject({ status: "ACKNOWLEDGED", acknowledgedAt: now });
   });
 
+  test("does not reopen an acknowledged notification or append duplicate open evidence", async () => {
+    const notifications = new NotificationService(db);
+    const first = await notifications.open({
+      kind: "TASK_BLOCKED", dedupeKey: "task-blocked:stable", summary: "Task is blocked.",
+    });
+    expect(await notifications.acknowledge(first.uuid)).toBe(true);
+    const repeated = await notifications.open({
+      kind: "TASK_BLOCKED", dedupeKey: "task-blocked:stable", summary: "Changed projection copy.",
+    });
+    expect(repeated.uuid).toBe(first.uuid);
+    expect(await db.yusuf_notifications.findUnique({ where: { uuid: first.uuid } })).toMatchObject({
+      status: "ACKNOWLEDGED", summary: "Task is blocked.",
+    });
+    expect(await db.yusuf_audit_events.count({ where: { eventType: "notification.opened" } })).toBe(1);
+  });
+
+  test("fails closed when the terminal scheduler audit cannot be persisted", async () => {
+    const now = new Date("2026-08-24T10:00:00.000Z");
+    const audit = { appendInTransaction: jest.fn(async () => { throw new Error("audit unavailable"); }) };
+    const scheduler = new Scheduler({
+      db, audit, retention: async () => ({ tombstonedCount: 0, errors: [] }),
+    });
+    await scheduler.ensureEvidenceRetention({ now });
+    expect(await scheduler.tick({ now })).toEqual([
+      { scheduleKey: "EVIDENCE_RETENTION", status: "FAILED" },
+    ]);
+    const persisted = await db.yusuf_schedules.findUnique({ where: { scheduleKey: "EVIDENCE_RETENTION" } });
+    expect(persisted.lastRunAt).toBeNull();
+    expect(persisted.leaseId).toBeTruthy();
+    expect(await db.yusuf_audit_events.count({ where: { eventType: "scheduler.succeeded" } })).toBe(0);
+  });
+
+  test("projects actual offline adapters while ignoring a deliberately disabled browser broker", async () => {
+    const previous = process.env.YUSUF_OS_BROWSER_BROKER_ENABLED;
+    process.env.YUSUF_OS_BROWSER_BROKER_ENABLED = "true";
+    try {
+      const projector = new NotificationProjector({
+        db,
+        browserAdapter: { availability: async () => ({ status: "UNAVAILABLE" }) },
+        localGitAdapter: { availability: async () => { throw new Error("git missing"); } },
+      });
+      await projector.refresh();
+      expect(await db.yusuf_notifications.findMany({ orderBy: { kind: "asc" } })).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: "ADAPTER_OFFLINE", dedupeKey: "adapter:local-git" }),
+          expect.objectContaining({ kind: "BROWSER_DISCONNECTED", dedupeKey: "adapter:browser-broker" }),
+        ])
+      );
+    } finally {
+      if (previous === undefined) delete process.env.YUSUF_OS_BROWSER_BROKER_ENABLED;
+      else process.env.YUSUF_OS_BROWSER_BROKER_ENABLED = previous;
+    }
+  });
+
   test("rejects sub-minute scheduler configuration before persistence", async () => {
     const scheduler = new Scheduler({ db });
     await expect(scheduler.ensureEvidenceRetention({ intervalSeconds: 59 })).rejects.toThrow(/at least 60/i);
     expect(await db.yusuf_schedules.count()).toBe(0);
+  });
+
+  test("boot worker seeds and ticks the durable scheduler without overlapping work", async () => {
+    const scheduler = {
+      ensureEvidenceRetention: jest.fn(async () => {}),
+      tick: jest.fn(async () => []),
+    };
+    const worker = new SchedulerWorker({ scheduler, pollMs: 1000 });
+    await worker.start();
+    expect(scheduler.ensureEvidenceRetention).toHaveBeenCalledTimes(1);
+    expect(scheduler.tick).toHaveBeenCalledTimes(1);
+    worker.stop();
   });
 });

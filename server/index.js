@@ -55,6 +55,9 @@ const {
   yusufUiSessionGuard,
   yusufUiSessionEndpoints,
 } = require("./domain/yusufOS/api/uiSession");
+const {
+  startSchedulerWorker,
+} = require("./domain/yusufOS/scheduling/SchedulerWorker");
 const { httpLogger } = require("./middleware/httpLogger");
 const app = express();
 const apiRouter = express.Router();
@@ -137,6 +140,7 @@ googleAgentSkillEndpoints(apiRouter);
 memoryEndpoints(apiRouter);
 yusufOSEndpoints(apiRouter, { preGuarded: true });
 yusufUiSessionEndpoints(apiRouter);
+startSchedulerWorker().catch(() => {});
 yusufOSEndpoints(apiRouter, {
   preGuarded: true,
   basePath: "/yusuf-os-ui",

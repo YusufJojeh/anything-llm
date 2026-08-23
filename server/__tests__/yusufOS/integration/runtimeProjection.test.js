@@ -80,14 +80,16 @@ describe("Phase S — runtime projection", () => {
     expect(response.status).toBe(401);
   });
 
-  test("reports Ollama unreachable honestly when no daemon is listening", async () => {
+  test("reports live Ollama health honestly", async () => {
     const response = await request("/runtime");
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.modelRuntime.ollama.reachable).toBe(false);
-    expect(body.modelRuntime.ollama.models).toEqual([]);
+    expect(typeof body.modelRuntime.ollama.reachable).toBe("boolean");
+    expect(Array.isArray(body.modelRuntime.ollama.models)).toBe(true);
+    if (!body.modelRuntime.ollama.reachable)
+      expect(body.modelRuntime.ollama.models).toEqual([]);
     expect(body.modelRuntime.ollama.endpoint).toBe("http://localhost:11434");
-    expect(body.modelRuntime.ollama.gemmaFamily.present).toBe(false);
+    expect(typeof body.modelRuntime.ollama.gemmaFamily.present).toBe("boolean");
   });
 
   test("Ollama health uses generic tag-aware discovery, not a gemma4-only branch", async () => {

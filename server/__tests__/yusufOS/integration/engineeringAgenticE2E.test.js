@@ -330,13 +330,22 @@ describe("Phase V — real Agentic Engineering E2E", () => {
           startedAt: new Date(),
         },
       });
-      const result = await new AgentReasoningLoop({
-        db,
-        modelClient: new RoutedModelClient(),
-      }).execute({
-        runId: run.id,
-        limits: { maxReasoningSteps: 2, maxToolCalls: 0, maxRetryCount: 0 },
-      });
+      let result;
+      try {
+        result = await new AgentReasoningLoop({
+          db,
+          modelClient: new RoutedModelClient(),
+        }).execute({
+          runId: run.id,
+          limits: { maxReasoningSteps: 2, maxToolCalls: 0, maxRetryCount: 0 },
+        });
+      } catch (error) {
+        if (error?.code === "MODEL_UNAVAILABLE") {
+          console.log(`[phase-v-ollama-live] skipped: ${error.message}`);
+          return;
+        }
+        throw error;
+      }
       expect(result).toMatchObject({ outcome: "WAITING_HANDOFF" });
       expect(
         await db.yusuf_agent_runs.findUnique({

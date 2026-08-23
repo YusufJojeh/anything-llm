@@ -47,6 +47,9 @@ const {
 } = require("../../domain/yusufOS/projections/RuntimeProjection");
 const { VoiceService } = require("../../domain/yusufOS/voice/VoiceService");
 const {
+  NotificationService,
+} = require("../../domain/yusufOS/notifications/NotificationService");
+const {
   handleYusufAudioUpload,
 } = require("../../utils/SpeechToText/audioUpload");
 const { getAudioFileInfo } = require("../../utils/TextToSpeech/audioFormat");
@@ -105,6 +108,23 @@ function yusufOSEndpoints(
         })),
         hardForbiddenCapabilities: Object.keys(HARD_FORBIDDEN_DEFINITIONS),
       });
+    })
+  );
+
+  app.post(
+    path("/notifications/:notificationUuid/acknowledge"),
+    guard,
+    asyncRoute(async (request, response) => {
+      const acknowledged = await new NotificationService(db).acknowledge(
+        request.params.notificationUuid
+      );
+      if (!acknowledged)
+        throw new YusufOSError(
+          ErrorCodes.NOT_FOUND,
+          "Open notification was not found.",
+          { status: 404 }
+        );
+      response.status(200).json({ acknowledged: true });
     })
   );
 
