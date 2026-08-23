@@ -1,5 +1,17 @@
 # Current Gate
 
+## Phase X — Real Browser Integration Readiness — status: COMPLETE
+
+Prepared the Browser Broker for a human-controlled live validation while preserving its default
+disabled/empty-registry posture. CDP discovery and final websocket attachment are numeric-loopback
+only, credential-free, bounded, and redirect-free; cookie-only identity cannot authorize a
+mutation; the full external-content attack corpus stays in untrusted prompt data.
+
+Independent review: **P0=0/P1=0/P2=0**, PASS. Focused regression **5/5 suites, 101 passed**;
+server lint and `git diff --check` passed. Code commit: `90e52eda`.
+
+**Next:** Phase Y — Scheduler + Notifications.
+
 ## Phase W — Agentic Career E2E Fixture — status: COMPLETE
 
 The real AgentReasoningLoop now proves Chief → Research/cited evidence → Career preparation → L3

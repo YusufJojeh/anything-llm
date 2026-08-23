@@ -1,5 +1,13 @@
 # Gate History
 
+## Phase X — Real Browser Integration Readiness [VERIFIED_BY_TEST, 2026-08-24]
+
+Hardened the human-controlled CDP attachment path: numeric-loopback discovery, bounded streamed
+response, independently validated local browser websocket, no endpoint disclosure, and a
+cookie-only identity refusal. The PromptAssembler has explicit §16 injection coverage. Fresh
+review passed P0=0/P1=0/P2=0; no browser was attached and no external mutation occurred. Commit
+`90e52eda`.
+
 ## Phase W — Agentic Career E2E [VERIFIED_BY_TEST, 2026-08-22]
 
 Proved the real model-driven Career path including cited evidence, exact L3 approval, zero

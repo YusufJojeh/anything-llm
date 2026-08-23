@@ -1,5 +1,12 @@
 # Deferred Work
 
+## Human-controlled after Phase X (Browser readiness) — 2026-08-24
+
+- Concrete production form registration remains unstarted and requires Yusuf to choose an exact
+  origin, site, field mapping, account identity strategy, and confirmation signal.
+- Live browser attachment remains human-assisted; the broker is disabled by default and must not
+  be enabled or pointed at a browser without Yusuf's explicit operator action.
+
 ## Deferred after Phase W (Agentic Career E2E) — 2026-08-22
 
 - Add a comprehensive rejection matrix for invalid `career.confirm_verified_application` proofs.

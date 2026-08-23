@@ -1,5 +1,11 @@
 # Test Baseline
 
+## Phase X baseline — 2026-08-24 [VERIFIED_BY_TEST]
+
+- Browser/security/prompt focused regression: **5 suites passed; 101 passed, 0 failed**.
+- Server lint and `git diff --check`: passed.
+- Fresh independent review: **P0=0/P1=0/P2=0**, gate PASS.
+
 ## Phase W baseline — 2026-08-22 [VERIFIED_BY_TEST]
 
 - Full Yusuf OS: `npx jest --runInBand __tests__/yusufOS` → **55 suites passed; 730 passed,

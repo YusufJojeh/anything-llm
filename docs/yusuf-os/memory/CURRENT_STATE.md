@@ -1,6 +1,13 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-22, Phase W pass._
+_Last verified: 2026-08-24, Phase X pass._
+
+**Phase X added:** safe human-assisted browser-readiness hardening. CDP discovery/attachment is
+strictly numeric-loopback-only and streamed/bounded; a generic cookie cannot satisfy mutation
+identity; full hostile external-content corpus is kept out of trusted prompt content. Fresh
+review: P0=0/P1=0/P2=0. Commit `90e52eda`.
+
+**Current next phase:** Y, Scheduler + Notifications.
 
 **Phase W added:** a deterministic real-loop Career vertical: cited Research evidence, evidence
 read-back, opportunity and local draft, exact L3 browser approval, independent fixture-browser

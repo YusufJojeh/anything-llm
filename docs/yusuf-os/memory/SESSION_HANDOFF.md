@@ -1,5 +1,15 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-24 — Phase X: Browser readiness (Codex)
+
+Phase X is complete at `90e52eda`. The Browser Broker remains disabled and production forms remain
+empty, but the future operator-owned CDP attachment path is now bounded and loopback-only from
+HTTP discovery through the final websocket. No live browser, credentials, form, or external action
+was used. Fresh review: PASS, P0=0/P1=0/P2=0; 5 focused suites / 101 tests passed.
+
+Exact next action: Phase Y, build the safe persisted Scheduler + internal Notifications layer;
+it must never auto-approve or execute scheduled L3/L4 work.
+
 ## 2026-08-22 — Phase W: Agentic Career E2E (Codex)
 
 Phase W is complete at `270c2a6e` and `3876a449`. The deterministic provider drives the real
