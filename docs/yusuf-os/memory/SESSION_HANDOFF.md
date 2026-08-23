@@ -1,5 +1,20 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-24 — Phase Z: Command Center operational UI (Codex)
+
+Phase Z is complete at `701c2eb6`, `e3712719`, and `05b1ec12`. `/os` now surfaces Phase Y's
+durable attention and scheduler state from the dashboard projection: notification acknowledgement
+is explicitly non-approval/non-execution, scheduler `ACTIVE` is a known healthy scheduler state,
+and no UI invents work or health. The existing responsive shell, Arabic RTL, voice console and
+real-data route surfaces remain intact.
+
+Fresh independent review: PASS, P0=0/P1=0/P2=1. Yusuf OS frontend: 10 files, 140 tests passed;
+final focused review tests: 55 passed; targeted lint and production build passed. P2: localize
+notification-kind text. Nothing pushed; `.claude/` stays untracked.
+
+Exact next action: Phase AA, perform a fresh independent security hardening review and fix every
+P0/P1 it identifies before proceeding to reliability/recovery.
+
 ## 2026-08-24 — Phase Y: Scheduler + Notifications (Codex)
 
 Phase Y is complete at `9e1e82e3`, `7eac029e`, and `8a0e3345`. The durable scheduler runs only

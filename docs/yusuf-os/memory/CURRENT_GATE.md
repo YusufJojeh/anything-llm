@@ -1,5 +1,24 @@
 # Current Gate
 
+## Phase Z — Command Center Operational UI — status: COMPLETE
+
+The `/os` Command Center now renders durable scheduler/notification operational state from the
+existing dashboard projection: attention includes durable incidents, acknowledgement is a
+separate non-approval action, and System Health shows persisted schedules, their next run, and
+their recorded failure state. Status mapping explicitly distinguishes enabled scheduler state from
+Agent activity or approval semantics. Existing responsive, RTL, accessible shell/routes remain
+unchanged and real-data-only.
+
+Independent review: **P0=0/P1=0/P2=1**, PASS. Yusuf OS frontend regression: **10 files, 140
+passed**; final focused review checks: **55 passed**; targeted lint, production build, and diff
+checks passed. Code commits: `701c2eb6`, `e3712719`, `05b1ec12`.
+
+P2 follow-up: present each durable notification kind with a localized human label rather than its
+stored enum. `.claude/` remains untracked. No push, deployment, or live external mutation
+occurred.
+
+**Next:** Phase AA — fresh security hardening review.
+
 ## Phase Y — Scheduler + Notifications — status: COMPLETE
 
 Added a durable local scheduler with a single code-owned evidence-retention job, exclusive
