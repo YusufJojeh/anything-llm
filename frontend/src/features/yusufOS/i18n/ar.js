@@ -346,6 +346,10 @@ export default {
     reconciliationPending_other:
       "آثار خارجية قد تكون وقعت ولم تُثبَت بعد. العدد: {{count}}",
     adapters: "محوّلات التنفيذ",
+    scheduler: "المجدول",
+    schedulerNone: "لا توجد جداول دائمة مهيأة.",
+    schedulerNext: "التشغيل التالي {{time}}",
+    schedulerFailure: "إخفاقات مسجلة: {{count}}؛ الأحدث: {{code}}",
     adapterCapabilities_zero: "صلاحيات: {{count}}",
     adapterCapabilities_one: "صلاحيات: {{count}}",
     adapterCapabilities_two: "صلاحيات: {{count}}",

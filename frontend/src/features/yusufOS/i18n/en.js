@@ -321,6 +321,10 @@ export default {
     reconciliationPending_other:
       "{{count}} external effects may have occurred and are not yet proven.",
     adapters: "Execution adapters",
+    scheduler: "Scheduler",
+    schedulerNone: "No durable schedules are configured.",
+    schedulerNext: "Next run {{time}}",
+    schedulerFailure: "{{count}} recorded failure(s); latest: {{code}}",
     adapterCapabilities_one: "1 capability",
     adapterCapabilities_other: "{{count}} capabilities",
     realtime: "Realtime delivery",

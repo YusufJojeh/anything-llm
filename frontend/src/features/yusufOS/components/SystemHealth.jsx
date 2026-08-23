@@ -243,6 +243,42 @@ export default function SystemHealth({
 
       <Panel>
         <SectionTitle className="px-4 pt-4">
+          {t("yusufOS:system.scheduler")}
+        </SectionTitle>
+        <div className="mt-2">
+          {(dashboard.scheduler || []).length ? (
+            dashboard.scheduler.map((schedule) => (
+              <HealthRow
+                key={schedule.scheduleKey}
+                label={schedule.scheduleKey}
+                domain="system"
+                status={schedule.status}
+                detail={
+                  schedule.failureCount > 0
+                    ? t("yusufOS:system.schedulerFailure", {
+                        count: schedule.failureCount,
+                        code:
+                          schedule.lastErrorCode || t("yusufOS:state.unknown"),
+                      })
+                    : t("yusufOS:system.schedulerNext", {
+                        time: formatDateTime(i18n.language, schedule.nextRunAt),
+                      })
+                }
+              />
+            ))
+          ) : (
+            <p
+              className="px-4 py-3 text-sm"
+              style={{ color: "var(--yos-text-secondary)" }}
+            >
+              {t("yusufOS:system.schedulerNone")}
+            </p>
+          )}
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionTitle className="px-4 pt-4">
           {t("yusufOS:system.realtime")}
         </SectionTitle>
         <div className="mt-2">
