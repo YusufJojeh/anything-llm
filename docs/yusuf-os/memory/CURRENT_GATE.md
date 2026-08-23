@@ -8,10 +8,9 @@ returned a bounded response plus token usage (`prompt_eval_count=24`, `eval_coun
 Gemma are therefore **LIVE-VALIDATED** locally. `OPENAI_API_KEY` is absent: OpenAI remains
 **IMPLEMENTED / NOT LIVE-VALIDATED**, and no paid/cloud request was sent.
 
-Evidence: [PHASE_AC_PROVIDER_VALIDATION.md](PHASE_AC_PROVIDER_VALIDATION.md). Independent review
-will be recorded with the local commit; mocked provider regression is **25 passed, 1 conditional
-OpenAI skip**. `.claude/` remains untracked. No push, deployment, or live external mutation
-occurred.
+Evidence: [PHASE_AC_PROVIDER_VALIDATION.md](PHASE_AC_PROVIDER_VALIDATION.md). Independent review:
+**P0=0/P1=0/P2=0**, PASS; mocked provider regression is **25 passed, 1 conditional OpenAI skip**.
+`.claude/` remains untracked. No push, deployment, or live external mutation occurred.
 
 **Next:** Phase AD — Release / Ops / Backup.
 
