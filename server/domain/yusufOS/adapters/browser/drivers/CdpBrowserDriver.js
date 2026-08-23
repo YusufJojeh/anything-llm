@@ -20,12 +20,7 @@ const ENV_ENDPOINT = "YUSUF_OS_BROWSER_CDP_ENDPOINT";
 const DEFAULT_ENDPOINT = "http://127.0.0.1:9222";
 const NAVIGATION_TIMEOUT_MS = 10000;
 const DISCOVERY_MAX_BYTES = 16 * 1024;
-const LOOPBACK_ENDPOINT_HOSTS = new Set([
-  "localhost",
-  "127.0.0.1",
-  "::1",
-  "[::1]",
-]);
+const LOOPBACK_ENDPOINT_HOSTS = new Set(["127.0.0.1", "::1", "[::1]"]);
 
 function normalizeEndpoint(value) {
   try {
@@ -46,7 +41,8 @@ function normalizeWebSocketEndpoint(value) {
     if (url.protocol !== "ws:" || !LOOPBACK_ENDPOINT_HOSTS.has(url.hostname))
       return null;
     if (url.username || url.password || url.search || url.hash) return null;
-    if (!url.pathname.startsWith("/devtools/browser/")) return null;
+    if (!/^\/devtools\/browser\/[A-Za-z0-9._-]{1,200}$/.test(url.pathname))
+      return null;
     return url.href;
   } catch {
     return null;
@@ -82,9 +78,30 @@ class CdpBrowserDriver {
       signal: AbortSignal.timeout(NAVIGATION_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error("browser discovery failed");
-    const raw = await response.text();
-    if (Buffer.byteLength(raw, "utf8") > DISCOVERY_MAX_BYTES)
+    const declaredLength = Number(response.headers?.get?.("content-length"));
+    if (Number.isFinite(declaredLength) && declaredLength > DISCOVERY_MAX_BYTES)
       throw new Error("browser discovery response is too large");
+    const reader = response.body?.getReader?.();
+    if (!reader) throw new Error("browser discovery response is unreadable");
+    const chunks = [];
+    let bytes = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > DISCOVERY_MAX_BYTES) {
+        await reader.cancel().catch(() => {});
+        throw new Error("browser discovery response is too large");
+      }
+      chunks.push(value);
+    }
+    const combined = new Uint8Array(bytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const raw = new TextDecoder().decode(combined);
     let discovered;
     try {
       discovered = JSON.parse(raw).webSocketDebuggerUrl;
