@@ -262,6 +262,31 @@ describe("attention queue", () => {
     expect(queue.map((item) => item.kind)).toContain("AUDIT_STALE");
   });
 
+  test("surfaces durable notification attention without inventing an approval", () => {
+    const queue = buildAttentionQueue(
+      dashboardFixture({
+        notificationAttentionQueue: [
+          {
+            notificationId: "notice-1",
+            kind: "SCHEDULER_FAILURE",
+            severity: "WARNING",
+            summary: "Retention retry is pending.",
+          },
+        ],
+      })
+    );
+    expect(queue).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "notification:notice-1",
+          kind: "NOTIFICATION",
+          href: "/os/system",
+          values: expect.objectContaining({ notificationKind: "SCHEDULER_FAILURE" }),
+        }),
+      ])
+    );
+  });
+
   test("UNCHECKED does not raise a false alarm and does not read as healthy", () => {
     // UNCHECKED is not an attention item (nothing is known to be wrong), but it
     // is also never rendered as VALID — that is asserted in the status tests.

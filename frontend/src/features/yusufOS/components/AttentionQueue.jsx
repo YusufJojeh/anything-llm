@@ -22,7 +22,7 @@ import {
  * When the queue is genuinely empty it says so plainly. That is a real,
  * verified answer about the system, not an absence of data.
  */
-export default function AttentionQueue({ items, loading }) {
+export default function AttentionQueue({ items, loading, onAcknowledge }) {
   const { t } = useTranslation();
 
   if (loading) return <LoadingBlock rows={3} />;
@@ -122,6 +122,19 @@ export default function AttentionQueue({ items, loading }) {
                   style={{ color: "var(--yos-text-muted)" }}
                 />
               </Link>
+              {item.values.notificationId && onAcknowledge ? (
+                <button
+                  type="button"
+                  onClick={() => onAcknowledge(item.values.notificationId)}
+                  className="yos-touch-target mx-4 mb-3 rounded px-3 text-xs font-semibold"
+                  style={{
+                    color: style.text,
+                    border: `1px solid color-mix(in srgb, ${style.graphic} 45%, transparent)`,
+                  }}
+                >
+                  {t("yusufOS:attention.acknowledge")}
+                </button>
+              ) : null}
             </li>
           );
         })}

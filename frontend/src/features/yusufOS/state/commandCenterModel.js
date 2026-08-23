@@ -313,6 +313,26 @@ export function buildAttentionQueue(dashboard) {
       },
     });
 
+  // Phase Y notifications are durable, redacted server projections. They are
+  // attention only: an acknowledgement is never an approval decision.
+  for (const notification of dashboard.notificationAttentionQueue || [])
+    items.push({
+      id: `notification:${notification.notificationId}`,
+      kind: "NOTIFICATION",
+      tone:
+        notification.severity === "CRITICAL"
+          ? TONES.ERROR
+          : notification.severity === "ACTION"
+            ? TONES.APPROVAL
+            : TONES.WARNING,
+      href: "/os/system",
+      values: {
+        notificationId: notification.notificationId,
+        notificationKind: notification.kind,
+        targetSummary: notification.summary,
+      },
+    });
+
   return items.sort(
     (left, right) => TONE_SEVERITY[left.tone] - TONE_SEVERITY[right.tone]
   );

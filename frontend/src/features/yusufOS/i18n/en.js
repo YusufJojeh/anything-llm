@@ -166,6 +166,7 @@ export default {
     emptyDetail:
       "No pending approvals, no blocked work, no unverified external effects.",
     open: "Open",
+    acknowledge: "Acknowledge",
     count_one: "{{count}} item needs you",
     count_other: "{{count}} items need you",
     kind: {
@@ -179,6 +180,7 @@ export default {
       RECONCILIATION_PENDING:
         "{{count}} external effect(s) awaiting verification",
       ADAPTER_OFFLINE: "Adapter {{adapterId}} is {{status}}",
+      NOTIFICATION: "{{notificationKind}}",
     },
   },
   agent: {

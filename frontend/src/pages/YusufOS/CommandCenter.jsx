@@ -2,6 +2,7 @@ import React, { useCallback, useId, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useYusufOS, PHASES } from "@/features/yusufOS/state/YusufOSProvider";
+import { yusufApi } from "@/features/yusufOS/api/client";
 import { coreStateTone } from "@/features/yusufOS/state/commandCenterModel";
 import { toneStyle, TONES } from "@/features/yusufOS/state/statusSemantics";
 import AgentConstellation from "@/features/yusufOS/components/AgentConstellation";
@@ -120,7 +121,8 @@ function CoreSummary({ coreState, summary, onOpen }) {
 
 export default function CommandCenter() {
   const { t } = useTranslation();
-  const { phase, dashboard, model, connection, realtime } = useYusufOS();
+  const { phase, dashboard, model, connection, realtime, refresh } =
+    useYusufOS();
   const [params, setParams] = useSearchParams();
   const rosterHeadingId = useId();
   const attentionHeadingId = useId();
@@ -152,6 +154,14 @@ export default function CommandCenter() {
     next.delete("focus");
     setParams(next, { replace: false });
   }, [params, setParams]);
+
+  const acknowledgeNotification = useCallback(
+    async (notificationId) => {
+      await yusufApi.acknowledgeNotification(notificationId);
+      await refresh();
+    },
+    [refresh]
+  );
 
   const selectedAgent = useMemo(
     () =>
@@ -227,7 +237,11 @@ export default function CommandCenter() {
             {t("yusufOS:attention.title")}
           </SectionTitle>
           <div className="mt-2">
-            <AttentionQueue items={model.attention} loading={loading} />
+            <AttentionQueue
+              items={model.attention}
+              loading={loading}
+              onAcknowledge={acknowledgeNotification}
+            />
           </div>
         </Panel>
 

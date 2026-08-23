@@ -177,6 +177,7 @@ export default {
     emptyDetail:
       "لا موافقات معلّقة، ولا عمل متوقّف، ولا آثار خارجية غير مُتحقَّق منها.",
     open: "فتح",
+    acknowledge: "إقرار",
     count_zero: "عناصر تحتاج إليك: {{count}}",
     count_one: "عناصر تحتاج إليك: {{count}}",
     count_two: "عناصر تحتاج إليك: {{count}}",
@@ -193,6 +194,7 @@ export default {
       TASK_FAILED: "مهمة فاشلة",
       RECONCILIATION_PENDING: "آثار خارجية بانتظار التحقّق. العدد: {{count}}",
       ADAPTER_OFFLINE: "المحوّل {{adapterId}} في حالة {{status}}",
+      NOTIFICATION: "{{notificationKind}}",
     },
   },
   agent: {
