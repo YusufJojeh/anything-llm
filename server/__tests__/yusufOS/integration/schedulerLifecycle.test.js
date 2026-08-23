@@ -24,6 +24,22 @@ describe("Phase Y — durable scheduler", () => {
     expect(await db.yusuf_schedules.findUnique({ where: { scheduleKey: "EVIDENCE_RETENTION" } })).toMatchObject({ failureCount: 0, leaseId: null, nextRunAt: new Date("2026-08-24T10:01:00.000Z") });
   });
 
+  test("renews a long-running retention lease so another worker cannot reclaim it", async () => {
+    const now = new Date();
+    let release;
+    const blocked = new Promise((resolve) => { release = resolve; });
+    const retention = jest.fn(async () => blocked.then(() => ({ errors: [] })));
+    const scheduler = new Scheduler({ db, retention, leaseMs: 30 });
+    await scheduler.ensureEvidenceRetention({ now, intervalSeconds: 60 });
+    const first = scheduler.tick({ now });
+    await new Promise((resolve) => setTimeout(resolve, 45));
+    const second = await scheduler.tick({ now: new Date() });
+    expect(second).toEqual([expect.objectContaining({ status: "SKIPPED" })]);
+    release();
+    await first;
+    expect(retention).toHaveBeenCalledTimes(1);
+  });
+
   test("failure backs off durably and emits one deduplicated operator notification", async () => {
     const now = new Date("2026-08-24T10:00:00.000Z");
     const scheduler = new Scheduler({ db, retention: async () => { throw new Error("disk unavailable"); } });

@@ -41,6 +41,7 @@ class Scheduler {
     notificationProjector,
     audit,
     random = Math.random,
+    leaseMs = LEASE_MS,
   } = {}) {
     this.db = db;
     this.retention = retention;
@@ -50,6 +51,7 @@ class Scheduler {
       new NotificationProjector({ db, notifications: this.notifications });
     this.audit = audit || new AuditService(db);
     this.random = random;
+    this.leaseMs = leaseMs;
   }
 
   async ensureEvidenceRetention({
@@ -97,16 +99,30 @@ class Scheduler {
       },
       data: {
         leaseId,
-        leaseExpiresAt: new Date(now.getTime() + LEASE_MS),
+        leaseExpiresAt: new Date(now.getTime() + this.leaseMs),
         version: { increment: 1 },
       },
     });
     if (claimed.count !== 1)
       return { scheduleKey: schedule.scheduleKey, status: "SKIPPED" };
+    let leaseLost = false;
+    const renewal = setInterval(async () => {
+      try {
+        const renewed = await this.db.yusuf_schedules.updateMany({
+          where: { id: schedule.id, leaseId },
+          data: { leaseExpiresAt: new Date(Date.now() + this.leaseMs) },
+        });
+        if (renewed.count !== 1) leaseLost = true;
+      } catch {
+        leaseLost = true;
+      }
+    }, Math.max(10, Math.floor(this.leaseMs / 3)));
+    renewal.unref?.();
     try {
       if (schedule.kind !== SCHEDULE_KINDS.EVIDENCE_RETENTION)
         throw new Error("UNKNOWN_SCHEDULE_KIND");
       const result = await this.retention(this.db, { now });
+      if (leaseLost) throw new Error("SCHEDULE_LEASE_LOST");
       if (result.errors?.length) throw new Error("RETENTION_ERRORS");
       await this.#recordTerminal({ schedule, leaseId, now, succeeded: true });
       await this.notifications.resolve(`scheduler:${schedule.scheduleKey}`);
@@ -129,6 +145,8 @@ class Scheduler {
         summary: `Scheduled ${schedule.scheduleKey} failed; retry is pending.`,
       });
       return { scheduleKey: schedule.scheduleKey, status: "FAILED" };
+    } finally {
+      clearInterval(renewal);
     }
   }
 
