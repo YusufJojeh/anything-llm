@@ -64,7 +64,8 @@ describe("Gate F — Command Center projections", () => {
         nextRunAt: now,
         failureCount: 2,
         lastErrorCode: "SCHEDULE_EXECUTION_FAILED",
-        workerStatus: "DEGRADED",
+        workerLastFailureAt: now,
+        workerLastErrorCode: "SCHEDULER_WORKER_FAILED",
       },
     });
     await db.yusuf_notifications.create({

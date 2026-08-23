@@ -1,5 +1,14 @@
 # Deferred Work
 
+## Final V1 release gate — 2026-08-24
+
+- Live OpenAI validation remains unavailable without a user-provided API key;
+  Phase AC truthfully records it as implemented but not live-validated.
+- Real browser, Career form, Gmail, LinkedIn, WhatsApp, and Calendar actions
+  remain human-controlled and disabled/unconfigured unless Yusuf explicitly
+  supplies the integration, credentials, and approval. They are not V1 test
+  failures and must never be simulated as live work.
+
 ## Human-controlled after Phase X (Browser readiness) — 2026-08-24
 
 - Concrete production form registration remains unstarted and requires Yusuf to choose an exact

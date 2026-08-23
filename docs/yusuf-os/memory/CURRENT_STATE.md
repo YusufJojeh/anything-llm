@@ -1,6 +1,17 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-24, Phase X pass._
+_Last verified: 2026-08-24, Phase AE final release gate._
+
+**Phase AE added:** final V1 regression caught and repaired the stale Command
+Center scheduler fixture (`workerStatus` was no longer a persisted Prisma
+field; worker failure/tick timestamps are). Backend E2E completion, frontend
+Yusuf OS regression, production build, Prisma validation, targeted lint, and
+diff check were rerun. Windows Jest fixture output suppresses its normal
+aggregate summary, so this record intentionally does not invent a final count.
+Final independent review passed P0=0/P1=0. The S→AE critical path is complete.
+
+**Current state:** V1 release gate complete; no feature work remains on the
+S→AE critical path.
 
 **Phase X added:** safe human-assisted browser-readiness hardening. CDP discovery/attachment is
 strictly numeric-loopback-only and streamed/bounded; a generic cookie cannot satisfy mutation

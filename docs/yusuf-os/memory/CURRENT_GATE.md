@@ -1,5 +1,28 @@
 # Current Gate
 
+## Phase AE — Final Full-System E2E — status: COMPLETE
+
+The V1 critical path S→AE is locally complete. The final sweep caught and
+fixed a stale Command Center scheduler fixture so it now writes the current
+durable worker failure fields rather than a removed Prisma field. The governed
+Agent → capability → policy → approval → execution → verification → receipt →
+audit architecture remains covered by the real Engineering and Career E2E
+fixtures, while the Command Center, scheduler, voice, and provider boundaries
+retain their earlier focused coverage.
+
+Final regression evidence: focused Command Center projection and Engineering/
+Career/Reasoning E2E commands completed with no further failure after the
+fixture repair; the Windows Jest fixture runner suppressed its normal aggregate
+summary, so no fabricated count is recorded. Yusuf OS frontend tests completed
+successfully; frontend production build, Prisma validation, targeted ESLint,
+and `git diff --check` passed. Independent final review: **P0=0/P1=0**, PASS.
+Inherited P2s remain: non-SQLite audit-sequence contention, application-only
+scheduler/notification DB constraints, and raw notification kind labels.
+`.claude/` remains untracked. No push, deployment, or live external mutation
+occurred.
+
+**V1 gate:** COMPLETE.
+
 ## Phase AD — Release / Ops / Backup — status: COMPLETE
 
 V1 now has a local-only operations runbook and a fail-closed startup readiness

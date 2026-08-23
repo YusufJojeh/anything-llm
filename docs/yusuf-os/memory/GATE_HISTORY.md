@@ -1,5 +1,17 @@
 # Gate History
 
+## Phase AE — Final Full-System E2E [VERIFIED_BY_TEST, 2026-08-24]
+
+The final V1 release sweep found a real stale integration fixture attempting to
+persist the removed `workerStatus` field. It now uses the current durable
+worker failure fields, matching the Dashboard projection. Command Center and
+core Engineering/Career/Reasoning E2E commands completed after the repair;
+frontend Yusuf OS tests and production build completed. Windows Jest fixture
+output suppressed its aggregate summary, so no count is claimed. Final
+independent review passed **P0=0/P1=0**. Inherited P2s: non-SQLite audit
+sequence contention, application-only scheduler/notification DB constraints,
+and raw notification labels.
+
 ## Phase X — Real Browser Integration Readiness [VERIFIED_BY_TEST, 2026-08-24]
 
 Hardened the human-controlled CDP attachment path: numeric-loopback discovery, bounded streamed
