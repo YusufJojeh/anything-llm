@@ -1,5 +1,23 @@
 # Current Gate
 
+## Phase AB — Reliability / Recovery — status: COMPLETE
+
+Scheduler recovery is now durable and truthful: long retention runs renew their lease; boot/tick
+failures retain a retrying worker and durable failure state; a returned failed job is degraded just
+like a thrown tick error; dashboard health distinguishes stale, failed, and healthy heartbeat
+ordering. The SSE/session recovery path closes an expired browser session rather than carrying a
+stale control-plane connection.
+
+Independent review: **P0=0/P1=0/P2=1**, PASS. Focused scheduler lifecycle: **14 passed**;
+reviewer also verified Command Center projection, provider tests, and the standalone Agent
+Reasoning Loop. Code commits: `7e5db270`, `f73abf50`.
+
+P2: scheduler/notification migration lacks database-level enum/FK constraints; current
+application validation covers them. `.claude/` remains untracked. No push, deployment, or live
+external mutation occurred.
+
+**Next:** Phase AC — live provider validation where safely available.
+
 ## Phase AA — Security hardening review — status: COMPLETE
 
 A fresh security review exercised the integrated Agent/Policy/Approval/Execution/Audit, model,

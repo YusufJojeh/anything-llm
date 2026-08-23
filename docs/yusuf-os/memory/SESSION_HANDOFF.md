@@ -1,5 +1,19 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-24 — Phase AB: Reliability / Recovery (Codex)
+
+Phase AB is complete at `7e5db270` and `f73abf50`. Long-running retention jobs now renew their
+exclusive lease; a failed boot/tick or a non-throwing failed job keeps the worker retrying and
+projects degraded state instead of a false healthy heartbeat. Scheduler lifecycle focused
+regression: 14 passed. The separately hardened UI SSE stream ends when its session expires.
+
+Fresh independent review: PASS, P0=0/P1=0/P2=1. P2 is DB-level enum/FK constraints for the
+scheduler/notification migration. No push/deployment/live mutation; `.claude/` remains untracked.
+
+Exact next action: Phase AC. Check available provider state read-only; only execute a cheap live
+completion if a local model or already-provisioned OpenAI key genuinely makes it safe, and record
+truthful validation status either way.
+
 ## 2026-08-24 — Phase AA: Security hardening (Codex)
 
 Phase AA is complete at `eda78d45` and `2cc33e87`. Fresh security review covered the integrated
