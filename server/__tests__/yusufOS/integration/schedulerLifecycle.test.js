@@ -78,6 +78,21 @@ describe("Phase Y — durable scheduler", () => {
     expect(await db.yusuf_audit_events.count({ where: { eventType: "notification.opened" } })).toBe(1);
   });
 
+  test("resolves cleared incidents and reopens a later recurrence with new audit evidence", async () => {
+    const notifications = new NotificationService(db);
+    const first = await notifications.open({
+      kind: "TASK_BLOCKED", dedupeKey: "task-blocked:recurs", summary: "Task is blocked.",
+    });
+    await notifications.acknowledge(first.uuid);
+    expect(await notifications.resolve("task-blocked:recurs")).toBe(true);
+    expect(await db.yusuf_notifications.findUnique({ where: { uuid: first.uuid } })).toMatchObject({ status: "RESOLVED" });
+    const recurrence = await notifications.open({
+      kind: "TASK_BLOCKED", dedupeKey: "task-blocked:recurs", summary: "Task is blocked again.",
+    });
+    expect(recurrence).toMatchObject({ uuid: first.uuid, status: "OPEN", acknowledgedAt: null, summary: "Task is blocked again." });
+    expect(await db.yusuf_audit_events.count({ where: { eventType: "notification.reopened" } })).toBe(1);
+  });
+
   test("fails closed when the terminal scheduler audit cannot be persisted", async () => {
     const now = new Date("2026-08-24T10:00:00.000Z");
     const audit = { appendInTransaction: jest.fn(async () => { throw new Error("audit unavailable"); }) };

@@ -42,7 +42,20 @@ class NotificationService {
       const existing = await tx.yusuf_notifications.findUnique({
         where: { dedupeKey },
       });
-      if (existing) return existing;
+      if (existing && existing.status !== "RESOLVED") return existing;
+      if (existing) {
+        const reopened = await tx.yusuf_notifications.update({
+          where: { dedupeKey },
+          data: { severity, summary, taskId, runId, status: "OPEN", acknowledgedAt: null },
+        });
+        await this.audit.appendInTransaction(tx, {
+          eventType: "notification.reopened",
+          principal: { type: PRINCIPAL_TYPES.SYSTEM, id: "notification-service" },
+          outcome: "OPEN", resource: { type: "NOTIFICATION", id: reopened.uuid },
+          metadata: { kind, severity }, requestId: `notification:${reopened.uuid}:reopened`,
+        });
+        return reopened;
+      }
       const notification = await tx.yusuf_notifications.create({
         data: {
           uuid: randomUUID(),
@@ -84,6 +97,34 @@ class NotificationService {
       return result;
     });
     return updated.count === 1;
+  }
+
+  async resolve(dedupeKey) {
+    return this.db.$transaction(async (tx) => {
+      const result = await tx.yusuf_notifications.updateMany({
+        where: { dedupeKey, status: { in: ["OPEN", "ACKNOWLEDGED"] } },
+        data: { status: "RESOLVED" },
+      });
+      if (result.count === 1) {
+        const notification = await tx.yusuf_notifications.findUnique({ where: { dedupeKey } });
+        await this.audit.appendInTransaction(tx, {
+          eventType: "notification.resolved",
+          principal: { type: PRINCIPAL_TYPES.SYSTEM, id: "notification-service" },
+          outcome: "RESOLVED", resource: { type: "NOTIFICATION", id: notification.uuid },
+          metadata: {}, requestId: `notification:${notification.uuid}:resolved`,
+        });
+      }
+      return result.count === 1;
+    });
+  }
+
+  async resolveMissing({ kinds, activeDedupeKeys }) {
+    const candidates = await this.db.yusuf_notifications.findMany({
+      where: { kind: { in: kinds }, status: { in: ["OPEN", "ACKNOWLEDGED"] } },
+      select: { dedupeKey: true },
+    });
+    for (const { dedupeKey } of candidates)
+      if (!activeDedupeKeys.has(dedupeKey)) await this.resolve(dedupeKey);
   }
 }
 

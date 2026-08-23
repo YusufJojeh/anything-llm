@@ -142,6 +142,25 @@ class NotificationProjector {
     // serializing these short audited transactions also preserves a single
     // deterministic audit chain on database engines with stricter locking.
     for (const operation of operations) await operation();
+    const activeDedupeKeys = new Set([
+      ...approvals.map((row) => `approval:${row.uuid}`),
+      ...blockedTasks.map((row) => `task-blocked:${row.uuid}`),
+      ...unknownIntents.map((row) => `execution-unknown:${row.uuid}`),
+      ...breaches.map((row) => `monitoring-breach:${row.uuid}`),
+      ...modelFailures.map((row) => `model-unavailable:${row.uuid}`),
+      ...inbox.map((row) => `inbox:${row.uuid}`),
+      ...(browser.status !== "DISABLED" && browser.status !== "AVAILABLE" ? ["adapter:browser-broker"] : []),
+      ...(git.status !== "AVAILABLE" ? ["adapter:local-git"] : []),
+    ]);
+    await this.notifications.resolveMissing({
+      kinds: [
+        NOTIFICATION_KINDS.APPROVAL_NEEDED, NOTIFICATION_KINDS.TASK_BLOCKED,
+        NOTIFICATION_KINDS.EXECUTION_UNKNOWN, NOTIFICATION_KINDS.MONITORING_BREACH,
+        NOTIFICATION_KINDS.MODEL_UNAVAILABLE, NOTIFICATION_KINDS.INBOX_IMPORTANT,
+        NOTIFICATION_KINDS.ADAPTER_OFFLINE, NOTIFICATION_KINDS.BROWSER_DISCONNECTED,
+      ],
+      activeDedupeKeys,
+    });
     return operations.length;
   }
 }

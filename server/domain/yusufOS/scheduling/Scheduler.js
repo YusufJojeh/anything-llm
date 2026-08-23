@@ -109,6 +109,7 @@ class Scheduler {
       const result = await this.retention(this.db, { now });
       if (result.errors?.length) throw new Error("RETENTION_ERRORS");
       await this.#recordTerminal({ schedule, leaseId, now, succeeded: true });
+      await this.notifications.resolve(`scheduler:${schedule.scheduleKey}`);
       return { scheduleKey: schedule.scheduleKey, status: "SUCCEEDED", result };
     } catch (error) {
       const failureCount = schedule.failureCount + 1;
