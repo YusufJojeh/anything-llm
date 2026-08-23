@@ -1,5 +1,23 @@
 # Current Gate
 
+## Phase AA — Security hardening review — status: COMPLETE
+
+A fresh security review exercised the integrated Agent/Policy/Approval/Execution/Audit, model,
+browser, inbox, voice, UI-session/SSE, and scheduler boundaries. It found and closed two P1s:
+an authenticated SSE stream now rechecks (without extending) UI-session validity and terminates on
+expiry; scheduler boot/tick health is durable and projection-backed, including failure ordering so
+a recent failure cannot inherit a prior healthy heartbeat.
+
+Independent review: **P0=0/P1=0/P2=2**, PASS. Focused scheduler regression: **12 passed**;
+Yusuf OS frontend regression: **10 files, 140 passed**; targeted syntax/lint/diff checks passed.
+Security code commits: `eda78d45`, `2cc33e87`.
+
+P2 follow-ups: audit append contention retry/serialization on non-SQLite engines; constrain remote
+provider error text to operator-safe summaries. `.claude/` remains untracked. No push,
+deployment, or live external mutation occurred.
+
+**Next:** Phase AB — Reliability / Recovery.
+
 ## Phase Z — Command Center Operational UI — status: COMPLETE
 
 The `/os` Command Center now renders durable scheduler/notification operational state from the

@@ -1,5 +1,20 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-24 — Phase AA: Security hardening (Codex)
+
+Phase AA is complete at `eda78d45` and `2cc33e87`. Fresh security review covered the integrated
+Agent/Policy/Approval/Execution/Audit, model, Browser Broker, Inbox, Voice, browser UI session,
+SSE, and Scheduler paths. The authenticated event stream rechecks a non-touching session validity
+predicate and closes on expiry. Scheduler worker bootstrap/tick failures now retry, write durable
+liveness/failure state where the database is reachable, and project degraded health when the
+latest event is a failure.
+
+Fresh independent re-review: PASS, P0=0/P1=0/P2=2. P2s: audit concurrency retry/serialization
+and provider-error text hardening. No push/deployment/live mutation; `.claude/` remains untracked.
+
+Exact next action: Phase AB, reliability/recovery hardening—especially worker recovery, audit
+contention, and safe failure observability.
+
 ## 2026-08-24 — Phase Z: Command Center operational UI (Codex)
 
 Phase Z is complete at `701c2eb6`, `e3712719`, and `05b1ec12`. `/os` now surfaces Phase Y's
