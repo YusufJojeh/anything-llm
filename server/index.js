@@ -140,7 +140,11 @@ googleAgentSkillEndpoints(apiRouter);
 memoryEndpoints(apiRouter);
 yusufOSEndpoints(apiRouter, { preGuarded: true });
 yusufUiSessionEndpoints(apiRouter);
-startSchedulerWorker().catch(() => {});
+startSchedulerWorker().catch((error) => {
+  // Do not hide a scheduler boot failure. SchedulerWorker normally retains
+  // its own retry loop; this is the final process-level safety net.
+  console.error("Yusuf OS scheduler failed to start", error?.message);
+});
 yusufOSEndpoints(apiRouter, {
   preGuarded: true,
   basePath: "/yusuf-os-ui",

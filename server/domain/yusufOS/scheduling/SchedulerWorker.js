@@ -12,26 +12,50 @@ class SchedulerWorker {
 
   async start() {
     if (this.timer) return;
-    await this.scheduler.ensureEvidenceRetention();
     const tick = async () => {
       if (this.running) return;
       this.running = true;
       try {
+        await this.scheduler.ensureEvidenceRetention();
         await this.scheduler.tick();
-      } catch {
-        // Per-schedule errors are durable; this guard preserves future ticks.
+        await this.#recordHealth({ now: new Date() });
+      } catch (error) {
+        // A boot/tick failure must not silently disable scheduling or leave
+        // an old ACTIVE row looking alive. Keep retrying, and persist the
+        // failure whenever the database is reachable again.
+        await this.#recordHealth({ now: new Date(), error });
       } finally {
         this.running = false;
       }
     };
-    await tick();
     this.timer = setInterval(tick, this.pollMs);
     this.timer.unref?.();
+    await tick();
   }
 
   stop() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+  }
+
+  async #recordHealth({ now, error = null }) {
+    try {
+      await this.scheduler.db.yusuf_schedules.updateMany({
+        where: { scheduleKey: "EVIDENCE_RETENTION" },
+        data: error
+          ? {
+              workerLastFailureAt: now,
+              workerLastErrorCode: "SCHEDULER_WORKER_FAILED",
+            }
+          : {
+              workerLastTickAt: now,
+              workerLastErrorCode: null,
+            },
+      });
+    } catch {
+      // The timer remains registered and will retry. There is no truthful
+      // durable status to write while the database itself is unavailable.
+    }
   }
 }
 

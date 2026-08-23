@@ -178,6 +178,15 @@ class DashboardProjection {
       lastRunAt: schedule.lastRunAt?.toISOString() || null,
       failureCount: schedule.failureCount,
       lastErrorCode: schedule.lastErrorCode,
+      workerStatus:
+        !schedule.workerLastTickAt
+          ? "DEGRADED"
+          : Date.now() - schedule.workerLastTickAt.getTime() > 90 * 1000
+            ? "DEGRADED"
+            : "HEALTHY",
+      workerLastTickAt: schedule.workerLastTickAt?.toISOString() || null,
+      workerLastFailureAt: schedule.workerLastFailureAt?.toISOString() || null,
+      workerLastErrorCode: schedule.workerLastErrorCode,
     }));
   }
 

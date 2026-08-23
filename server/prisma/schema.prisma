@@ -1135,6 +1135,9 @@ model yusuf_schedules {
   lastRunAt      DateTime?
   failureCount   Int      @default(0)
   lastErrorCode  String?
+  workerLastTickAt DateTime?
+  workerLastFailureAt DateTime?
+  workerLastErrorCode String?
   leaseId        String?
   leaseExpiresAt DateTime?
   version        Int      @default(1)

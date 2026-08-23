@@ -60,6 +60,14 @@ function currentSession() {
   return activeSession;
 }
 
+// Non-touching validation for long-lived read connections. Unlike the route
+// guard it does not extend the idle window: an SSE stream is delivery, not
+// operator activity, so it must not keep a control-plane session alive.
+function isUiSessionActive(id) {
+  const session = currentSession();
+  return sessionMatches(session, id);
+}
+
 function createSession() {
   const at = now();
   activeSession = {
@@ -277,6 +285,7 @@ module.exports = {
   ABSOLUTE_TTL_MS,
   yusufUiSessionGuard,
   yusufUiSessionEndpoints,
+  isUiSessionActive,
   // Test seams — never used by request handling.
   __clearSession: clearSession,
   __currentSession: currentSession,

@@ -64,6 +64,7 @@ describe("Gate F — Command Center projections", () => {
         nextRunAt: now,
         failureCount: 2,
         lastErrorCode: "SCHEDULE_EXECUTION_FAILED",
+        workerStatus: "DEGRADED",
       },
     });
     await db.yusuf_notifications.create({
@@ -87,6 +88,18 @@ describe("Gate F — Command Center projections", () => {
       expect.objectContaining({ kind: "SCHEDULER_FAILURE", severity: "WARNING" }),
     ]);
     expect(JSON.stringify(dashboard)).not.toContain("should-not-leak");
+  });
+
+  test("marks a stale scheduler worker heartbeat degraded rather than operational", async () => {
+    await db.yusuf_schedules.create({
+      data: {
+        uuid: randomUUID(), scheduleKey: "EVIDENCE_RETENTION", kind: "EVIDENCE_RETENTION",
+        intervalSeconds: 3600, nextRunAt: new Date(),
+        workerLastTickAt: new Date(Date.now() - 91 * 1000),
+      },
+    });
+    const dashboard = await new DashboardProjection(db).build();
+    expect(dashboard.scheduler[0]).toMatchObject({ workerStatus: "DEGRADED" });
   });
 
   beforeEach(async () => {
