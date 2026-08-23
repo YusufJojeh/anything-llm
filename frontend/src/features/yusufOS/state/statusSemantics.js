@@ -173,6 +173,15 @@ const ADAPTER_STATUS_TONE = Object.freeze({
   UNCHECKED: TONES.UNKNOWN,
 });
 
+// Scheduler status is persisted independently of system health. An ACTIVE
+// schedule is an enabled timer, not a currently running Agent or an approval.
+const SCHEDULER_STATUS_TONE = Object.freeze({
+  ACTIVE: TONES.HEALTHY,
+  PAUSED: TONES.WARNING,
+  DISABLED: TONES.OFFLINE,
+  FAILED: TONES.ERROR,
+});
+
 const REVIEW_VERDICT_TONE = Object.freeze({
   PASS: TONES.HEALTHY,
   PASS_WITH_WARNINGS: TONES.WARNING,
@@ -202,6 +211,7 @@ const DOMAINS = Object.freeze({
   audit: AUDIT_STATUS_TONE,
   system: SYSTEM_STATUS_TONE,
   adapter: ADAPTER_STATUS_TONE,
+  scheduler: SCHEDULER_STATUS_TONE,
   review: REVIEW_VERDICT_TONE,
   handoff: HANDOFF_STATUS_TONE,
   connection: CONNECTION_TONE,

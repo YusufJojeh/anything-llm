@@ -319,12 +319,7 @@ export function buildAttentionQueue(dashboard) {
     items.push({
       id: `notification:${notification.notificationId}`,
       kind: "NOTIFICATION",
-      tone:
-        notification.severity === "CRITICAL"
-          ? TONES.ERROR
-          : notification.severity === "ACTION"
-            ? TONES.APPROVAL
-            : TONES.WARNING,
+      tone: notification.severity === "CRITICAL" ? TONES.ERROR : TONES.WARNING,
       href: "/os/system",
       values: {
         notificationId: notification.notificationId,

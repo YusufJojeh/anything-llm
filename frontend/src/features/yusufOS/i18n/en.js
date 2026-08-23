@@ -398,6 +398,12 @@ export default {
       INVALIDATED: "Invalidated",
       CANCELLED: "Cancelled",
     },
+    scheduler: {
+      ACTIVE: "Active",
+      PAUSED: "Paused",
+      DISABLED: "Disabled",
+      FAILED: "Failed",
+    },
     audit: {
       VALID: "Valid",
       STALE: "Stale",

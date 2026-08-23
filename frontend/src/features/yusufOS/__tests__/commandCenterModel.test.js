@@ -280,8 +280,11 @@ describe("attention queue", () => {
         expect.objectContaining({
           id: "notification:notice-1",
           kind: "NOTIFICATION",
+          tone: TONES.WARNING,
           href: "/os/system",
-          values: expect.objectContaining({ notificationKind: "SCHEDULER_FAILURE" }),
+          values: expect.objectContaining({
+            notificationKind: "SCHEDULER_FAILURE",
+          }),
         }),
       ])
     );

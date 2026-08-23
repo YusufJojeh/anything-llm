@@ -251,7 +251,7 @@ export default function SystemHealth({
               <HealthRow
                 key={schedule.scheduleKey}
                 label={schedule.scheduleKey}
-                domain="system"
+                domain="scheduler"
                 status={schedule.status}
                 detail={
                   schedule.failureCount > 0

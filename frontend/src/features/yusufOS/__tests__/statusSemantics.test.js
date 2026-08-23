@@ -26,6 +26,12 @@ describe("status semantics", () => {
     expect(toneFor("audit", "BROKEN")).toBe(TONES.ERROR);
   });
 
+  test("an enabled durable schedule is understood as healthy scheduler state", () => {
+    expect(toneFor("scheduler", "ACTIVE")).toBe(TONES.HEALTHY);
+    expect(toneFor("scheduler", "PAUSED")).toBe(TONES.WARNING);
+    expect(toneFor("scheduler", "DISABLED")).toBe(TONES.OFFLINE);
+  });
+
   test("FAILED_UNKNOWN is distinguished from a plain failure", () => {
     expect(toneFor("execution", "FAILED")).toBe(TONES.ERROR);
     expect(toneFor("execution", "FAILED_UNKNOWN")).toBe(TONES.WARNING);

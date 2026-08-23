@@ -427,6 +427,12 @@ export default {
       INVALIDATED: "أُبطل",
       CANCELLED: "أُلغي",
     },
+    scheduler: {
+      ACTIVE: "نشط",
+      PAUSED: "متوقف مؤقتًا",
+      DISABLED: "معطل",
+      FAILED: "فشل",
+    },
     audit: {
       VALID: "سليمة",
       STALE: "قديمة",
