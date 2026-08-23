@@ -1,5 +1,21 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-24 — Phase Y: Scheduler + Notifications (Codex)
+
+Phase Y is complete at `9e1e82e3`, `7eac029e`, and `8a0e3345`. The durable scheduler runs only
+the code-owned evidence-retention job: leases, coalesced missed runs, jitter, backoff, and
+audit-backed terminal transitions prevent silent or duplicate work. It never creates approval or
+executes L3/L4 intents. Notification attention is derived from durable system facts, supports
+acknowledgement, resolve-on-clear, and audit-backed recurrence reopening; the deliberately
+disabled Browser Broker is not reported as an outage.
+
+Fresh independent review: PASS, P0=0/P1=0/P2=2. Focused scheduler/projection/migration checks:
+3 suites, 39 passed. P2s are long-job lease renewal and durable worker startup/tick health
+reporting. No push or deployment occurred; `.claude/` remains untracked.
+
+Exact next action: Phase Z, select and implement the next bounded V1 critical-path slice after
+reviewing the remaining roadmap/deferred work.
+
 ## 2026-08-24 — Phase X: Browser readiness (Codex)
 
 Phase X is complete at `90e52eda`. The Browser Broker remains disabled and production forms remain

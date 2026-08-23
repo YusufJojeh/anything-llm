@@ -1,5 +1,24 @@
 # Current Gate
 
+## Phase Y — Scheduler + Notifications — status: COMPLETE
+
+Added a durable local scheduler with a single code-owned evidence-retention job, exclusive
+leases, coalesced missed runs, persisted jitter/backoff, failure evidence, and a boot worker.
+No scheduler path can auto-approve or execute an L3/L4 action. Operator attention is durable,
+audited, acknowledgement-aware, and derived from persisted approvals, tasks, intents, monitoring,
+model, inbox, and governed-adapter facts. Incidents resolve when their source clears and only
+reopen with fresh audit evidence on a later recurrence.
+
+Independent review: **P0=0/P1=0/P2=2**, PASS. Focused scheduler, Command Center, and migration
+checks: **3 suites, 39 passed**; lint and diff checks passed. Code commits: `9e1e82e3`,
+`7eac029e`, `8a0e3345`.
+
+P2 follow-ups: renew a long-running retention lease; surface worker boot/tick failures instead of
+relying on the next process restart. `.claude/` remains untracked. No push, deployment, or live
+external mutation occurred.
+
+**Next:** Phase Z — advance the next bounded V1 critical-path slice.
+
 ## Phase X — Real Browser Integration Readiness — status: COMPLETE
 
 Prepared the Browser Broker for a human-controlled live validation while preserving its default
