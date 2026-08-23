@@ -102,6 +102,23 @@ describe("Gate F — Command Center projections", () => {
     expect(dashboard.scheduler[0]).toMatchObject({ workerStatus: "DEGRADED" });
   });
 
+  test("marks a newer scheduler worker failure degraded even with a fresh prior tick", async () => {
+    const now = Date.now();
+    await db.yusuf_schedules.create({
+      data: {
+        uuid: randomUUID(), scheduleKey: "EVIDENCE_RETENTION", kind: "EVIDENCE_RETENTION",
+        intervalSeconds: 3600, nextRunAt: new Date(now),
+        workerLastTickAt: new Date(now - 30 * 1000),
+        workerLastFailureAt: new Date(now - 1000),
+        workerLastErrorCode: "SCHEDULER_WORKER_FAILED",
+      },
+    });
+    const dashboard = await new DashboardProjection(db).build();
+    expect(dashboard.scheduler[0]).toMatchObject({
+      workerStatus: "DEGRADED", workerLastErrorCode: "SCHEDULER_WORKER_FAILED",
+    });
+  });
+
   beforeEach(async () => {
     await clearYusufTables(db);
     resetProjectionCaches();

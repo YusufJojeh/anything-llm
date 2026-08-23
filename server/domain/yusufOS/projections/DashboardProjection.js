@@ -179,7 +179,9 @@ class DashboardProjection {
       failureCount: schedule.failureCount,
       lastErrorCode: schedule.lastErrorCode,
       workerStatus:
-        !schedule.workerLastTickAt
+        !schedule.workerLastTickAt ||
+        (schedule.workerLastFailureAt &&
+          schedule.workerLastFailureAt >= schedule.workerLastTickAt)
           ? "DEGRADED"
           : Date.now() - schedule.workerLastTickAt.getTime() > 90 * 1000
             ? "DEGRADED"
