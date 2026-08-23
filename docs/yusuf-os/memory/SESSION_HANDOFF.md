@@ -1,5 +1,24 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-24 — Phase AD: Release / Ops / Backup (Codex)
+
+Phase AD is complete. `npm run yusuf-os:validate` loads the normal environment
+file and safely validates the audit HMAC/control token, scheduler setting,
+Ollama endpoint, strict Browser Broker CDP endpoint, and storage directory.
+`server/index.js` runs the same check before serving traffic. The local-only
+runbook gives topology, migration, health, backup, restore, audit-key,
+shutdown, update rollback, and recovery steps with the correct hard-coded
+SQLite location plus a default-safe `server/storage` fallback.
+
+Fresh independent review: PASS, P0=0/P1=0/P2=1; the restore-command clarity
+note was then addressed in the final runbook. Focused readiness/browser/control-
+plane regression: 3 suites, 37 passed; Prisma validate, targeted ESLint, and
+diff check passed. No push/deployment/live mutation; `.claude/` remains
+untracked.
+
+Exact next action: Phase AE final full-system E2E and release gate, keeping
+provider truthfulness and all external side effects disabled.
+
 ## 2026-08-24 — Phase AC: Provider validation (Codex)
 
 Phase AC local validation: Ollama health was HEALTHY with installed local models; bounded

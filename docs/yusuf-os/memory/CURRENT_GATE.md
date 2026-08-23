@@ -1,5 +1,23 @@
 # Current Gate
 
+## Phase AD — Release / Ops / Backup — status: COMPLETE
+
+V1 now has a local-only operations runbook and a fail-closed startup readiness
+gate. The gate loads the standard environment file, validates audit/control
+secret presence without displaying values, scheduler syntax, safe Ollama/CDP
+configuration, and durable storage before the server serves traffic. The
+runbook records topology, migrations, health, shutdown, backup/restore,
+audit-key handling, update rollback, and incident recovery using the actual
+SQLite location and `STORAGE_DIR` behavior.
+
+Independent review: **P0=0/P1=0/P2=1**, PASS; its concrete restore-command
+clarity note was then addressed in the final runbook. Focused
+readiness/browser/control-plane regression: **3 suites, 37 passed**; Prisma
+validation, targeted ESLint, and `git diff --check` passed. `.claude/` remains
+untracked. No push, deployment, or live external mutation occurred.
+
+**Next:** Phase AE — final full-system E2E and gate.
+
 ## Phase AC — Live Provider Validation — status: COMPLETE
 
 Read-only Ollama discovery found a healthy local daemon and installed models. A bounded local

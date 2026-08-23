@@ -2,6 +2,19 @@ process.env.NODE_ENV === "development"
   ? require("dotenv").config({ path: `.env.${process.env.NODE_ENV}` })
   : require("dotenv").config();
 
+const fs = require("fs");
+const {
+  assessOperationalReadiness,
+} = require("./domain/yusufOS/operations/operationalReadiness");
+const yusufOsReadiness = assessOperationalReadiness(process.env, fs.existsSync);
+if (!yusufOsReadiness.ok) {
+  const failedChecks = yusufOsReadiness.checks
+    .filter((check) => !check.ok)
+    .map((check) => check.name)
+    .join(", ");
+  throw new Error(`Yusuf OS startup readiness failed: ${failedChecks}`);
+}
+
 require("./utils/logger")();
 require("./utils/boot/patchSdkTimeouts")();
 const express = require("express");
