@@ -1,5 +1,20 @@
 # Current Gate
 
+## Phase AC — Live Provider Validation — status: COMPLETE
+
+Read-only Ollama discovery found a healthy local daemon and installed models. A bounded local
+`gemma3:1b` completion was run without pulling a model or mutating external state; the daemon
+returned a bounded response plus token usage (`prompt_eval_count=24`, `eval_count=8`). Ollama and
+Gemma are therefore **LIVE-VALIDATED** locally. `OPENAI_API_KEY` is absent: OpenAI remains
+**IMPLEMENTED / NOT LIVE-VALIDATED**, and no paid/cloud request was sent.
+
+Evidence: [PHASE_AC_PROVIDER_VALIDATION.md](PHASE_AC_PROVIDER_VALIDATION.md). Independent review
+will be recorded with the local commit; mocked provider regression is **25 passed, 1 conditional
+OpenAI skip**. `.claude/` remains untracked. No push, deployment, or live external mutation
+occurred.
+
+**Next:** Phase AD — Release / Ops / Backup.
+
 ## Phase AB — Reliability / Recovery — status: COMPLETE
 
 Scheduler recovery is now durable and truthful: long retention runs renew their lease; boot/tick

@@ -1,5 +1,16 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-08-24 — Phase AC: Provider validation (Codex)
+
+Phase AC local validation: Ollama health was HEALTHY with installed local models; bounded
+`gemma3:1b` completion returned a response and token usage (24 prompt / 8 completion tokens),
+without model pull or external mutation. Ollama/Gemma are LIVE-VALIDATED locally. OpenAI has no
+`OPENAI_API_KEY`, so it remains IMPLEMENTED / NOT LIVE-VALIDATED and no cloud request was made.
+Mocked provider suites: 25 passed, one conditional OpenAI smoke skipped.
+
+Exact next action: Phase AD, document/test safe local operations, backup, restore, startup, and
+recovery procedures. `.claude/` remains untracked; no push/deploy occurred.
+
 ## 2026-08-24 — Phase AB: Reliability / Recovery (Codex)
 
 Phase AB is complete at `7e5db270` and `f73abf50`. Long-running retention jobs now renew their
