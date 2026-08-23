@@ -200,4 +200,24 @@ describe("Phase Y — durable scheduler", () => {
     expect(worker.timer).toBeTruthy();
     worker.stop();
   });
+
+  test("worker degrades when a tick reports a failed job without throwing", async () => {
+    const seed = new Scheduler({ db });
+    await seed.ensureEvidenceRetention();
+    const scheduler = {
+      db,
+      ensureEvidenceRetention: jest.fn(async () => {}),
+      tick: jest.fn(async () => [
+        { scheduleKey: "EVIDENCE_RETENTION", status: "FAILED" },
+      ]),
+    };
+    const worker = new SchedulerWorker({ scheduler, pollMs: 1000 });
+    await worker.start();
+    const schedule = await db.yusuf_schedules.findUnique({
+      where: { scheduleKey: "EVIDENCE_RETENTION" },
+    });
+    expect(schedule.workerLastTickAt).toBeNull();
+    expect(schedule.workerLastErrorCode).toBe("SCHEDULER_WORKER_FAILED");
+    worker.stop();
+  });
 });

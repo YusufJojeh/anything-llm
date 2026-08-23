@@ -17,7 +17,9 @@ class SchedulerWorker {
       this.running = true;
       try {
         await this.scheduler.ensureEvidenceRetention();
-        await this.scheduler.tick();
+        const results = await this.scheduler.tick();
+        if (results.some((result) => result.status === "FAILED"))
+          throw new Error("SCHEDULE_JOB_FAILED");
         await this.#recordHealth({ now: new Date() });
       } catch (error) {
         // A boot/tick failure must not silently disable scheduling or leave
