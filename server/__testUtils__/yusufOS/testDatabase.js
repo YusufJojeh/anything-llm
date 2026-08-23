@@ -101,6 +101,8 @@ async function clearYusufTables(db) {
   await db.yusuf_projects.deleteMany();
   await db.yusuf_agents.deleteMany();
   await db.yusuf_security_settings.deleteMany();
+  await db.yusuf_notifications.deleteMany();
+  await db.yusuf_schedules.deleteMany();
   await db.yusuf_audit_events.deleteMany();
   await db.yusuf_audit_checkpoints.deleteMany();
 }

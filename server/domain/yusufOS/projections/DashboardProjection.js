@@ -90,6 +90,8 @@ class DashboardProjection {
       auditSummary,
       costSummary,
       eventCursor,
+      scheduler,
+      notificationAttentionQueue,
     ] = await Promise.all([
       this.#systemStatus(),
       this.#agentStatuses(),
@@ -100,6 +102,8 @@ class DashboardProjection {
       this.#auditSummary(),
       this.#costSummary(),
       this.#eventCursor(),
+      this.#scheduler(),
+      this.#notificationAttentionQueue(),
     ]);
 
     const runProgress = await this.#runProgress(taskRows.map((t) => t.id));
@@ -123,6 +127,8 @@ class DashboardProjection {
       adapterHealth,
       auditSummary,
       costSummary,
+      scheduler,
+      notificationAttentionQueue,
     };
   }
 
@@ -158,6 +164,36 @@ class DashboardProjection {
       emergencyStop: killSwitch?.value === "true",
       pendingReconciliation: unresolved,
     };
+  }
+
+  async #scheduler() {
+    const schedules = await this.db.yusuf_schedules.findMany({
+      orderBy: { scheduleKey: "asc" },
+    });
+    return schedules.map((schedule) => ({
+      scheduleKey: schedule.scheduleKey,
+      kind: schedule.kind,
+      status: schedule.status,
+      nextRunAt: schedule.nextRunAt.toISOString(),
+      lastRunAt: schedule.lastRunAt?.toISOString() || null,
+      failureCount: schedule.failureCount,
+      lastErrorCode: schedule.lastErrorCode,
+    }));
+  }
+
+  async #notificationAttentionQueue() {
+    const notices = await this.db.yusuf_notifications.findMany({
+      where: { status: "OPEN" },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    return notices.map((notice) => ({
+      notificationId: notice.uuid,
+      kind: notice.kind,
+      severity: notice.severity,
+      summary: redactString(notice.summary).slice(0, 300),
+      createdAt: notice.createdAt.toISOString(),
+    }));
   }
 
   async #agentStatuses() {

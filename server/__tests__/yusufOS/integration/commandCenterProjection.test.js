@@ -53,6 +53,42 @@ describe("Gate F — Command Center projections", () => {
     if (testDatabase) await testDatabase.cleanup();
   });
 
+  test("projects durable scheduler health and open notifications without exposing internal records", async () => {
+    const now = new Date();
+    await db.yusuf_schedules.create({
+      data: {
+        uuid: randomUUID(),
+        scheduleKey: "EVIDENCE_RETENTION",
+        kind: "EVIDENCE_RETENTION",
+        intervalSeconds: 3600,
+        nextRunAt: now,
+        failureCount: 2,
+        lastErrorCode: "SCHEDULE_EXECUTION_FAILED",
+      },
+    });
+    await db.yusuf_notifications.create({
+      data: {
+        uuid: randomUUID(),
+        kind: "SCHEDULER_FAILURE",
+        severity: "WARNING",
+        dedupeKey: "scheduler:EVIDENCE_RETENTION",
+        summary: "Retention retry pending; token=should-not-leak",
+      },
+    });
+    const dashboard = await new DashboardProjection(db).build();
+    expect(dashboard.scheduler).toEqual([
+      expect.objectContaining({
+        scheduleKey: "EVIDENCE_RETENTION",
+        failureCount: 2,
+        lastErrorCode: "SCHEDULE_EXECUTION_FAILED",
+      }),
+    ]);
+    expect(dashboard.notificationAttentionQueue).toEqual([
+      expect.objectContaining({ kind: "SCHEDULER_FAILURE", severity: "WARNING" }),
+    ]);
+    expect(JSON.stringify(dashboard)).not.toContain("should-not-leak");
+  });
+
   beforeEach(async () => {
     await clearYusufTables(db);
     resetProjectionCaches();
