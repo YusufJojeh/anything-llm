@@ -15,7 +15,10 @@ import {
   Stop,
   X,
 } from "@phosphor-icons/react";
+import { Link } from "react-router-dom";
+import { ShieldWarning } from "@phosphor-icons/react";
 import { yusufApi } from "../api/client";
+import { TONES, toneStyle } from "../state/statusSemantics";
 import { Panel, SectionTitle, UntrustedText } from "./primitives";
 
 const MIME_TYPES = [
@@ -25,6 +28,25 @@ const MIME_TYPES = [
   "audio/mp4",
 ];
 const MAX_RECORDING_MS = 60_000;
+
+/**
+ * Phase → status tone.
+ *
+ * The voice console does not own a colour vocabulary. It borrows the same one
+ * every status in Yusuf OS uses, so "waiting on Yusuf" here is the exact colour
+ * of a pending approval on the Approvals page. A phase that is not in this map
+ * resolves to UNKNOWN, which never reads as healthy.
+ */
+const VOICE_PHASE_TONE = Object.freeze({
+  IDLE: TONES.UNKNOWN,
+  LISTENING: TONES.ACTIVE,
+  TRANSCRIBING: TONES.ACTIVE,
+  PROCESSING: TONES.ACTIVE,
+  SPEAKING: TONES.ACTIVE,
+  READY: TONES.HEALTHY,
+  APPROVAL_REQUIRED: TONES.APPROVAL,
+  ERROR: TONES.ERROR,
+});
 
 function extensionForMime(mimeType) {
   if (mimeType.includes("mp4")) return "mp4";
@@ -37,7 +59,15 @@ function browserRecognition() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
-export default function VoiceConsole() {
+/**
+ * @param {object} props
+ * @param {"panel"|"dock"} [props.variant] `panel` is the standalone surface used
+ *   on secondary routes; `dock` is the persistent command bar in the Command
+ *   Center shell. Both render the same state machine and the same controls —
+ *   only the chrome differs — so no accessible name or guarantee is variant
+ *   specific.
+ */
+export default function VoiceConsole({ variant = "panel" }) {
   const { t, i18n } = useTranslation();
   const [phase, setPhase] = useState("IDLE");
   const [permission, setPermission] = useState("prompt");
@@ -408,39 +438,311 @@ export default function VoiceConsole() {
   );
 
   const phaseLabel = t(`yusufOS:voice.phase.${phase}`);
+  const tone = VOICE_PHASE_TONE[phase] || TONES.UNKNOWN;
+  const style = toneStyle(tone);
+  const listening = phase === "LISTENING";
+  const busy = ["PROCESSING", "TRANSCRIBING", "SPEAKING"].includes(phase);
+  const levelPercent = Math.min(100, (level / 255) * 100);
+
+  /**
+   * The microphone control.
+   *
+   * The ring around it is the phase, in the same tone vocabulary every other
+   * status in Yusuf OS uses — so "listening" here is the same colour as
+   * "running" on an Agent, and neither had to be chosen twice. The live input
+   * level is drawn as a second ring inside it, which is the only element on the
+   * dock that moves continuously; it is a direct readout of the microphone, not
+   * an idle animation.
+   */
+  const micControl = (
+    <span className="relative flex shrink-0 items-center justify-center">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute rounded-full"
+        style={{
+          inlineSize: "100%",
+          blockSize: "100%",
+          border: `1px solid color-mix(in srgb, ${style.graphic} ${
+            listening ? 70 : 34
+          }%, transparent)`,
+          // Grows with the measured input level and nothing else. At silence it
+          // is exactly the button's own outline.
+          transform: `scale(${1 + (listening ? levelPercent / 260 : 0)})`,
+          transition: "transform 90ms linear",
+        }}
+      />
+      <button
+        type="button"
+        onClick={listening ? stop : start}
+        disabled={!statusLoaded || busy}
+        className="yos-touch-target relative flex size-12 shrink-0 items-center justify-center rounded-full border disabled:opacity-60"
+        style={{
+          borderColor: `color-mix(in srgb, ${style.graphic} 55%, transparent)`,
+          backgroundColor: "var(--yos-surface-raised)",
+          color: style.text,
+          boxShadow: "var(--yos-elev-2)",
+        }}
+        aria-label={
+          listening ? t("yusufOS:voice.stop") : t("yusufOS:voice.start")
+        }
+        aria-pressed={listening}
+      >
+        {permission === "denied" ? (
+          <MicrophoneSlash size={22} />
+        ) : (
+          <Microphone size={22} />
+        )}
+      </button>
+    </span>
+  );
+
+  const levelMeter = (
+    <div
+      className="h-1.5 overflow-hidden rounded-full"
+      style={{ background: "var(--yos-border-faint)" }}
+      aria-label={t("yusufOS:voice.level")}
+      role="meter"
+      aria-valuemin="0"
+      aria-valuemax="255"
+      aria-valuenow={level}
+    >
+      <div
+        className="h-full rounded-full"
+        style={{
+          width: `${levelPercent}%`,
+          background: style.graphic,
+          transition: "width 90ms linear",
+        }}
+      />
+    </div>
+  );
+
+  const cancelButton = listening ? (
+    <button
+      type="button"
+      onClick={cancel}
+      className="yos-touch-target rounded px-2"
+      style={{ color: "var(--yos-text-secondary)" }}
+      aria-label={t("yusufOS:voice.cancel")}
+    >
+      <X size={18} />
+    </button>
+  ) : null;
+
+  const approvalLink = approvalId ? (
+    <Link
+      to={`/os/approvals/${approvalId}`}
+      className="yos-touch-target inline-flex items-center gap-1.5 rounded border px-3 text-xs font-semibold"
+      style={{
+        color: "var(--yos-approval-text)",
+        borderColor:
+          "color-mix(in srgb, var(--yos-approval-graphic) 50%, transparent)",
+        backgroundColor:
+          "color-mix(in srgb, var(--yos-approval-graphic) 14%, transparent)",
+      }}
+    >
+      <ShieldWarning size={13} aria-hidden="true" />
+      {t("yusufOS:voice.approvalRequired")}
+    </Link>
+  ) : null;
+
+  const errorBlock = error ? (
+    <p
+      className="text-xs"
+      role="alert"
+      style={{ color: "var(--yos-error-text)" }}
+    >
+      <UntrustedText>{error}</UntrustedText>
+    </p>
+  ) : null;
+
+  const playbackControls = (
+    <>
+      {phase === "ERROR" ? (
+        <button
+          type="button"
+          onClick={() => (transcript ? runCommand(transcript) : start())}
+          className="yos-touch-target rounded border px-3 text-xs"
+          style={{ borderColor: "var(--yos-border-strong)" }}
+        >
+          {t("yusufOS:voice.retry")}
+        </button>
+      ) : null}
+      {response && ttsAvailable ? (
+        <button
+          type="button"
+          onClick={phase === "SPEAKING" ? stopSpeaking : speak}
+          disabled={muted}
+          className="yos-touch-target flex items-center gap-1 rounded border px-3 text-xs disabled:opacity-50"
+          style={{ borderColor: "var(--yos-border-strong)" }}
+        >
+          {phase === "SPEAKING" ? <Stop size={14} /> : <Play size={14} />}
+          {phase === "SPEAKING"
+            ? t("yusufOS:voice.stopSpeaking")
+            : t("yusufOS:voice.replay")}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => {
+          setMuted((value) => !value);
+          stopSpeaking();
+        }}
+        className="yos-touch-target flex items-center gap-1 rounded px-2 text-xs"
+        style={{ color: "var(--yos-text-secondary)" }}
+        aria-pressed={muted}
+      >
+        {muted ? <SpeakerSlash size={14} /> : <SpeakerHigh size={14} />}
+        {muted ? t("yusufOS:voice.unmute") : t("yusufOS:voice.mute")}
+      </button>
+      <label className="text-xs" style={{ color: "var(--yos-text-secondary)" }}>
+        {t("yusufOS:voice.rate")}{" "}
+        <select
+          value={rate}
+          onChange={(event) => setRate(Number(event.target.value))}
+          className="rounded border bg-transparent px-1 py-1"
+          style={{ borderColor: "var(--yos-border-strong)" }}
+        >
+          <option value="0.8">0.8×</option>
+          <option value="1">1×</option>
+          <option value="1.2">1.2×</option>
+          <option value="1.5">1.5×</option>
+        </select>
+      </label>
+      {availableVoices.length ? (
+        <label
+          className="min-w-0 text-xs"
+          style={{ color: "var(--yos-text-secondary)" }}
+        >
+          {t("yusufOS:voice.voice")}{" "}
+          <select
+            value={voiceName}
+            onChange={(event) => setVoiceName(event.target.value)}
+            className="max-w-36 rounded border bg-transparent px-1 py-1"
+            style={{ borderColor: "var(--yos-border-strong)" }}
+          >
+            {availableVoices.map((voice) => (
+              <option key={voice.name} value={voice.name}>
+                {voice.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+    </>
+  );
+
+  const securityNote = (
+    <p className="text-[11px]" style={{ color: "var(--yos-text-muted)" }}>
+      {t("yusufOS:voice.securityNote")}
+    </p>
+  );
+
+  const transcriptBlock = transcript ? (
+    <div className="min-w-0">
+      <p
+        className="text-[10px] uppercase tracking-[0.12em]"
+        style={{ color: "var(--yos-text-muted)" }}
+      >
+        {t("yusufOS:voice.transcript")}
+      </p>
+      <UntrustedText as="p" className="mt-1 text-sm leading-relaxed">
+        {transcript}
+      </UntrustedText>
+    </div>
+  ) : null;
+
+  const responseBlock = response ? (
+    <div className="min-w-0">
+      <p
+        className="text-[10px] uppercase tracking-[0.12em]"
+        style={{ color: "var(--yos-text-muted)" }}
+      >
+        {t("yusufOS:voice.response")}
+      </p>
+      <UntrustedText as="p" className="mt-1 text-sm leading-relaxed">
+        {response}
+      </UntrustedText>
+    </div>
+  ) : null;
+
+  /**
+   * The dock: the persistent command bar at the foot of the OS shell.
+   *
+   * It is the same machine as the panel — same handlers, same phases, same
+   * guarantees. What differs is that it is always present and always states the
+   * current phase in words, so "is it listening?" is never a question the
+   * operator has to answer by watching an animation.
+   */
+  if (variant === "dock")
+    return (
+      <section
+        aria-labelledby="yos-voice-title"
+        className="yos-glass flex flex-col gap-3 p-3 md:p-4"
+      >
+        <h2 id="yos-voice-title" className="sr-only">
+          {t("yusufOS:voice.title")}
+        </h2>
+        <div className="flex items-center gap-3 md:gap-4">
+          {micControl}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <p
+                className="text-sm font-semibold"
+                aria-live="polite"
+                style={{ color: style.text }}
+              >
+                {phaseLabel}
+              </p>
+              <p
+                className="text-[11px]"
+                style={{ color: "var(--yos-text-muted)" }}
+              >
+                {t(`yusufOS:voice.permission.${permission}`, {
+                  defaultValue: permission,
+                })}
+              </p>
+            </div>
+            <div className="mt-2">{levelMeter}</div>
+          </div>
+          {approvalLink}
+          {cancelButton}
+        </div>
+
+        {transcriptBlock || responseBlock || errorBlock ? (
+          <div
+            className="flex flex-col gap-3 border-t pt-3 md:flex-row md:gap-6"
+            style={{ borderColor: "var(--yos-border-faint)" }}
+          >
+            {transcriptBlock}
+            {responseBlock}
+            {errorBlock}
+          </div>
+        ) : null}
+
+        <div
+          className="flex flex-wrap items-center gap-2 border-t pt-3"
+          style={{ borderColor: "var(--yos-border-faint)" }}
+        >
+          {playbackControls}
+          <span className="ms-auto">{securityNote}</span>
+        </div>
+      </section>
+    );
+
   return (
     <Panel className="p-4" aria-labelledby="yos-voice-title">
       <SectionTitle id="yos-voice-title">
         {t("yusufOS:voice.title")}
       </SectionTitle>
       <div className="mt-3 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={phase === "LISTENING" ? stop : start}
-          disabled={
-            !statusLoaded ||
-            ["PROCESSING", "TRANSCRIBING", "SPEAKING"].includes(phase)
-          }
-          className="yos-touch-target flex size-12 shrink-0 items-center justify-center rounded-full border"
-          style={{
-            borderColor: "var(--yos-border-strong)",
-            color: "var(--yos-accent-strong)",
-          }}
-          aria-label={
-            phase === "LISTENING"
-              ? t("yusufOS:voice.stop")
-              : t("yusufOS:voice.start")
-          }
-          aria-pressed={phase === "LISTENING"}
-        >
-          {permission === "denied" ? (
-            <MicrophoneSlash size={22} />
-          ) : (
-            <Microphone size={22} />
-          )}
-        </button>
+        {micControl}
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium" aria-live="polite">
+          <p
+            className="text-sm font-medium"
+            aria-live="polite"
+            style={{ color: style.text }}
+          >
             {phaseLabel}
           </p>
           <p
@@ -451,158 +753,27 @@ export default function VoiceConsole() {
               defaultValue: permission,
             })}
           </p>
-          <div
-            className="mt-2 h-1.5 overflow-hidden rounded-full"
-            style={{ background: "var(--yos-border-faint)" }}
-            aria-label={t("yusufOS:voice.level")}
-            role="meter"
-            aria-valuemin="0"
-            aria-valuemax="255"
-            aria-valuenow={level}
-          >
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${Math.min(100, (level / 255) * 100)}%`,
-                background: "var(--yos-accent)",
-              }}
-            />
-          </div>
+          <div className="mt-2">{levelMeter}</div>
         </div>
-        {phase === "LISTENING" ? (
-          <button
-            type="button"
-            onClick={cancel}
-            className="yos-touch-target rounded px-2"
-            aria-label={t("yusufOS:voice.cancel")}
-          >
-            <X size={18} />
-          </button>
-        ) : null}
+        {cancelButton}
       </div>
 
-      {transcript ? (
-        <div className="mt-4">
-          <p
-            className="text-[10px] uppercase tracking-[0.12em]"
-            style={{ color: "var(--yos-text-muted)" }}
-          >
-            {t("yusufOS:voice.transcript")}
-          </p>
-          <UntrustedText as="p" className="mt-1 text-sm leading-relaxed">
-            {transcript}
-          </UntrustedText>
-        </div>
-      ) : null}
-      {response ? (
+      {transcriptBlock ? <div className="mt-4">{transcriptBlock}</div> : null}
+      {responseBlock ? (
         <div
           className="mt-4 border-t pt-3"
           style={{ borderColor: "var(--yos-border-faint)" }}
         >
-          <p
-            className="text-[10px] uppercase tracking-[0.12em]"
-            style={{ color: "var(--yos-text-muted)" }}
-          >
-            {t("yusufOS:voice.response")}
-          </p>
-          <UntrustedText as="p" className="mt-1 text-sm leading-relaxed">
-            {response}
-          </UntrustedText>
+          {responseBlock}
         </div>
       ) : null}
-      {approvalId ? (
-        <a
-          href={`/os/approvals/${approvalId}`}
-          className="mt-3 inline-flex rounded border px-3 py-2 text-xs font-semibold"
-          style={{
-            color: "var(--yos-approval-text)",
-            borderColor: "var(--yos-approval)",
-          }}
-        >
-          {t("yusufOS:voice.approvalRequired")}
-        </a>
-      ) : null}
-      {error ? (
-        <p
-          className="mt-3 text-xs"
-          role="alert"
-          style={{ color: "var(--yos-danger-text)" }}
-        >
-          <UntrustedText>{error}</UntrustedText>
-        </p>
-      ) : null}
+      {approvalLink ? <div className="mt-3">{approvalLink}</div> : null}
+      {errorBlock ? <div className="mt-3">{errorBlock}</div> : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {phase === "ERROR" ? (
-          <button
-            type="button"
-            onClick={() => (transcript ? runCommand(transcript) : start())}
-            className="yos-touch-target rounded border px-3 text-xs"
-          >
-            {t("yusufOS:voice.retry")}
-          </button>
-        ) : null}
-        {response && ttsAvailable ? (
-          <button
-            type="button"
-            onClick={phase === "SPEAKING" ? stopSpeaking : speak}
-            disabled={muted}
-            className="yos-touch-target flex items-center gap-1 rounded border px-3 text-xs"
-          >
-            {phase === "SPEAKING" ? <Stop size={14} /> : <Play size={14} />}
-            {phase === "SPEAKING"
-              ? t("yusufOS:voice.stopSpeaking")
-              : t("yusufOS:voice.replay")}
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => {
-            setMuted((value) => !value);
-            stopSpeaking();
-          }}
-          className="yos-touch-target flex items-center gap-1 rounded px-2 text-xs"
-          aria-pressed={muted}
-        >
-          {muted ? <SpeakerSlash size={14} /> : <SpeakerHigh size={14} />}
-          {muted ? t("yusufOS:voice.unmute") : t("yusufOS:voice.mute")}
-        </button>
-        <label className="text-xs">
-          {t("yusufOS:voice.rate")}{" "}
-          <select
-            value={rate}
-            onChange={(event) => setRate(Number(event.target.value))}
-            className="rounded border bg-transparent px-1 py-1"
-          >
-            <option value="0.8">0.8×</option>
-            <option value="1">1×</option>
-            <option value="1.2">1.2×</option>
-            <option value="1.5">1.5×</option>
-          </select>
-        </label>
-        {availableVoices.length ? (
-          <label className="min-w-0 text-xs">
-            {t("yusufOS:voice.voice")}{" "}
-            <select
-              value={voiceName}
-              onChange={(event) => setVoiceName(event.target.value)}
-              className="max-w-36 rounded border bg-transparent px-1 py-1"
-            >
-              {availableVoices.map((voice) => (
-                <option key={voice.name} value={voice.name}>
-                  {voice.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
+        {playbackControls}
       </div>
-      <p
-        className="mt-3 text-[11px]"
-        style={{ color: "var(--yos-text-muted)" }}
-      >
-        {t("yusufOS:voice.securityNote")}
-      </p>
+      <div className="mt-3">{securityNote}</div>
     </Panel>
   );
 }

@@ -1,11 +1,11 @@
 import React, { useCallback, useId, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useYusufOS, PHASES } from "@/features/yusufOS/state/YusufOSProvider";
 import { yusufApi } from "@/features/yusufOS/api/client";
 import { coreStateTone } from "@/features/yusufOS/state/commandCenterModel";
 import { toneStyle, TONES } from "@/features/yusufOS/state/statusSemantics";
-import AgentConstellation from "@/features/yusufOS/components/AgentConstellation";
+import CommandStage from "@/features/yusufOS/components/CommandStage";
 import AgentRoster from "@/features/yusufOS/components/AgentRoster";
 import AttentionQueue from "@/features/yusufOS/components/AttentionQueue";
 import AgentDetailPanel from "@/features/yusufOS/components/AgentDetailPanel";
@@ -23,10 +23,13 @@ import {
 /**
  * The Command Center.
  *
- * Composition, deliberately: the constellation is the canvas and the operator
- * surfaces sit beside it. "Needs Yusuf" is placed above the fold on every
- * viewport — it is the single most important thing on the screen, and it is
- * not reachable only through a badge.
+ * Composition, deliberately: `CommandStage` is the 3D mission-control canvas
+ * — the System Core and the agent constellation, composited to stay
+ * concentric at any viewport — and the operator surfaces sit beside it.
+ * "Needs Yusuf" is placed above the fold on every viewport — it is the
+ * single most important thing on the screen, and it is not reachable only
+ * through a badge. The voice dock is a permanent fixture of the shell, not a
+ * panel that has to be found.
  *
  * Selection lives in the URL (`?agent=` / `?focus=core`) so a view is
  * shareable, survives a refresh, and works with the browser back button.
@@ -119,10 +122,89 @@ function CoreSummary({ coreState, summary, onOpen }) {
   );
 }
 
+/**
+ * A single availability chip: booleans only, never a raw config value. This
+ * is the same honesty rule `/os/runtime` enforces — this strip is a compact
+ * pointer into that page, not a second source of truth for it.
+ */
+function RuntimeAvailability({ label, available, unknown = false }) {
+  const tone = unknown
+    ? TONES.UNKNOWN
+    : available
+      ? TONES.HEALTHY
+      : TONES.UNKNOWN;
+  const style = toneStyle(tone);
+  return (
+    <span className="flex items-center gap-1.5 text-xs">
+      <StatusIcon tone={tone} size={12} />
+      <span style={{ color: "var(--yos-text-secondary)" }}>{label}</span>
+      <span className="font-medium" style={{ color: style.text }}>
+        {unknown ? "—" : available ? "✓" : "✕"}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * The runtime intelligence strip: a compact, always-truthful pointer to the
+ * real AI operations console at `/os/runtime`. It reuses the `runtime`
+ * projection the shell already fetches — no second fetch, no cosmetic
+ * placeholder while it loads.
+ */
+function RuntimeStrip({ runtime, runtimePhase }) {
+  const { t } = useTranslation();
+  const loading = runtimePhase === PHASES.LOADING && !runtime;
+  return (
+    <Panel className="p-4">
+      <SectionTitle
+        action={
+          <Link
+            to="/os/runtime"
+            className="yos-touch-target text-xs font-medium normal-case tracking-normal"
+            style={{ color: "var(--yos-accent-strong)" }}
+          >
+            {t("yusufOS:runtime.viewFull")}
+          </Link>
+        }
+      >
+        {t("yusufOS:runtime.models")}
+      </SectionTitle>
+      {loading ? (
+        <div className="mt-3">
+          <LoadingBlock rows={2} />
+        </div>
+      ) : runtime ? (
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+          <RuntimeAvailability
+            label="Ollama"
+            available={Boolean(runtime.ollama?.reachable)}
+          />
+          <RuntimeAvailability
+            label="OpenAI"
+            available={Boolean(runtime.openai?.configured)}
+          />
+        </div>
+      ) : (
+        <p className="mt-3 text-xs" style={{ color: "var(--yos-text-muted)" }}>
+          {t("yusufOS:runtime.unavailable")}
+        </p>
+      )}
+    </Panel>
+  );
+}
+
 export default function CommandCenter() {
   const { t } = useTranslation();
-  const { phase, dashboard, model, connection, realtime, refresh } =
-    useYusufOS();
+  const {
+    phase,
+    dashboard,
+    model,
+    connection,
+    realtime,
+    runtime,
+    runtimePhase,
+    refresh,
+  } = useYusufOS();
   const [params, setParams] = useSearchParams();
   const rosterHeadingId = useId();
   const attentionHeadingId = useId();
@@ -172,25 +254,23 @@ export default function CommandCenter() {
   const loading = phase === PHASES.LOADING && !dashboard;
 
   return (
-    <div className="flex min-h-full flex-col gap-4 p-4 md:p-6 xl:h-full xl:min-h-0 xl:flex-row xl:overflow-hidden">
-      {/*
-       * The constellation. Hidden below `lg` rather than shrunk: a ring of
-       * nodes squeezed into 390px is unreadable, and the roster list below
-       * carries the same information properly on that width.
-       */}
-      <section
-        aria-labelledby="yos-constellation-heading"
-        className="hidden min-w-0 flex-1 lg:block xl:flex xl:min-h-0 xl:flex-col"
-      >
-        <h2 id="yos-constellation-heading" className="sr-only">
-          {t("yusufOS:constellation.title")}
-        </h2>
-        <p className="sr-only">{t("yusufOS:constellation.description")}</p>
-        <div className="yos-canvas h-full min-h-[520px] overflow-hidden xl:min-h-0 xl:flex-1">
-          {loading ? (
-            <LoadingBlock rows={8} />
-          ) : (
-            <AgentConstellation
+    <div className="flex min-h-full flex-col gap-4 p-4 md:p-6 xl:h-full xl:min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row xl:overflow-hidden">
+        {/*
+         * The stage. Hidden below `lg` rather than shrunk: the 3D core and
+         * constellation squeezed into 390px is unreadable, and the roster
+         * list below carries the same information properly on that width.
+         */}
+        <section
+          aria-labelledby="yos-constellation-heading"
+          className="hidden min-w-0 flex-1 lg:block xl:flex xl:min-h-0 xl:flex-col"
+        >
+          <h2 id="yos-constellation-heading" className="sr-only">
+            {t("yusufOS:constellation.title")}
+          </h2>
+          <p className="sr-only">{t("yusufOS:constellation.description")}</p>
+          <div className="min-h-[520px] flex-1 xl:min-h-0">
+            <CommandStage
               agents={model.agents}
               edges={model.edges}
               coreState={model.coreState}
@@ -198,77 +278,73 @@ export default function CommandCenter() {
               coreSelected={coreOpen}
               onSelectAgent={selectAgent}
               onSelectCore={openCore}
-            />
-          )}
-        </div>
-        {model.orphanedEdges.length ? (
-          <p
-            className="mt-2 px-1 text-[11px]"
-            style={{ color: "var(--yos-warning-text)" }}
-          >
-            {t("yusufOS:constellation.orphanEdges", {
-              count: model.orphanedEdges.length,
-            })}
-          </p>
-        ) : null}
-      </section>
-
-      {/*
-       * The operator column scrolls inside itself on desktop so the
-       * constellation stays put; below xl the page scrolls normally.
-       */}
-      <div className="flex w-full min-w-0 flex-col gap-4 xl:w-[380px] xl:min-h-0 xl:shrink-0 xl:overflow-y-auto">
-        {loading || !model.summary ? (
-          <Panel>
-            <LoadingBlock rows={4} />
-          </Panel>
-        ) : (
-          <CoreSummary
-            coreState={model.coreState}
-            summary={model.summary}
-            onOpen={openCore}
-          />
-        )}
-
-        <VoiceConsole />
-
-        <Panel aria-labelledby={attentionHeadingId}>
-          <SectionTitle id={attentionHeadingId} className="px-4 pt-4">
-            {t("yusufOS:attention.title")}
-          </SectionTitle>
-          <div className="mt-2">
-            <AttentionQueue
-              items={model.attention}
               loading={loading}
-              onAcknowledge={acknowledgeNotification}
+              orphanedEdgeCount={model.orphanedEdges.length}
             />
           </div>
-        </Panel>
+        </section>
 
         {/*
-         * The accessible, non-graph equivalent of the constellation — and on
-         * narrow screens, the primary representation. Always rendered, never a
-         * fallback that only appears when the graph fails.
+         * The operator column scrolls inside itself on desktop so the stage
+         * stays put; below xl the page scrolls normally.
          */}
-        <Panel aria-labelledby={rosterHeadingId}>
-          <SectionTitle id={rosterHeadingId} className="px-4 pt-4">
-            {t("yusufOS:agent.title")}
-          </SectionTitle>
-          <div className="mt-2">
-            {loading ? (
+        <div className="flex w-full min-w-0 flex-col gap-4 xl:w-[380px] xl:min-h-0 xl:shrink-0 xl:overflow-y-auto">
+          {loading || !model.summary ? (
+            <Panel>
               <LoadingBlock rows={4} />
-            ) : (
-              <AgentRoster
-                agents={model.agents}
-                edges={model.edges}
-                selectedAgentId={selectedAgentId}
-                onSelectAgent={selectAgent}
-                labelledBy={rosterHeadingId}
+            </Panel>
+          ) : (
+            <CoreSummary
+              coreState={model.coreState}
+              summary={model.summary}
+              onOpen={openCore}
+            />
+          )}
+
+          <Panel aria-labelledby={attentionHeadingId}>
+            <SectionTitle id={attentionHeadingId} className="px-4 pt-4">
+              {t("yusufOS:attention.title")}
+            </SectionTitle>
+            <div className="mt-2">
+              <AttentionQueue
+                items={model.attention}
+                loading={loading}
+                onAcknowledge={acknowledgeNotification}
               />
-            )}
-          </div>
-        </Panel>
+            </div>
+          </Panel>
+
+          <RuntimeStrip runtime={runtime} runtimePhase={runtimePhase} />
+
+          {/*
+           * The accessible, non-graph equivalent of the constellation — and
+           * on narrow screens, the primary representation. Always rendered,
+           * never a fallback that only appears when the graph fails.
+           */}
+          <Panel aria-labelledby={rosterHeadingId}>
+            <SectionTitle id={rosterHeadingId} className="px-4 pt-4">
+              {t("yusufOS:agent.title")}
+            </SectionTitle>
+            <div className="mt-2">
+              {loading ? (
+                <LoadingBlock rows={4} />
+              ) : (
+                <AgentRoster
+                  agents={model.agents}
+                  edges={model.edges}
+                  selectedAgentId={selectedAgentId}
+                  onSelectAgent={selectAgent}
+                  labelledBy={rosterHeadingId}
+                />
+              )}
+            </div>
+          </Panel>
+        </div>
       </div>
+
+      {/* The premium command bar: a permanent fixture of the shell, not a
+          panel the operator has to scroll to find. */}
+      <VoiceConsole variant="dock" />
 
       <Drawer
         open={Boolean(selectedAgent)}

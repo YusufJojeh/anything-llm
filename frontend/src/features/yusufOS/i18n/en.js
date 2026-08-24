@@ -42,6 +42,8 @@ export default {
     notInstalled: "Not installed",
     noModels: "No installed models were reported.",
     reachable: "Reachable",
+    viewFull: "View full runtime console",
+    unavailable: "Runtime status has not been loaded yet.",
     configured: "Configured",
     notConfigured: "Not configured",
     keySafe:

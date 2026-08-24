@@ -1,10 +1,10 @@
 /**
  * Deterministic radial layout for the Agent constellation.
  *
- * No graph library. The layout is arithmetic on a unit circle, drawn as plain
- * SVG — adding a force-directed graph dependency to place a handful of nodes
- * on a ring would cost bundle size, accessibility control and RTL behaviour
- * for no benefit.
+ * No graph library. The layout is arithmetic on a tilted circle, drawn as plain
+ * SVG — adding a force-directed graph dependency to place a handful of nodes on
+ * a ring would cost bundle size, accessibility control and RTL behaviour for no
+ * benefit.
  *
  * Guarantees the roster is allowed to rely on:
  *
@@ -14,8 +14,12 @@
  * - **adaptive** — the orbit radius is chosen from the roster size, so a small
  *   elite staff sits in a tight, deliberate formation instead of being flung to
  *   the edge of an empty canvas (Gate G.1 §8);
+ * - **depth-aware** — orbits are inclined, so the formation reads as a plane
+ *   seen from slightly above rather than a flat dial. The inclination is a
+ *   fixed property of the composition, never a state signal;
  * - nodes never overlap: ring capacity is derived from the actual chord length
- *   between neighbours, and rings are added when a ring is full;
+ *   between neighbours *under the inclination*, and rings are added when a ring
+ *   is full;
  * - direction-neutral geometry; RTL mirroring happens in CSS on the surrounding
  *   layout, never by recomputing coordinates.
  */
@@ -31,13 +35,52 @@ const CENTER = VIEWBOX / 2;
 export const CORE_RADIUS = 108;
 export const NODE_RADIUS = 34;
 
+/**
+ * Orbit inclination: how much the vertical axis of every orbit is compressed.
+ *
+ * 0.86 is a deliberate choice. It is enough that the eye reads a plane receding
+ * away from it — which is what makes the constellation feel three-dimensional
+ * without any 3D machinery — and gentle enough that a node near the left or
+ * right extreme is still unambiguously *on* the ring rather than lost in
+ * foreshortening. A steeper tilt looks like a game HUD and starts costing real
+ * node separation.
+ */
+export const ORBIT_TILT = 0.86;
+
+/**
+ * How far a node's apparent size may vary between the near and far edge of its
+ * orbit. Small on purpose: this is a depth cue, not a size ranking, and an
+ * Agent must never look more important because of where it happens to sit.
+ */
+export const DEPTH_SCALE_RANGE = 0.09;
+
+/**
+ * How far the System Core's 3D structure reaches, in viewBox units.
+ *
+ * Exported so the core renderer and the orbit planner agree on where the core
+ * ends and the staff begins, instead of each guessing. The innermost orbit is
+ * derived from it, which is what keeps a core ring from ever grazing an Agent.
+ */
+export const CORE_FIELD_RADIUS = 220;
+
 // Minimum edge-to-edge space between two neighbouring Agents, in user units.
 const MIN_NODE_GAP = 26;
-// The closest an Agent may orbit: clear of the core plus breathing room.
-const MIN_ORBIT = CORE_RADIUS + NODE_RADIUS + 74;
+/**
+ * Minimum radial distance between two orbits.
+ *
+ * Adjacent-on-the-same-ring spacing and ring-to-ring spacing are different
+ * constraints, and only the first one is a chord problem. Two nodes on
+ * *different* rings can sit at nearly the same angle, in which case the only
+ * thing keeping them apart is the gap between the orbits themselves — so it is
+ * stated here rather than left to emerge from the radii someone picked.
+ */
+const MIN_RING_SEPARATION = 2 * NODE_RADIUS + MIN_NODE_GAP;
+// The closest an Agent may orbit: clear of the core's full 3D structure plus
+// breathing room, so a ring of the core never grazes an Agent node.
+const MIN_ORBIT = CORE_FIELD_RADIUS + NODE_RADIUS + 32;
 // The furthest an Agent may orbit and still leave room for its label inside
 // the viewBox.
-const MAX_ORBIT = 390;
+const MAX_ORBIT = 440;
 
 // Start at the top and go clockwise, so the first Agent sits where a reader
 // looks first in either text direction.
@@ -51,14 +94,18 @@ const START_ANGLE = -Math.PI / 2;
  */
 function singleRingRadius(total) {
   if (total <= 3) return MIN_ORBIT;
-  if (total <= 6) return 268;
-  return 322;
+  if (total <= 6) return 306;
+  return 360;
 }
 
 /** Multi-ring radii, evenly spread between the innermost and outermost orbit. */
 const MULTI_RING_RADII = Object.freeze({
-  2: [250, MAX_ORBIT],
-  3: [MIN_ORBIT, 300, MAX_ORBIT],
+  2: [MAX_ORBIT - MIN_RING_SEPARATION * 1.5, MAX_ORBIT],
+  3: [
+    MAX_ORBIT - MIN_RING_SEPARATION * 2,
+    MAX_ORBIT - MIN_RING_SEPARATION,
+    MAX_ORBIT,
+  ],
 });
 
 /**
@@ -67,6 +114,10 @@ const MULTI_RING_RADII = Object.freeze({
  * Derived from the chord between neighbours rather than guessed, which is what
  * makes "no overlap" a property of the algorithm instead of a property of the
  * roster sizes someone happened to test.
+ *
+ * Callers planning a *tilted* orbit must pass the foreshortened radius: two
+ * neighbours separated mainly along the compressed axis are the worst case, and
+ * planning against the uncompressed radius would silently overfill the ring.
  */
 export function ringCapacity(radius) {
   const halfSpacing = NODE_RADIUS + MIN_NODE_GAP / 2;
@@ -74,12 +125,17 @@ export function ringCapacity(radius) {
   return Math.max(1, Math.floor(Math.PI / Math.asin(halfSpacing / radius)));
 }
 
+/** Capacity of an orbit once its inclination is taken into account. */
+function tiltedCapacity(radius) {
+  return ringCapacity(radius * ORBIT_TILT);
+}
+
 /** Chooses ring radii for a roster size. */
 function planRings(total) {
   if (total <= 9) return [singleRingRadius(total)];
   for (const count of [2, 3]) {
     const radii = MULTI_RING_RADII[count];
-    const capacity = radii.reduce((sum, r) => sum + ringCapacity(r), 0);
+    const capacity = radii.reduce((sum, r) => sum + tiltedCapacity(r), 0);
     if (total <= capacity) return radii;
   }
   // Beyond what three rings hold, keep the outer rings and let the innermost
@@ -94,7 +150,7 @@ function planRings(total) {
  */
 function allocate(total, radii) {
   if (radii.length === 1) return [total];
-  const capacities = radii.map(ringCapacity);
+  const capacities = radii.map(tiltedCapacity);
   const totalCapacity = capacities.reduce((a, b) => a + b, 0);
   const counts = capacities.map((capacity) =>
     Math.floor((total * capacity) / totalCapacity)
@@ -124,6 +180,7 @@ export function layoutConstellation(agents = []) {
       ringRadii: [],
       coreRadius: CORE_RADIUS,
       nodeRadius: NODE_RADIUS,
+      tilt: ORBIT_TILT,
     };
 
   const radii = planRings(total);
@@ -140,13 +197,21 @@ export function layoutConstellation(agents = []) {
     const offset = ringIndex % 2 === 1 ? Math.PI / count : 0;
     for (let index = 0; index < count; index += 1) {
       const angle = START_ANGLE + offset + (index * 2 * Math.PI) / count;
+      // `depth` is -1 at the far edge of the orbit and +1 at the near edge. It
+      // is pure geometry: where the node sits on the ring, nothing else. It
+      // never encodes status, priority or activity.
+      const depth = Math.sin(angle);
       nodes.push({
         agentId: items[index].agentId,
         x: Number((CENTER + radius * Math.cos(angle)).toFixed(2)),
-        y: Number((CENTER + radius * Math.sin(angle)).toFixed(2)),
+        y: Number((CENTER + radius * ORBIT_TILT * depth).toFixed(2)),
         angle,
         radius,
         ring: ringIndex,
+        depth: Number(depth.toFixed(4)),
+        // Nearer nodes are marginally larger. Bounded by DEPTH_SCALE_RANGE so
+        // the cue never becomes a hierarchy.
+        scale: Number((1 + depth * DEPTH_SCALE_RANGE).toFixed(4)),
         // Which side of the core the node sits on, so a label can be placed
         // outside the ring without overlapping it.
         labelAnchor:
@@ -159,6 +224,14 @@ export function layoutConstellation(agents = []) {
     }
   });
 
+  // Painter's algorithm: far nodes are emitted first so nearer ones overlap
+  // them, which is the whole reason the depth field exists. Ties break on
+  // agentId so the order stays deterministic for an unchanged roster.
+  nodes.sort(
+    (left, right) =>
+      left.depth - right.depth || left.agentId.localeCompare(right.agentId)
+  );
+
   return {
     center: { x: CENTER, y: CENTER },
     nodes,
@@ -166,6 +239,7 @@ export function layoutConstellation(agents = []) {
     ringRadii: radii,
     coreRadius: CORE_RADIUS,
     nodeRadius: NODE_RADIUS,
+    tilt: ORBIT_TILT,
   };
 }
 
@@ -194,6 +268,9 @@ export function edgeGeometry(
     mx: Number(((from.x + to.x) / 2).toFixed(2)),
     my: Number(((from.y + to.y) / 2).toFixed(2)),
     angleDeg: Number(((Math.atan2(dy, dx) * 180) / Math.PI).toFixed(2)),
+    // The mean depth of the two endpoints, so an edge can be drawn behind the
+    // core when it passes across the far side of the formation.
+    depth: Number((((from.depth ?? 0) + (to.depth ?? 0)) / 2).toFixed(4)),
   };
 }
 

@@ -45,6 +45,8 @@ export default {
     notInstalled: "غير مثبّت",
     noModels: "لم يُبلَّغ عن أي نموذج مثبّت.",
     reachable: "متاح",
+    viewFull: "عرض وحدة التحكم الكاملة لبيئة التشغيل",
+    unavailable: "لم تُحمَّل حالة بيئة التشغيل بعد.",
     configured: "مُهيّأ",
     notConfigured: "غير مُهيّأ",
     keySafe:

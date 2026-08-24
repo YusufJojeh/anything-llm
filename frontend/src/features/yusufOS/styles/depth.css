@@ -1,0 +1,309 @@
+/*
+ * Yusuf OS depth + mission-control layer.
+ *
+ * This file is the 3D half of the design system. `tokens.css` owns colour,
+ * status semantics and the flat panel treatment; this owns perspective, the
+ * elevation scale, the glass treatment, and the semantic motion the System
+ * Core and the constellation use.
+ *
+ * Scoped to `.yos-root` exactly like `tokens.css`, so none of it can reach the
+ * AnythingLLM experience at `/`.
+ *
+ * Two rules govern everything below:
+ *
+ * 1. Depth is structure, never scenery. A layer is raised because it is nearer
+ *    the operator in the information hierarchy, not because a shadow looks
+ *    nice. There are five elevations and no sixth.
+ * 2. Motion is semantic. Every animation here is driven by a state the server
+ *    asserted. Nothing loops to suggest activity that is not happening, and
+ *    `prefers-reduced-motion` removes all of it without removing meaning.
+ */
+
+.yos-root {
+  /* --- perspective ------------------------------------------------------
+   * One shared camera for the whole console, so a card raised on the left and
+   * a ring tilted on the right belong to the same space.
+   */
+  --yos-perspective: 1400px;
+
+  /* --- elevation --------------------------------------------------------
+   * Five steps. `0` is the stage floor (recessed), `4` is the operator's hand
+   * (overlays). Each step is a shadow AND a hairline, because on a near-black
+   * canvas a shadow alone is invisible.
+   */
+  --yos-elev-0:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.015),
+    inset 0 0 60px -20px rgb(0 0 0 / 0.9);
+  --yos-elev-1:
+    0 1px 0 0 rgb(255 255 255 / 0.03) inset,
+    0 2px 8px -4px rgb(0 0 0 / 0.7);
+  --yos-elev-2:
+    0 1px 0 0 rgb(255 255 255 / 0.04) inset,
+    0 14px 34px -22px rgb(0 0 0 / 0.9);
+  --yos-elev-3:
+    0 1px 0 0 rgb(255 255 255 / 0.05) inset,
+    0 30px 66px -30px rgb(0 0 0 / 0.95);
+  --yos-elev-4:
+    0 1px 0 0 rgb(255 255 255 / 0.06) inset,
+    0 44px 96px -36px rgb(0 0 0 / 0.98);
+
+  /* --- glass ------------------------------------------------------------
+   * Only where a surface must sit over the constellation without hiding it.
+   * Never on a plain page panel: frosted glass over an opaque background is
+   * cost with no meaning, and it costs contrast.
+   */
+  --yos-glass-bg: color-mix(in srgb, var(--yos-surface) 78%, transparent);
+  --yos-glass-border: color-mix(
+    in srgb,
+    var(--yos-border-strong) 70%,
+    transparent
+  );
+  --yos-glass-blur: 14px;
+
+  /* --- risk semantics ---------------------------------------------------
+   * The control plane's own risk ladder (`riskLevel` on an approval). Kept
+   * separate from status tone: a status says what IS happening, a risk level
+   * says how much a decision costs. They are never the same colour by accident
+   * because they are never the same token.
+   */
+  --yos-risk-l0: #4a545f;
+  --yos-risk-l1: #4a90d9;
+  --yos-risk-l2: #35a878;
+  --yos-risk-l3: #c98b28;
+  --yos-risk-l4: #b8574a;
+
+  /* --- motion -----------------------------------------------------------
+   * Named by intent, not duration, so a component asks for "attention" and
+   * gets whatever the system currently thinks attention should feel like.
+   */
+  --yos-motion-ambient: 6200ms;
+  --yos-motion-attention: 2200ms;
+  --yos-motion-enter: 320ms;
+}
+
+/* --- stage ---------------------------------------------------------------
+ * The mission-control floor. Deeper than any panel, with a single restrained
+ * blue infrastructure glow behind the core. One gradient, not a particle
+ * field: the light exists to say "the core is the centre", nothing else.
+ */
+.yos-stage {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(
+      68% 52% at 50% 44%,
+      color-mix(in srgb, var(--yos-accent) 7%, transparent) 0%,
+      transparent 62%
+    ),
+    radial-gradient(
+      120% 96% at 50% 40%,
+      color-mix(in srgb, var(--yos-surface) 70%, transparent) 0%,
+      var(--yos-canvas) 72%
+    );
+  border: 1px solid var(--yos-border-faint);
+  border-radius: var(--yos-radius-lg);
+  box-shadow: var(--yos-elev-0);
+  overflow: hidden;
+  /* Makes the stage a query container so the square below can be capped by the
+     stage's own block size as well as its inline size. */
+  container-type: size;
+}
+
+/*
+ * A very low-contrast technical grid. It gives the 3D core a ground plane to
+ * read against; without it the core floats in featureless black and the depth
+ * cue is lost. Deliberately below the noise floor of the text.
+ */
+.yos-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--yos-border) 40%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--yos-border) 40%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 68px 68px;
+  -webkit-mask-image: radial-gradient(
+    72% 62% at 50% 46%,
+    #000 0%,
+    transparent 78%
+  );
+  mask-image: radial-gradient(72% 62% at 50% 46%, #000 0%, transparent 78%);
+  opacity: 0.5;
+}
+
+/* --- the square stage ----------------------------------------------------
+ * The constellation and the 3D core share one strictly square box so their
+ * geometry lines up without measuring anything at runtime.
+ *
+ * Height-driven by default, because the stage is normally wider than it is tall
+ * once the operator rail takes its column; `overflow: hidden` on `.yos-stage`
+ * means the worst case is a mild horizontal crop of empty canvas rather than a
+ * distorted core. Where container query units are supported the box is capped
+ * by the stage's own block size as well, so nothing is cropped at all.
+ */
+.yos-stage-square {
+  block-size: 100%;
+  aspect-ratio: 1 / 1;
+  max-inline-size: 100%;
+}
+
+@supports (inline-size: 1cqb) {
+  .yos-stage-square {
+    block-size: min(100%, 100cqi);
+    inline-size: min(100%, 100cqb);
+  }
+}
+
+/* --- glass panel ---------------------------------------------------------
+ * For surfaces that overlay the stage.
+ */
+.yos-glass {
+  background-color: var(--yos-glass-bg);
+  border: 1px solid var(--yos-glass-border);
+  border-radius: var(--yos-radius-lg);
+  box-shadow: var(--yos-elev-3);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .yos-glass {
+    -webkit-backdrop-filter: blur(var(--yos-glass-blur)) saturate(130%);
+    backdrop-filter: blur(var(--yos-glass-blur)) saturate(130%);
+  }
+}
+
+/* --- CSS 3D scene --------------------------------------------------------
+ * The CSS-3D System Core. This is the always-available implementation: it is
+ * what renders when WebGL is unavailable, when motion is reduced, and while
+ * the WebGL chunk is still loading. It is not a degraded placeholder — it is a
+ * real layered 3D object built from perspective-transformed rings.
+ */
+.yos-scene {
+  perspective: var(--yos-perspective);
+  perspective-origin: 50% 46%;
+}
+
+.yos-scene-3d {
+  transform-style: preserve-3d;
+}
+
+/*
+ * Ring rotation. `--yos-ring-dur`, `--yos-ring-dir` and `--yos-ring-tilt` are
+ * set per ring by the component from the core state, so the speed and the
+ * inclination are a readout, not decoration.
+ */
+@keyframes yos-ring-spin {
+  from {
+    transform: rotateX(var(--yos-ring-tilt, 0deg)) rotateZ(0deg);
+  }
+  to {
+    transform: rotateX(var(--yos-ring-tilt, 0deg)) rotateZ(360deg);
+  }
+}
+
+.yos-ring {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 50%;
+  border-style: solid;
+  transform: rotateX(var(--yos-ring-tilt, 0deg));
+  transform-style: preserve-3d;
+  animation: yos-ring-spin var(--yos-ring-dur, 40s) linear infinite;
+  animation-direction: var(--yos-ring-dir, normal);
+  will-change: transform;
+}
+
+/*
+ * Volumetric halo. Intensity and cadence are set by the component from the
+ * asserted state, so a calm system glows quietly and a system waiting on Yusuf
+ * does not.
+ */
+@keyframes yos-halo-breathe {
+  0%,
+  100% {
+    opacity: calc(var(--yos-halo-intensity, 0.4) * 0.66);
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: var(--yos-halo-intensity, 0.4);
+    transform: scale(1.05);
+  }
+}
+
+.yos-halo {
+  position: absolute;
+  inset: -20%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 50%,
+    var(--yos-halo-color, var(--yos-accent)) 0%,
+    transparent 62%
+  );
+  opacity: var(--yos-halo-intensity, 0.4);
+  animation: yos-halo-breathe var(--yos-halo-dur, 6200ms) ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+/* --- semantic entrance ---------------------------------------------------
+ * One entrance, used when a surface first carries real data. Never replayed on
+ * a refresh, so it cannot read as "something just happened".
+ */
+@keyframes yos-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.yos-rise {
+  animation: yos-rise var(--yos-motion-enter) var(--yos-ease) both;
+}
+
+/* --- reduced motion ------------------------------------------------------
+ * Everything above stops. The core keeps its rings, its halo and its colour;
+ * it simply stops moving. No state is lost, because no state was ever carried
+ * by movement alone.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .yos-root .yos-ring,
+  .yos-root .yos-halo,
+  .yos-root .yos-rise {
+    animation: none !important;
+  }
+  .yos-root .yos-ring {
+    transform: rotateX(var(--yos-ring-tilt, 0deg));
+  }
+  .yos-root .yos-halo {
+    opacity: var(--yos-halo-intensity, 0.4);
+    transform: none;
+  }
+}
+
+/* Forced colors: depth is decoration to a forced palette. Drop it and keep the
+   structural hairlines, which are what actually carry the layout. */
+@media (forced-colors: active) {
+  .yos-root .yos-glass,
+  .yos-root .yos-stage {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+  .yos-root .yos-halo {
+    display: none;
+  }
+}

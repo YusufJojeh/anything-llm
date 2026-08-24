@@ -234,6 +234,19 @@ export function toneStyle(tone) {
   return TONE_STYLE[tone] || TONE_STYLE[TONES.UNKNOWN];
 }
 
+/**
+ * The raw custom-property *name* backing a tone's graphic colour.
+ *
+ * Needed by the WebGL core, which cannot consume `var(--yos-active-graphic)` —
+ * it needs the resolved `#4a90d9`. Exposing the name here rather than parsing it
+ * back out of `toneStyle()` keeps `tokens.css` the one place a status colour is
+ * defined, so the 3D core and every 2D surface can never drift apart.
+ */
+export function toneGraphicVariable(tone) {
+  const known = TONE_STYLE[tone] ? tone : TONES.UNKNOWN;
+  return `--yos-${known}-graphic`;
+}
+
 export function toneIcon(tone) {
   return TONE_ICON[tone] || TONE_ICON[TONES.UNKNOWN];
 }

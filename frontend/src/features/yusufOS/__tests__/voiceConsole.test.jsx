@@ -245,4 +245,25 @@ describe("Yusuf OS voice console", () => {
     await waitFor(() => expect(api.transcribeVoice).toHaveBeenCalled());
     expect(api.transcribeVoice.mock.calls[0][1]).toBe("voice.mp4");
   });
+
+  test("dock variant exposes the same accessible names as the panel", async () => {
+    renderWithI18n(<VoiceConsole variant="dock" />);
+    const start = await screen.findByRole("button", {
+      name: "Start listening",
+    });
+    await waitFor(() => expect(start).toBeEnabled());
+    fireEvent.click(start);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Stop listening" })
+    );
+    expect(await screen.findByText("record the role")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Review required approval" })
+    ).toHaveAttribute(
+      "href",
+      "/os/approvals/123e4567-e89b-12d3-a456-426614174000"
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Play response" }));
+    expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);
+  });
 });

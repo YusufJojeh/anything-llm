@@ -19,6 +19,7 @@ import UnlockScreen from "./UnlockScreen";
 import ConnectionIndicator from "./ConnectionIndicator";
 import { ErrorBlock, LoadingBlock } from "./primitives";
 import "../styles/tokens.css";
+import "../styles/depth.css";
 
 /**
  * The `/os` application shell.

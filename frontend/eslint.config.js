@@ -76,5 +76,15 @@ export default [
         }
       ]
     }
+  },
+
+  // react-three-fiber renders Three.js objects as JSX intrinsics (mesh
+  // props like `args`, `rotation`, `side`), which the React DOM ruleset does
+  // not know about. Scoped narrowly to the one file that uses r3f.
+  {
+    files: ["src/features/yusufOS/components/core/CoreRingsWebGL.jsx"],
+    rules: {
+      "react/no-unknown-property": "off"
+    }
   }
 ]
