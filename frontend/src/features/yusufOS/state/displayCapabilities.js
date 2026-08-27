@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
  */
 
 /** Media-query subscription that tolerates jsdom and older Safari. */
-function useMediaQuery(query, fallback = false) {
+export function useMediaQuery(query, fallback = false) {
   const [matches, setMatches] = useState(() => {
     if (typeof window === "undefined" || !window.matchMedia) return fallback;
     return window.matchMedia(query).matches;

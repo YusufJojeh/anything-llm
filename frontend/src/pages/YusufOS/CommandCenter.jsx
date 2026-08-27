@@ -5,6 +5,7 @@ import { useYusufOS, PHASES } from "@/features/yusufOS/state/YusufOSProvider";
 import { yusufApi } from "@/features/yusufOS/api/client";
 import { coreStateTone } from "@/features/yusufOS/state/commandCenterModel";
 import { toneStyle, TONES } from "@/features/yusufOS/state/statusSemantics";
+import { useMediaQuery } from "@/features/yusufOS/state/displayCapabilities";
 import CommandStage from "@/features/yusufOS/components/CommandStage";
 import AgentRoster from "@/features/yusufOS/components/AgentRoster";
 import AttentionQueue from "@/features/yusufOS/components/AttentionQueue";
@@ -194,6 +195,10 @@ function RuntimeStrip({ runtime, runtimePhase }) {
 }
 
 export default function CommandCenter() {
+  // Keep the stage's render boundary aligned with Tailwind's `lg` breakpoint.
+  // CSS hiding alone would still mount the canvas and download the 817 KB
+  // WebGL chunk on phones where the accessible roster is the real UI.
+  const stageAvailable = useMediaQuery("(min-width: 1024px)");
   const { t } = useTranslation();
   const {
     phase,
@@ -263,24 +268,26 @@ export default function CommandCenter() {
          */}
         <section
           aria-labelledby="yos-constellation-heading"
-          className="hidden min-w-0 flex-1 lg:block xl:flex xl:min-h-0 xl:flex-col"
+          className="hidden min-w-0 flex-1 lg:flex lg:flex-col xl:min-h-0"
         >
           <h2 id="yos-constellation-heading" className="sr-only">
             {t("yusufOS:constellation.title")}
           </h2>
           <p className="sr-only">{t("yusufOS:constellation.description")}</p>
-          <div className="min-h-[520px] flex-1 xl:min-h-0">
-            <CommandStage
-              agents={model.agents}
-              edges={model.edges}
-              coreState={model.coreState}
-              selectedAgentId={selectedAgentId}
-              coreSelected={coreOpen}
-              onSelectAgent={selectAgent}
-              onSelectCore={openCore}
-              loading={loading}
-              orphanedEdgeCount={model.orphanedEdges.length}
-            />
+          <div className="h-[520px] flex-none xl:h-auto xl:min-h-0 xl:flex-1">
+            {stageAvailable ? (
+              <CommandStage
+                agents={model.agents}
+                edges={model.edges}
+                coreState={model.coreState}
+                selectedAgentId={selectedAgentId}
+                coreSelected={coreOpen}
+                onSelectAgent={selectAgent}
+                onSelectCore={openCore}
+                loading={loading}
+                orphanedEdgeCount={model.orphanedEdges.length}
+              />
+            ) : null}
           </div>
         </section>
 
