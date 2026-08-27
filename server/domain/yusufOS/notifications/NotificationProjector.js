@@ -11,7 +11,12 @@ const { brokerEnabled } = require("../adapters/browser/originPolicy");
 // idempotent: realtime delivery is a hint, while the notification table is
 // the recoverable source of truth after restart or a missed event.
 class NotificationProjector {
-  constructor({ db = prisma, notifications, browserAdapter, localGitAdapter } = {}) {
+  constructor({
+    db = prisma,
+    notifications,
+    browserAdapter,
+    localGitAdapter,
+  } = {}) {
     this.db = db;
     this.notifications = notifications || new NotificationService(db);
     this.browserAdapter = browserAdapter || new BrowserAdapter();
@@ -56,57 +61,63 @@ class NotificationProjector {
       }),
     ]);
     const operations = [
-      ...approvals.map((row) => () =>
-        this.notifications.open({
-          kind: NOTIFICATION_KINDS.APPROVAL_NEEDED,
-          severity: "ACTION",
-          dedupeKey: `approval:${row.uuid}`,
-          summary: "A governed action is waiting for Yusuf approval.",
-          taskId: row.intent.taskId,
-        })
+      ...approvals.map(
+        (row) => () =>
+          this.notifications.open({
+            kind: NOTIFICATION_KINDS.APPROVAL_NEEDED,
+            severity: "ACTION",
+            dedupeKey: `approval:${row.uuid}`,
+            summary: "A governed action is waiting for Yusuf approval.",
+            taskId: row.intent.taskId,
+          })
       ),
-      ...blockedTasks.map((row) => () =>
-        this.notifications.open({
-          kind: NOTIFICATION_KINDS.TASK_BLOCKED,
-          severity: "WARNING",
-          dedupeKey: `task-blocked:${row.uuid}`,
-          summary: "A Yusuf OS task is blocked.",
-          taskId: row.id,
-        })
+      ...blockedTasks.map(
+        (row) => () =>
+          this.notifications.open({
+            kind: NOTIFICATION_KINDS.TASK_BLOCKED,
+            severity: "WARNING",
+            dedupeKey: `task-blocked:${row.uuid}`,
+            summary: "A Yusuf OS task is blocked.",
+            taskId: row.id,
+          })
       ),
-      ...unknownIntents.map((row) => () =>
-        this.notifications.open({
-          kind: NOTIFICATION_KINDS.EXECUTION_UNKNOWN,
-          severity: "CRITICAL",
-          dedupeKey: `execution-unknown:${row.uuid}`,
-          summary: "An external action needs reconciliation before retry.",
-          taskId: row.taskId,
-        })
+      ...unknownIntents.map(
+        (row) => () =>
+          this.notifications.open({
+            kind: NOTIFICATION_KINDS.EXECUTION_UNKNOWN,
+            severity: "CRITICAL",
+            dedupeKey: `execution-unknown:${row.uuid}`,
+            summary: "An external action needs reconciliation before retry.",
+            taskId: row.taskId,
+          })
       ),
-      ...breaches.map((row) => () =>
-        this.notifications.open({
-          kind: NOTIFICATION_KINDS.MONITORING_BREACH,
-          severity: "WARNING",
-          dedupeKey: `monitoring-breach:${row.uuid}`,
-          summary: "A monitored threshold breached its code-owned limit.",
-        })
+      ...breaches.map(
+        (row) => () =>
+          this.notifications.open({
+            kind: NOTIFICATION_KINDS.MONITORING_BREACH,
+            severity: "WARNING",
+            dedupeKey: `monitoring-breach:${row.uuid}`,
+            summary: "A monitored threshold breached its code-owned limit.",
+          })
       ),
-      ...modelFailures.map((row) => () =>
-        this.notifications.open({
-          kind: NOTIFICATION_KINDS.MODEL_UNAVAILABLE,
-          severity: "WARNING",
-          dedupeKey: `model-unavailable:${row.uuid}`,
-          summary: "A model provider was unavailable for an Agent run.",
-          taskId: row.taskId,
-        })
+      ...modelFailures.map(
+        (row) => () =>
+          this.notifications.open({
+            kind: NOTIFICATION_KINDS.MODEL_UNAVAILABLE,
+            severity: "WARNING",
+            dedupeKey: `model-unavailable:${row.uuid}`,
+            summary: "A model provider was unavailable for an Agent run.",
+            taskId: row.taskId,
+          })
       ),
-      ...inbox.map((row) => () =>
-        this.notifications.open({
-          kind: NOTIFICATION_KINDS.INBOX_IMPORTANT,
-          severity: "ACTION",
-          dedupeKey: `inbox:${row.uuid}`,
-          summary: "An important Inbox message was classified.",
-        })
+      ...inbox.map(
+        (row) => () =>
+          this.notifications.open({
+            kind: NOTIFICATION_KINDS.INBOX_IMPORTANT,
+            severity: "ACTION",
+            dedupeKey: `inbox:${row.uuid}`,
+            summary: "An important Inbox message was classified.",
+          })
       ),
     ];
     // The broker being disabled is a deliberate local safety posture, not an
@@ -127,17 +138,23 @@ class NotificationProjector {
       safeAvailability(this.localGitAdapter),
     ]);
     if (browser.status !== "DISABLED" && browser.status !== "AVAILABLE")
-      operations.push(() => this.notifications.open({
-        kind: NOTIFICATION_KINDS.BROWSER_DISCONNECTED,
-        severity: "WARNING", dedupeKey: "adapter:browser-broker",
-        summary: "The enabled Browser Broker is disconnected.",
-      }));
+      operations.push(() =>
+        this.notifications.open({
+          kind: NOTIFICATION_KINDS.BROWSER_DISCONNECTED,
+          severity: "WARNING",
+          dedupeKey: "adapter:browser-broker",
+          summary: "The enabled Browser Broker is disconnected.",
+        })
+      );
     if (git.status !== "AVAILABLE")
-      operations.push(() => this.notifications.open({
-        kind: NOTIFICATION_KINDS.ADAPTER_OFFLINE,
-        severity: "WARNING", dedupeKey: "adapter:local-git",
-        summary: "The governed Local Git adapter is unavailable.",
-      }));
+      operations.push(() =>
+        this.notifications.open({
+          kind: NOTIFICATION_KINDS.ADAPTER_OFFLINE,
+          severity: "WARNING",
+          dedupeKey: "adapter:local-git",
+          summary: "The governed Local Git adapter is unavailable.",
+        })
+      );
     // SQLite is used for the local control plane and permits only one writer;
     // serializing these short audited transactions also preserves a single
     // deterministic audit chain on database engines with stricter locking.
@@ -149,15 +166,21 @@ class NotificationProjector {
       ...breaches.map((row) => `monitoring-breach:${row.uuid}`),
       ...modelFailures.map((row) => `model-unavailable:${row.uuid}`),
       ...inbox.map((row) => `inbox:${row.uuid}`),
-      ...(browser.status !== "DISABLED" && browser.status !== "AVAILABLE" ? ["adapter:browser-broker"] : []),
+      ...(browser.status !== "DISABLED" && browser.status !== "AVAILABLE"
+        ? ["adapter:browser-broker"]
+        : []),
       ...(git.status !== "AVAILABLE" ? ["adapter:local-git"] : []),
     ]);
     await this.notifications.resolveMissing({
       kinds: [
-        NOTIFICATION_KINDS.APPROVAL_NEEDED, NOTIFICATION_KINDS.TASK_BLOCKED,
-        NOTIFICATION_KINDS.EXECUTION_UNKNOWN, NOTIFICATION_KINDS.MONITORING_BREACH,
-        NOTIFICATION_KINDS.MODEL_UNAVAILABLE, NOTIFICATION_KINDS.INBOX_IMPORTANT,
-        NOTIFICATION_KINDS.ADAPTER_OFFLINE, NOTIFICATION_KINDS.BROWSER_DISCONNECTED,
+        NOTIFICATION_KINDS.APPROVAL_NEEDED,
+        NOTIFICATION_KINDS.TASK_BLOCKED,
+        NOTIFICATION_KINDS.EXECUTION_UNKNOWN,
+        NOTIFICATION_KINDS.MONITORING_BREACH,
+        NOTIFICATION_KINDS.MODEL_UNAVAILABLE,
+        NOTIFICATION_KINDS.INBOX_IMPORTANT,
+        NOTIFICATION_KINDS.ADAPTER_OFFLINE,
+        NOTIFICATION_KINDS.BROWSER_DISCONNECTED,
       ],
       activeDedupeKeys,
     });

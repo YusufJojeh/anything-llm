@@ -46,13 +46,25 @@ class NotificationService {
       if (existing) {
         const reopened = await tx.yusuf_notifications.update({
           where: { dedupeKey },
-          data: { severity, summary, taskId, runId, status: "OPEN", acknowledgedAt: null },
+          data: {
+            severity,
+            summary,
+            taskId,
+            runId,
+            status: "OPEN",
+            acknowledgedAt: null,
+          },
         });
         await this.audit.appendInTransaction(tx, {
           eventType: "notification.reopened",
-          principal: { type: PRINCIPAL_TYPES.SYSTEM, id: "notification-service" },
-          outcome: "OPEN", resource: { type: "NOTIFICATION", id: reopened.uuid },
-          metadata: { kind, severity }, requestId: `notification:${reopened.uuid}:reopened`,
+          principal: {
+            type: PRINCIPAL_TYPES.SYSTEM,
+            id: "notification-service",
+          },
+          outcome: "OPEN",
+          resource: { type: "NOTIFICATION", id: reopened.uuid },
+          metadata: { kind, severity },
+          requestId: `notification:${reopened.uuid}:reopened`,
         });
         return reopened;
       }
@@ -106,12 +118,19 @@ class NotificationService {
         data: { status: "RESOLVED" },
       });
       if (result.count === 1) {
-        const notification = await tx.yusuf_notifications.findUnique({ where: { dedupeKey } });
+        const notification = await tx.yusuf_notifications.findUnique({
+          where: { dedupeKey },
+        });
         await this.audit.appendInTransaction(tx, {
           eventType: "notification.resolved",
-          principal: { type: PRINCIPAL_TYPES.SYSTEM, id: "notification-service" },
-          outcome: "RESOLVED", resource: { type: "NOTIFICATION", id: notification.uuid },
-          metadata: {}, requestId: `notification:${notification.uuid}:resolved`,
+          principal: {
+            type: PRINCIPAL_TYPES.SYSTEM,
+            id: "notification-service",
+          },
+          outcome: "RESOLVED",
+          resource: { type: "NOTIFICATION", id: notification.uuid },
+          metadata: {},
+          requestId: `notification:${notification.uuid}:resolved`,
         });
       }
       return result.count === 1;

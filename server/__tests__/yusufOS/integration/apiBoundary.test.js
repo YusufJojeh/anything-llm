@@ -13,9 +13,13 @@ describe("Yusuf OS internal API boundary", () => {
   let server;
   let baseUrl;
   const token = "gate-c-control-token-that-is-at-least-32-characters";
+  const originalControlToken = process.env.YUSUF_OS_CONTROL_TOKEN;
+  const originalBrowserSpeech =
+    process.env.YUSUF_OS_VOICE_ALLOW_BROWSER_SPEECH;
 
   beforeAll(async () => {
     process.env.YUSUF_OS_CONTROL_TOKEN = token;
+    process.env.YUSUF_OS_VOICE_ALLOW_BROWSER_SPEECH = "false";
     testDatabase = await createTestDatabase();
     const app = express();
     app.use(bodyParser.json({ limit: "256kb" }));
@@ -29,7 +33,13 @@ describe("Yusuf OS internal API boundary", () => {
   }, 120000);
 
   afterAll(async () => {
-    delete process.env.YUSUF_OS_CONTROL_TOKEN;
+    if (originalControlToken === undefined)
+      delete process.env.YUSUF_OS_CONTROL_TOKEN;
+    else process.env.YUSUF_OS_CONTROL_TOKEN = originalControlToken;
+    if (originalBrowserSpeech === undefined)
+      delete process.env.YUSUF_OS_VOICE_ALLOW_BROWSER_SPEECH;
+    else
+      process.env.YUSUF_OS_VOICE_ALLOW_BROWSER_SPEECH = originalBrowserSpeech;
     if (server) await new Promise((resolve) => server.close(resolve));
     if (testDatabase) await testDatabase.cleanup();
   });

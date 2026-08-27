@@ -106,17 +106,20 @@ class Scheduler {
     if (claimed.count !== 1)
       return { scheduleKey: schedule.scheduleKey, status: "SKIPPED" };
     let leaseLost = false;
-    const renewal = setInterval(async () => {
-      try {
-        const renewed = await this.db.yusuf_schedules.updateMany({
-          where: { id: schedule.id, leaseId },
-          data: { leaseExpiresAt: new Date(Date.now() + this.leaseMs) },
-        });
-        if (renewed.count !== 1) leaseLost = true;
-      } catch {
-        leaseLost = true;
-      }
-    }, Math.max(10, Math.floor(this.leaseMs / 3)));
+    const renewal = setInterval(
+      async () => {
+        try {
+          const renewed = await this.db.yusuf_schedules.updateMany({
+            where: { id: schedule.id, leaseId },
+            data: { leaseExpiresAt: new Date(Date.now() + this.leaseMs) },
+          });
+          if (renewed.count !== 1) leaseLost = true;
+        } catch {
+          leaseLost = true;
+        }
+      },
+      Math.max(10, Math.floor(this.leaseMs / 3))
+    );
     renewal.unref?.();
     try {
       if (schedule.kind !== SCHEDULE_KINDS.EVIDENCE_RETENTION)
@@ -131,7 +134,12 @@ class Scheduler {
       const failureCount = schedule.failureCount + 1;
       try {
         await this.#recordTerminal({
-          schedule, leaseId, now, succeeded: false, failureCount, error,
+          schedule,
+          leaseId,
+          now,
+          succeeded: false,
+          failureCount,
+          error,
         });
       } catch {
         // The lease remains in place when audit persistence is unavailable.
@@ -150,21 +158,40 @@ class Scheduler {
     }
   }
 
-  async #recordTerminal({ schedule, leaseId, now, succeeded, failureCount, error }) {
+  async #recordTerminal({
+    schedule,
+    leaseId,
+    now,
+    succeeded,
+    failureCount,
+    error,
+  }) {
     await this.db.$transaction(async (tx) => {
       const completed = await tx.yusuf_schedules.updateMany({
         where: { id: schedule.id, leaseId },
         data: succeeded
           ? {
               lastRunAt: now,
-              nextRunAt: nextCoalescedRunAt(now, schedule.intervalSeconds, this.random),
-              failureCount: 0, lastErrorCode: null, leaseId: null, leaseExpiresAt: null,
+              nextRunAt: nextCoalescedRunAt(
+                now,
+                schedule.intervalSeconds,
+                this.random
+              ),
+              failureCount: 0,
+              lastErrorCode: null,
+              leaseId: null,
+              leaseExpiresAt: null,
               version: { increment: 1 },
             }
           : {
-              failureCount, lastErrorCode: "SCHEDULE_EXECUTION_FAILED",
-              nextRunAt: new Date(now.getTime() + failureDelaySeconds(failureCount) * 1000),
-              leaseId: null, leaseExpiresAt: null, version: { increment: 1 },
+              failureCount,
+              lastErrorCode: "SCHEDULE_EXECUTION_FAILED",
+              nextRunAt: new Date(
+                now.getTime() + failureDelaySeconds(failureCount) * 1000
+              ),
+              leaseId: null,
+              leaseExpiresAt: null,
+              version: { increment: 1 },
             },
       });
       if (completed.count !== 1) throw new Error("SCHEDULE_LEASE_LOST");
@@ -173,13 +200,15 @@ class Scheduler {
         principal: { type: PRINCIPAL_TYPES.SYSTEM, id: "yusuf-scheduler" },
         outcome: succeeded ? "SUCCEEDED" : "FAILED",
         resource: { type: "SCHEDULE", id: schedule.uuid },
-        metadata: succeeded ? { scheduleKey: schedule.scheduleKey } : {
-          scheduleKey: schedule.scheduleKey,
-          reason:
-            error.message === "RETENTION_ERRORS"
-              ? "RETENTION_ERRORS"
-              : "EXECUTION_FAILED",
-        },
+        metadata: succeeded
+          ? { scheduleKey: schedule.scheduleKey }
+          : {
+              scheduleKey: schedule.scheduleKey,
+              reason:
+                error.message === "RETENTION_ERRORS"
+                  ? "RETENTION_ERRORS"
+                  : "EXECUTION_FAILED",
+            },
         requestId: `scheduler:${schedule.uuid}:${now.toISOString()}`,
       });
     });
