@@ -1,5 +1,29 @@
 # Test Baseline
 
+## Post-V1: Agent Workspace (Section 20) — 2026-09-04 [VERIFIED_BY_TEST]
+
+- Frontend: `npx vitest run --config vitest.config.js` → **13 suites, 171 tests, all
+  passed** (was 12 suites; +1 new suite `agentWorkspace.test.jsx`, +4 tests; the
+  `commandCenterModel.test.js` suite gained 9 more cases for
+  `deriveWorkspaceState`/`buildWorkspaceGroups`). Pre-existing `act(...)` console
+  warnings from `AgentRoster`/`StatusChip` are unrelated noise, not failures.
+- Targeted ESLint on the 7 changed files: clean after `--fix` (9 auto-fixable
+  formatting nits, no logic issues).
+- Production build (`npx vite build`): clean. Chunk-size warning is pre-existing
+  and unrelated to this change.
+- Live module-graph check (Vite dev server + Browser pane, `/os/agents`): every
+  new/changed module (`Agents.jsx`, `commandCenterModel.js`, `AgentDetailPanel`,
+  `VoiceConsole`, `primitives`, `statusSemantics`, `agentRoles`) loaded 200 OK
+  with zero console/network errors; the governed session lock screen rendered
+  correctly. **Not verified further** — going past the lock screen requires
+  entering `YUSUF_OS_CONTROL_TOKEN`, which is a credential entry this agent will
+  not perform; see `HUMAN_ACTION_REQUIRED.md`.
+- No independent adversarial security review performed this session (frontend-
+  only, no new backend endpoint or capability surface — every field rendered is
+  sourced from already-reviewed `DetailProjections`/`RuntimeProjection`/
+  `DashboardProjection` output).
+- Local commit: `776102cc`.
+
 ## Phase AE final gate — 2026-08-24 [VERIFIED_BY_TEST]
 
 - Initial full-server sweep found one real fixture regression:

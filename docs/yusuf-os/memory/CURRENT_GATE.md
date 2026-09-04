@@ -1,5 +1,55 @@
 # Current Gate
 
+## Post-V1 — Agent Workspace (Section 20) — status: IMPLEMENTED / PARTIALLY VERIFIED
+
+V1 (Phases B–AE) is COMPLETE and released, below. This entry is a later,
+out-of-band addition: a large follow-up audit/completion prompt from Yusuf
+named a dedicated "Agent Workspace" console as a specific, still-missing
+requirement (a JARVIS/APEX-style three-pane console per Agent — LEFT
+Department-grouped roster, CENTER a live per-Agent console with a strictly
+real, non-fabricated activity state, RIGHT Agent/Task/Evidence tabs, BOTTOM
+the existing voice dock). `/os/agents` was a thin roster+drawer page; it is
+now the full Workspace, built entirely against already-existing, already-
+tested backend projections (`DetailProjections.run()`/`.task()`/`.roster()`,
+`RuntimeProjection.departments()`) — **no new backend endpoint or capability
+surface was added**, so no new security boundary was introduced.
+
+The console state (`IDLE/THINKING/USING_TOOL/WORKING/WAITING_APPROVAL/
+BLOCKED/COMPLETE/ERROR`, `commandCenterModel.js`'s `deriveWorkspaceState`) is
+derived purely from real `run.status` and whether an intent is `EXECUTING` —
+never chain-of-thought, never fabricated — and the literal backend status is
+always shown alongside it. Department grouping degrades to an ungrouped list
+when the `/runtime` projection hasn't loaded yet rather than fabricating one.
+
+**Verified this session:** full frontend suite (13 suites / 171 tests,
+including 4 new `agentWorkspace.test.jsx` rendering tests and 9 new
+`commandCenterModel.test.js` unit cases for the two new pure functions),
+targeted ESLint clean, production build clean, and a live Vite dev-server
+check confirming the entire new module graph loads with zero console/network
+errors and the governed lock screen renders correctly.
+
+**Not verified this session — genuinely blocked, not skipped:** the actual
+unlocked `/os/agents` UI against a live control plane with real data. Reaching
+it requires entering `YUSUF_OS_CONTROL_TOKEN` into the browser's unlock field,
+which this agent will not do (credential entry is a hard stop regardless of
+local/dev context — see `HUMAN_ACTION_REQUIRED.md`). No independent adversarial
+review was run either, since this is a frontend-only change with no new
+capability/policy/execution surface for one to meaningfully attack — flagged
+here rather than silently skipped, per this project's own standing lesson that
+self-review is not sufficient once real security surface is at stake.
+
+**Local commit:** `776102cc`. No push, no PR, no deploy. `.claude/` remains
+untracked.
+
+**Next:** Yusuf manually unlocks `/os/agents` locally (paste
+`YUSUF_OS_CONTROL_TOKEN`) and confirms the Workspace renders correctly against
+live data — selection, tab switching, and the console state for a real running
+Agent. The rest of the originally-requested mega-audit (full backend domain
+audit, adversarial security review, browser-broker hostile-corpus tests, PM
+backlog review, etc.) was not attempted this session — it is a separately
+scoped, multi-session effort and none of it should be reported as done without
+having actually been performed.
+
 ## Phase AE — Final Full-System E2E — status: COMPLETE
 
 The V1 critical path S→AE is locally complete. The final sweep caught and

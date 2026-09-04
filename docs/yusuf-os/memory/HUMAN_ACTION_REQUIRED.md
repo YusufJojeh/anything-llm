@@ -57,6 +57,13 @@ Open `http://localhost:3000/os`, unlock, and confirm three things:
 
 Then say so, and the evidence gets recorded in `GATE_HISTORY.md` and Gate G closes.
 
+**Updated 2026-09-04:** the new Agent Workspace at `/os/agents` (see `CURRENT_GATE.md`'s
+"Post-V1" entry) falls under this same open item — its live module graph was confirmed
+to load cleanly against a real dev server, but nobody has yet unlocked the session and
+exercised it (Department grouping, a real running Agent's console state, tab switching)
+against real data. When doing the unlock pass above, also open `/os/agents` and confirm
+those specifically.
+
 ---
 
 ## 2. Browser Broker attachment — opt-in [OPEN, blocks Phase H/I *use*, not their *completion*]

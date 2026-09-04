@@ -1,5 +1,64 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-09-04 — Post-V1: Agent Workspace / Section 20 (Claude Code, Sonnet 5)
+
+**What was done:** Continuation of a large "final audit and completion" prompt from an
+earlier compacted session. That prompt's Section 20 named a dedicated Agent Workspace
+console as a likely-missing requirement; it was. Rewrote `/os/agents`
+(`frontend/src/pages/YusufOS/Agents.jsx`, 79 → ~530 lines) from a thin roster+drawer into
+a three-pane console: Department-grouped roster (LEFT, reusing `RuntimeProjection`'s
+existing department data with graceful ungrouped fallback), a live per-Agent console
+(CENTER) showing the real governed intent timeline for the Agent's current run, an
+honestly-derived (never fabricated) activity state chip, Agent/Task/Evidence tabs
+(RIGHT, reusing `AgentDetailPanel` unmodified and new `TaskTab`/`EvidenceTab` built from
+`DetailProjections.task()`), and the existing real `VoiceConsole` dock (BOTTOM). Added
+`deriveWorkspaceState`/`buildWorkspaceGroups` as pure, unit-tested functions in
+`commandCenterModel.js`, English + Arabic i18n, and a new rendering test suite.
+
+**No new backend surface.** Every field comes from `DetailProjections`/`RuntimeProjection`/
+`DashboardProjection`, all already implemented and tested in prior gates — this was a
+frontend-only build.
+
+**Verified:** full frontend suite (13/13 suites, 171/171 tests — the new 4-test
+`agentWorkspace.test.jsx` plus 9 new unit cases in `commandCenterModel.test.js`),
+targeted ESLint clean after auto-fix, production build clean. Two real test bugs were
+caught and fixed during this pass, both the same shape: `WorkspaceConsole` and the
+default-active Agent tab (`AgentDetailPanel`) independently fetch and render the *same*
+run/task data, so several assertions that assumed a single match (`getByText`,
+`getByRole("alert")`) had to become "at least one" (`getAllByText`/`findAllByText`)
+instead — not a product bug, just two panels honestly agreeing with each other.
+
+**Live-verified, partially.** Started the real dev stack (frontend + backend + collector)
+in the Browser pane and navigated to `/os/agents`: the entire new module graph loaded
+200 OK with zero console/network errors, and the app correctly showed the governed
+"Yusuf OS is locked" screen. **Did not go further** — unlocking requires typing
+`YUSUF_OS_CONTROL_TOKEN` into the browser, which this agent will not do (credential
+entry into any field is a hard stop, independent of the fact that it's a local dev
+token). This is a genuine, not a skipped, verification gap.
+
+**No independent adversarial review this session** — flagged explicitly rather than
+silently omitted, per this project's own recurring lesson that self-review misses real
+issues. Judgment call: since this change adds no new capability, policy path, or
+execution surface (every value rendered is already-reviewed projection output), the
+highest-value fresh review here is Yusuf's own live-data check once unlocked, not a
+second code-reading pass over rendering logic that has no security boundary to attack.
+
+**Evidence:** local commit `776102cc`. No push, no PR, no deploy. `.claude/` untracked.
+
+**Honest scope note on the originating mega-prompt:** that prompt's full scope (full
+backend-domain audit across every adapter, an adversarial agentic-loop/browser-broker
+pass, PM backlog review, a mandated structured final report, full memory updates across
+every file) was **not** attempted this session beyond the Agent Workspace deliverable
+itself and this memory update. Reporting partial completion honestly rather than
+claiming the mega-scope is done.
+
+**Exact next action:** Yusuf unlocks `/os/agents` locally and confirms it against live
+data (Department grouping, console state for a real running Agent, tab switching,
+malformed/empty states). Whether to continue the mega-prompt's remaining scope (backend
+audits, adversarial review, PM review, final report) in a future session is Yusuf's call
+given its size — check with him rather than assuming the full original scope is still
+wanted verbatim.
+
 ## 2026-08-24 — Phase AE: Final full-system E2E (Codex)
 
 Final sweep found one stale test fixture: Command Center projection setup wrote
