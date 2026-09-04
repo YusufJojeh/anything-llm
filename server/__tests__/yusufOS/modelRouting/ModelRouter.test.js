@@ -120,6 +120,28 @@ describe("Phase R — ModelRouter attack matrix", () => {
     expect(ollamaAttempts).toBe(1);
   });
 
+  test("LOCAL_FIRST falls back to OpenAI when Ollama fails, same as FALLBACK_CHAIN", async () => {
+    // LOCAL_FIRST and FALLBACK_CHAIN share an implementation today, but their
+    // names imply distinct intent (prefer local vs. a generic ordered
+    // chain). This is a regression tripwire: it fails loudly the day someone
+    // gives LOCAL_FIRST its own branch without preserving this behavior.
+    let ollamaAttempts = 0;
+    const router = new ModelRouter({
+      ollama: fakeOllama({
+        health: { available: true, models: [{ fullName: "llama3:latest", name: "llama3" }] },
+        completeImpl: async () => {
+          ollamaAttempts += 1;
+          throw new Error("ollama down");
+        },
+      }),
+      openai: fakeOpenAI(),
+    });
+    const result = await router.route({ policy: ROUTING_POLICIES.LOCAL_FIRST, messages });
+    expect(result.provider).toBe(PROVIDER_KINDS.OPENAI);
+    expect(result.fallbackOccurred).toBe(true);
+    expect(ollamaAttempts).toBe(1);
+  });
+
   test("FALLBACK_CHAIN with both providers failing exhausts cleanly", async () => {
     const router = new ModelRouter({
       ollama: fakeOllama({
