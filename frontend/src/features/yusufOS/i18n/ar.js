@@ -534,4 +534,28 @@ export default {
       SPEAKING: "جارٍ النطق",
     },
   },
+  workspace: {
+    selectPrompt: "اختر وكيلاً لفتح مساحة عمله.",
+    otherAgents: "وكلاء آخرون",
+    console: "وحدة التحكم",
+    state: {
+      IDLE: "خامل",
+      THINKING: "يفكر",
+      USING_TOOL: "يستخدم أداة",
+      WORKING: "يعمل",
+      WAITING_APPROVAL: "بانتظارك",
+      BLOCKED: "محظور",
+      COMPLETE: "مكتمل",
+      ERROR: "خطأ",
+    },
+    tabs: {
+      agent: "الوكيل",
+      task: "المهمة",
+      evidence: "الأدلة",
+    },
+    noRun: "غير مكلَّف حالياً بأي تشغيل.",
+    noTask: "غير مكلَّف حالياً بأي مهمة.",
+    openFullRun: "فتح التشغيل الكامل",
+    openFullTask: "فتح المهمة الكاملة",
+  },
 };

@@ -89,6 +89,74 @@ export function rosterFixture(overrides = {}) {
   };
 }
 
+/** Shaped exactly like `DetailProjections.run()`. */
+export function runDetailFixture(overrides = {}) {
+  return {
+    run: {
+      runId: "run-1",
+      agentId: "engineering",
+      agentName: "Engineering",
+      runKind: "IMPLEMENTATION",
+      status: "RUNNING",
+      failureKind: null,
+      blockingReason: null,
+      modelRef: "ollama/gemma3:4b",
+      tokenUsage: null,
+      estimatedCostMicros: null,
+      startedAt: "2026-08-18T09:00:00.000Z",
+      completedAt: null,
+      createdAt: "2026-08-18T09:00:00.000Z",
+      updatedAt: "2026-08-18T09:00:00.000Z",
+    },
+    task: {
+      taskId: "task-1",
+      title: "Implement the thing",
+      status: "RUNNING",
+      project: null,
+    },
+    intents: [],
+    evidence: [],
+    reviewVerdict: null,
+    handoffs: [],
+    ...overrides,
+  };
+}
+
+/** Shaped exactly like `DetailProjections.task()`. */
+export function taskDetailFixture(overrides = {}) {
+  return {
+    task: {
+      taskId: "task-1",
+      title: "Implement the thing",
+      objective: "Ship the feature end to end.",
+      status: "RUNNING",
+      priority: "P2",
+      taskKind: "IMPLEMENTATION",
+      blockingReason: null,
+      ownerAgentId: "engineering",
+      ownerAgentName: "Engineering",
+      project: null,
+      parentTaskId: null,
+      completionGates: [],
+      createdAt: "2026-08-18T09:00:00.000Z",
+      updatedAt: "2026-08-18T09:00:00.000Z",
+      deadline: null,
+    },
+    runs: [],
+    handoffs: [],
+    reviewHistory: [],
+    dependencies: [],
+    waitingApprovals: [],
+    evidence: [],
+    completion: {
+      complete: false,
+      gates: { satisfied: 0, total: 2 },
+      blockers: [],
+    },
+    ...overrides,
+  };
+}
+
 export function envelope(sequence, overrides = {}) {
   return {
     id: `event-${sequence}`,

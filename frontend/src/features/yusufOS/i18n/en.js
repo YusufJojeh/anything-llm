@@ -506,4 +506,28 @@ export default {
       SPEAKING: "Speaking",
     },
   },
+  workspace: {
+    selectPrompt: "Select an Agent to open its workspace.",
+    otherAgents: "Other Agents",
+    console: "Console",
+    state: {
+      IDLE: "Idle",
+      THINKING: "Thinking",
+      USING_TOOL: "Using a tool",
+      WORKING: "Working",
+      WAITING_APPROVAL: "Waiting on you",
+      BLOCKED: "Blocked",
+      COMPLETE: "Complete",
+      ERROR: "Error",
+    },
+    tabs: {
+      agent: "Agent",
+      task: "Task",
+      evidence: "Evidence",
+    },
+    noRun: "Not currently assigned to a run.",
+    noTask: "Not currently assigned to a task.",
+    openFullRun: "Open full run",
+    openFullTask: "Open full task",
+  },
 };

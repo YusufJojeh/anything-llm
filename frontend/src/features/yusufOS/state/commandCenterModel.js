@@ -345,3 +345,113 @@ export function buildCommandCenter({ dashboard, roster }) {
     attention: buildAttentionQueue(dashboard),
   };
 }
+
+/**
+ * The Agent Workspace's console-state vocabulary.
+ *
+ * This is a coarse summary of real run/intent status for the operator's eye —
+ * it is never shown alone. Every surface that renders a `WORKSPACE_STATES`
+ * value also renders the literal `run.status` next to it, so the bucket can
+ * never hide or misrepresent the underlying asserted state.
+ */
+export const WORKSPACE_STATES = Object.freeze({
+  IDLE: "IDLE",
+  THINKING: "THINKING",
+  USING_TOOL: "USING_TOOL",
+  WORKING: "WORKING",
+  WAITING_APPROVAL: "WAITING_APPROVAL",
+  BLOCKED: "BLOCKED",
+  COMPLETE: "COMPLETE",
+  ERROR: "ERROR",
+});
+
+const WORKSPACE_STATE_TONE = Object.freeze({
+  [WORKSPACE_STATES.IDLE]: TONES.UNKNOWN,
+  [WORKSPACE_STATES.THINKING]: TONES.ACTIVE,
+  [WORKSPACE_STATES.USING_TOOL]: TONES.ACTIVE,
+  [WORKSPACE_STATES.WORKING]: TONES.ACTIVE,
+  [WORKSPACE_STATES.WAITING_APPROVAL]: TONES.APPROVAL,
+  [WORKSPACE_STATES.BLOCKED]: TONES.BLOCKED,
+  [WORKSPACE_STATES.COMPLETE]: TONES.HEALTHY,
+  [WORKSPACE_STATES.ERROR]: TONES.ERROR,
+});
+
+export function workspaceStateTone(state) {
+  return WORKSPACE_STATE_TONE[state] || TONES.UNKNOWN;
+}
+
+// `RUNNING` is deliberately absent: it is resolved from the intent list
+// below, the only signal the server gives for "reasoning" vs "acting".
+const RUN_STATUS_TO_WORKSPACE_STATE = Object.freeze({
+  QUEUED: WORKSPACE_STATES.WORKING,
+  WAITING_TOOL: WORKSPACE_STATES.USING_TOOL,
+  WAITING_APPROVAL: WORKSPACE_STATES.WAITING_APPROVAL,
+  WAITING_HANDOFF: WORKSPACE_STATES.WORKING,
+  WAITING_DEPENDENCY: WORKSPACE_STATES.WORKING,
+  BLOCKED: WORKSPACE_STATES.BLOCKED,
+  VERIFYING: WORKSPACE_STATES.WORKING,
+  FAILED: WORKSPACE_STATES.ERROR,
+  FAILED_UNKNOWN: WORKSPACE_STATES.ERROR,
+  COMPLETED: WORKSPACE_STATES.COMPLETE,
+  CANCELLED: WORKSPACE_STATES.ERROR,
+});
+
+/**
+ * Derives the Agent Workspace console state strictly from asserted
+ * `run.status` and intent statuses — never invented, never chain-of-thought.
+ * `RUNNING` splits into THINKING (no capability requested yet, so the model
+ * is still reasoning), USING_TOOL (a capability request is executing) and
+ * WORKING (a request exists but nothing is executing right now).
+ */
+export function deriveWorkspaceState({ agentStatus, runStatus, intents }) {
+  if (!agentStatus || agentStatus === "IDLE" || agentStatus === "DISABLED")
+    return WORKSPACE_STATES.IDLE;
+  if (!runStatus) return WORKSPACE_STATES.IDLE;
+  if (runStatus === "RUNNING") {
+    const list = intents || [];
+    if (list.length === 0) return WORKSPACE_STATES.THINKING;
+    if (list.some((intent) => intent.status === "EXECUTING"))
+      return WORKSPACE_STATES.USING_TOOL;
+    return WORKSPACE_STATES.WORKING;
+  }
+  return RUN_STATUS_TO_WORKSPACE_STATE[runStatus] || WORKSPACE_STATES.IDLE;
+}
+
+/**
+ * Groups the live agent roster by real code-owned Department, for the Agent
+ * Workspace's LEFT pane. Department identity and mission come from
+ * `/runtime`'s `departments` projection; live status, current run and
+ * capabilities come from the same `agents` view model the rest of the
+ * Command Center renders, matched by `agentId` so the two can never disagree.
+ *
+ * `/runtime` loads separately from the dashboard/roster snapshot and can
+ * still be loading (or have failed) when the workspace first renders. That is
+ * not treated as "no departments" — it is unknown, and the caller renders a
+ * single ungrouped group (`departmentId: null`) rather than a fabricated
+ * grouping or a blocked screen.
+ */
+export function buildWorkspaceGroups({ runtime, agents }) {
+  const byId = new Map(agents.map((agent) => [agent.agentId, agent]));
+  const departments = runtime?.departments || null;
+
+  if (!departments) return [{ departmentId: null, name: null, agents }];
+
+  const grouped = departments.map((department) => ({
+    departmentId: department.departmentId,
+    name: department.name,
+    mission: department.mission,
+    agents: department.agents
+      .map((member) => byId.get(member.agentId))
+      .filter(Boolean),
+  }));
+
+  const groupedIds = new Set(
+    departments.flatMap((department) =>
+      department.agents.map((member) => member.agentId)
+    )
+  );
+  const ungrouped = agents.filter((agent) => !groupedIds.has(agent.agentId));
+  return ungrouped.length
+    ? [...grouped, { departmentId: null, name: null, agents: ungrouped }]
+    : grouped;
+}
