@@ -90,6 +90,17 @@ describe("Phase R — OllamaProvider (mocked)", () => {
     expect(result.usage.totalTokens).toBeUndefined();
   });
 
+  test("caps a single local completion without changing the run-level budget", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(jsonResponse({ response: "hello" }));
+    const provider = new OllamaProvider({ fetchImpl, maxCompletionTokens: 128 });
+    await provider.complete({
+      model: "llama3:latest",
+      messages: [{ role: "user", content: "hi" }],
+      maxCompletionTokens: 32000,
+    });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).options.num_predict).toBe(128);
+  });
+
   test("malformed JSON body during completion throws cleanly", async () => {
     const fetchImpl = jest.fn().mockResolvedValue({
       ok: true,
