@@ -201,9 +201,12 @@ class OllamaProvider {
         options: {
           temperature,
           // A run budget can span many steps; it must not become one enormous
-          // local inference allocation. Keep each Ollama request bounded.
+          // local inference allocation. Keep each Ollama request bounded. A
+          // non-positive value is not a smaller cap — in Ollama's own API it
+          // means "unbounded" (-1) or "fill context" (-2) — so it must never
+          // reach Math.min as if it were one.
           num_predict: Math.min(
-            Number.isInteger(maxCompletionTokens)
+            Number.isInteger(maxCompletionTokens) && maxCompletionTokens > 0
               ? maxCompletionTokens
               : this.maxCompletionTokens,
             this.maxCompletionTokens
@@ -232,7 +235,10 @@ class OllamaProvider {
     return {
       content: typeof json.response === "string" ? json.response : "",
       provider: PROVIDER_KINDS.OLLAMA,
-      model,
+      // Ground truth for which model actually served the call: the daemon
+      // echoes this back on `json.model`; fall back to the requested id only
+      // if it omitted it, but never let a caller override this value.
+      model: typeof json?.model === "string" && json.model ? json.model : model,
       latencyMs,
       usage:
         promptTokens !== null && completionTokens !== null

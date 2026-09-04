@@ -101,6 +101,42 @@ describe("Phase R — OllamaProvider (mocked)", () => {
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body).options.num_predict).toBe(128);
   });
 
+  test("a non-positive per-request token budget cannot escape the configured cap", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(jsonResponse({ response: "hello" }));
+    const provider = new OllamaProvider({ fetchImpl, maxCompletionTokens: 128 });
+    await provider.complete({
+      model: "llama3:latest",
+      messages: [{ role: "user", content: "hi" }],
+      maxCompletionTokens: -1,
+    });
+    // Ollama treats -1/-2 as "unbounded"/"fill context", not a smaller cap —
+    // a non-positive request value must fall back to the configured cap
+    // rather than being handed to Math.min as if it were a real limit.
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).options.num_predict).toBe(128);
+  });
+
+  test("reports the model the daemon actually served, not just the one requested", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(
+      jsonResponse({ response: "hello", model: "llama3:8b-q4" })
+    );
+    const provider = new OllamaProvider({ fetchImpl });
+    const result = await provider.complete({
+      model: "llama3:latest",
+      messages: [{ role: "user", content: "hi" }],
+    });
+    expect(result.model).toBe("llama3:8b-q4");
+  });
+
+  test("falls back to the requested model only when the daemon omits its own", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue(jsonResponse({ response: "hello" }));
+    const provider = new OllamaProvider({ fetchImpl });
+    const result = await provider.complete({
+      model: "llama3:latest",
+      messages: [{ role: "user", content: "hi" }],
+    });
+    expect(result.model).toBe("llama3:latest");
+  });
+
   test("malformed JSON body during completion throws cleanly", async () => {
     const fetchImpl = jest.fn().mockResolvedValue({
       ok: true,
