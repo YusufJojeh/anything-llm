@@ -1,5 +1,10 @@
 const REDACTED = "[REDACTED]";
 
+// Same rationale as canonicalJson.js's MAX_DEPTH: bound recursion so a
+// deeply-nested payload fails closed with a clean error instead of a raw
+// stack-exhaustion RangeError.
+const MAX_DEPTH = 64;
+
 const SECRET_KEYS = new Set([
   "authorization",
   "proxyauthorization",
@@ -61,7 +66,7 @@ function isSecretReference(value) {
   );
 }
 
-function assertReferencesOnly(value, path = "$", seen = new WeakSet()) {
+function assertReferencesOnly(value, path = "$", seen = new WeakSet(), depth = 0) {
   if (value === null || value === undefined) return;
   if (typeof value === "string") {
     if (redactString(value) !== value)
@@ -71,10 +76,14 @@ function assertReferencesOnly(value, path = "$", seen = new WeakSet()) {
   if (typeof value !== "object") return;
   if (seen.has(value))
     throw new Error(`Circular input is forbidden at ${path}.`);
+  if (depth >= MAX_DEPTH)
+    throw new Error(
+      `Input exceeds the maximum nesting depth of ${MAX_DEPTH} at ${path}.`
+    );
   seen.add(value);
   if (Array.isArray(value)) {
     value.forEach((item, index) =>
-      assertReferencesOnly(item, `${path}[${index}]`, seen)
+      assertReferencesOnly(item, `${path}[${index}]`, seen, depth + 1)
     );
     seen.delete(value);
     return;
@@ -87,7 +96,7 @@ function assertReferencesOnly(value, path = "$", seen = new WeakSet()) {
         );
       continue;
     }
-    assertReferencesOnly(nested, `${path}.${key}`, seen);
+    assertReferencesOnly(nested, `${path}.${key}`, seen, depth + 1);
   }
   seen.delete(value);
 }
@@ -99,14 +108,21 @@ function redactString(value) {
   );
 }
 
-function redactForPersistence(value, seen = new WeakSet()) {
+function redactForPersistence(value, seen = new WeakSet(), depth = 0) {
   if (value === null || value === undefined) return value;
   if (typeof value === "string") return redactString(value);
   if (typeof value !== "object") return value;
   if (seen.has(value)) return "[CIRCULAR]";
+  // This is a best-effort sanitizer used broadly, including from
+  // error-handling paths that must not themselves fail — so unlike
+  // assertReferencesOnly (a true validator), excess depth degrades to a
+  // safe placeholder instead of throwing.
+  if (depth >= MAX_DEPTH) return "[MAX_DEPTH_EXCEEDED]";
   seen.add(value);
   if (Array.isArray(value)) {
-    const result = value.map((item) => redactForPersistence(item, seen));
+    const result = value.map((item) =>
+      redactForPersistence(item, seen, depth + 1)
+    );
     seen.delete(value);
     return result;
   }
@@ -114,7 +130,7 @@ function redactForPersistence(value, seen = new WeakSet()) {
   for (const [key, nested] of Object.entries(value)) {
     result[key] = isSensitiveKey(key)
       ? REDACTED
-      : redactForPersistence(nested, seen);
+      : redactForPersistence(nested, seen, depth + 1);
   }
   seen.delete(value);
   return result;
