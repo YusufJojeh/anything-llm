@@ -19,9 +19,14 @@ const {
 
 // Phase R: regression coverage for the full preflight-orphan gap in
 // ExecutionCoordinator. Two distinct pre-effect failure points must both
-// terminalize cleanly with no orphaned ActionIntent and no receipt:
+// terminalize cleanly with no orphaned ActionIntent and no receipt, and
+// always as FAILED — never FAILED_UNKNOWN, since neither point is capable
+// of having caused a real external effect yet:
 //   (a) adapter.prepare() throwing *after* the claim transaction (receipt
-//       already exists) — already handled pre-Phase-R, locked in here.
+//       already exists). The cancellation case was already covered; a
+//       genuine (non-abort) throw from prepare() was not, and used to be
+//       misclassified as FAILED_UNKNOWN — see the two "prepare() throws"
+//       tests below.
 //   (b) adapter.availability()/preflight() throwing *before* the claim
 //       transaction (no receipt exists yet) — the real orphan gap this
 //       phase closes: previously this threw straight out of execute() with
@@ -317,6 +322,50 @@ describe("Phase R — ExecutionCoordinator preflight-orphan regression", () => {
     await stageEntered;
     controller.abort();
     await expect(executing).resolves.toMatchObject({
+      outcome: "FAILED",
+      verificationStatus: "NOT_APPLIED",
+    });
+    expect(
+      await db.yusuf_action_intents.findUnique({ where: { id: intent.id } })
+    ).toMatchObject({ status: "FAILED" });
+    expect(
+      await db.yusuf_agent_runs.findUnique({ where: { id: run.id } })
+    ).toMatchObject({ status: "FAILED" });
+  });
+
+  test("prepare() throwing a genuine (non-abort) error terminalizes FAILED, not FAILED_UNKNOWN", async () => {
+    const { intent, run, requestId } = await seedCareerIntent();
+    const adapter = new CareerAdapter({ db });
+    adapter.prepare = jest.fn(() => {
+      throw new Error("adapter bug: prepare() blew up");
+    });
+    const result = await new ExecutionCoordinator({ db, adapter }).execute(
+      intent.id,
+      { requestId }
+    );
+    expect(result).toMatchObject({
+      outcome: "FAILED",
+      verificationStatus: "NOT_APPLIED",
+    });
+    expect(
+      await db.yusuf_action_intents.findUnique({ where: { id: intent.id } })
+    ).toMatchObject({ status: "FAILED" });
+    expect(
+      await db.yusuf_agent_runs.findUnique({ where: { id: run.id } })
+    ).toMatchObject({ status: "FAILED" });
+  });
+
+  test("prepare() rejecting with an async error terminalizes FAILED, not FAILED_UNKNOWN", async () => {
+    const { intent, run, requestId } = await seedCareerIntent();
+    const adapter = new CareerAdapter({ db });
+    adapter.prepare = jest
+      .fn()
+      .mockRejectedValue(new Error("adapter bug: async prepare() rejected"));
+    const result = await new ExecutionCoordinator({ db, adapter }).execute(
+      intent.id,
+      { requestId }
+    );
+    expect(result).toMatchObject({
       outcome: "FAILED",
       verificationStatus: "NOT_APPLIED",
     });

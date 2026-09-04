@@ -289,16 +289,30 @@ class ExecutionCoordinator {
         { status: 409, details: { reason: claim.blocked.reason } }
       );
 
-    let executionResult;
+    let prepared;
     try {
       if (context.signal?.aborted) throw cancellationError();
-      const prepared = await withExecutionAbort(
+      prepared = await withExecutionAbort(
         Promise.resolve().then(() =>
           this.adapter.prepare(claim.intent, context)
         ),
         context.signal,
         { effectCertain: true }
       );
+    } catch (error) {
+      // prepare() runs strictly before adapter.execute() — the one method
+      // contractually allowed to cause a real external effect — so nothing
+      // external can have happened yet. Every prepare()-stage failure is a
+      // certain, ordinary failure, never FAILED_UNKNOWN (reserved for
+      // genuine uncertainty once execute() may have run). This holds
+      // regardless of whether the throw came from the adapter itself or
+      // from cancellation, so it does not depend on error.effectCertain
+      // having been set by the thrower.
+      return this.finalizeFailure(claim, error, false, context);
+    }
+
+    let executionResult;
+    try {
       if (context.signal?.aborted) throw cancellationError();
       executionResult = await withExecutionAbort(
         this.adapter.execute(prepared, {
