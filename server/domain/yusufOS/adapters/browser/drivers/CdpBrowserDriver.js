@@ -179,7 +179,24 @@ class CdpBrowserDriver {
     if (!evaluateOrigin(url).allowed)
       throw new Error("tab navigated to a non-allowlisted origin");
     page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
-    return page.evaluate(extractPageState);
+    // setDefaultTimeout only bounds Puppeteer's own navigation/wait helpers
+    // -- page.evaluate() has no built-in timeout and can otherwise hang
+    // indefinitely if the page's JS execution context is frozen or
+    // unresponsive. Race it against the same bound explicitly.
+    let timer;
+    try {
+      return await Promise.race([
+        page.evaluate(extractPageState),
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("page.evaluate() timed out")),
+            NAVIGATION_TIMEOUT_MS
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /**

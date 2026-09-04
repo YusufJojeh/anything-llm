@@ -16,6 +16,7 @@ const {
 } = require("../../../domain/yusufOS/adapters/browser/drivers/CdpBrowserDriver");
 const {
   ENV_ENABLED,
+  ENV_ALLOWLIST,
 } = require("../../../domain/yusufOS/adapters/browser/originPolicy");
 
 const allowlist = () =>
@@ -134,6 +135,50 @@ describe("Browser Broker origin policy", () => {
       else process.env[ENV_ENABLED] = previous;
     }
   });
+  test("readPageState never hangs forever when page.evaluate() stalls", async () => {
+    jest.useFakeTimers();
+    const previousEnabled = process.env[ENV_ENABLED];
+    const previousAllowlist = process.env[ENV_ALLOWLIST];
+    process.env[ENV_ENABLED] = "true";
+    process.env[ENV_ALLOWLIST] = "https://github.com";
+    try {
+      const fakePage = {
+        url: () => "https://github.com/some/repo",
+        target: () => ({ _targetId: "tab-1" }),
+        setDefaultTimeout: jest.fn(),
+        // Simulates a frozen/unresponsive page: the CDP evaluate call never
+        // settles on its own. page.evaluate() has no built-in timeout, so
+        // without an explicit race, this would hang the caller forever.
+        evaluate: jest.fn(() => new Promise(() => {})),
+      };
+      const disconnect = jest.fn(async () => {});
+      const connect = jest.fn(async () => ({
+        disconnect,
+        pages: async () => [fakePage],
+      }));
+      const localWs = "ws://127.0.0.1:9222/devtools/browser/fixture-id";
+      const driver = new CdpBrowserDriver({
+        fetchImpl: async () =>
+          new Response(JSON.stringify({ webSocketDebuggerUrl: localWs })),
+        puppeteerLoader: () => ({ connect }),
+      });
+      try {
+        const pending = driver.readPageState("tab-1");
+        const assertion = expect(pending).rejects.toThrow(/timed out/);
+        await jest.advanceTimersByTimeAsync(10000);
+        await assertion;
+      } finally {
+        await driver.close();
+      }
+    } finally {
+      jest.useRealTimers();
+      if (previousEnabled === undefined) delete process.env[ENV_ENABLED];
+      else process.env[ENV_ENABLED] = previousEnabled;
+      if (previousAllowlist === undefined) delete process.env[ENV_ALLOWLIST];
+      else process.env[ENV_ALLOWLIST] = previousAllowlist;
+    }
+  });
+
   test("allows an exactly matching allowlisted origin", () => {
     expect(evaluateOrigin("https://github.com/YusufJojeh", { allowlist: allowlist() }))
       .toMatchObject({ allowed: true, origin: "https://github.com" });
