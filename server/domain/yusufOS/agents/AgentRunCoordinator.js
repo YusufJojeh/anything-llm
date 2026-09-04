@@ -278,33 +278,42 @@ class AgentRunCoordinator {
       );
 
     const maxConcurrent = run.agent?.maxConcurrentRuns || 1;
-    const active = await this.db.yusuf_agent_runs.count({
-      where: {
-        agentId: run.agentId,
-        status: {
-          in: [
-            RUN_STATUSES.RUNNING,
-            RUN_STATUSES.WAITING_TOOL,
-            RUN_STATUSES.VERIFYING,
-          ],
+    // The active-run count and the QUEUED -> RUNNING transition must be one
+    // atomic unit. Two different QUEUED runs for the same agent, started
+    // concurrently, would otherwise both read the same `active` count before
+    // either commits its own transition, letting both past a
+    // `maxConcurrentRuns: 1` cap even though each transition is individually
+    // version-guarded. Wrapping both in one transaction closes that gap the
+    // same way ExecutionCoordinator's claim transaction does for execution.
+    await this.db.$transaction(async (tx) => {
+      const active = await tx.yusuf_agent_runs.count({
+        where: {
+          agentId: run.agentId,
+          status: {
+            in: [
+              RUN_STATUSES.RUNNING,
+              RUN_STATUSES.WAITING_TOOL,
+              RUN_STATUSES.VERIFYING,
+            ],
+          },
         },
-      },
-    });
-    if (active >= maxConcurrent)
-      throw new YusufOSError(
-        ErrorCodes.CONFLICT,
-        "The Agent is at its concurrent run limit.",
-        { status: 409, details: { active, maxConcurrent } }
-      );
+      });
+      if (active >= maxConcurrent)
+        throw new YusufOSError(
+          ErrorCodes.CONFLICT,
+          "The Agent is at its concurrent run limit.",
+          { status: 409, details: { active, maxConcurrent } }
+        );
 
-    await conditionalTransition({
-      delegate: this.db.yusuf_agent_runs,
-      id: run.id,
-      version: run.version,
-      from: RUN_STATUSES.QUEUED,
-      to: RUN_STATUSES.RUNNING,
-      machine: "run",
-      data: { startedAt: new Date() },
+      await conditionalTransition({
+        delegate: tx.yusuf_agent_runs,
+        id: run.id,
+        version: run.version,
+        from: RUN_STATUSES.QUEUED,
+        to: RUN_STATUSES.RUNNING,
+        machine: "run",
+        data: { startedAt: new Date() },
+      });
     });
     await this.audit.append({
       eventType: "agent.run.started",

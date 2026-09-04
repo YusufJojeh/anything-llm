@@ -247,6 +247,71 @@ describe("Phase T — real Agent reasoning loop", () => {
     ).toMatchObject({ status: "COMPLETED" });
   });
 
+  test("two different queued runs for the same agent cannot both pass the concurrency cap", async () => {
+    // Distinct from the race above: that one races two callers on the SAME
+    // run id (already guarded by the row's own version). This races two
+    // DIFFERENT QUEUED runs for one agent against the aggregate
+    // maxConcurrentRuns count, which used to be a separate count() and a
+    // separate conditional update — two racing callers could both read the
+    // same "0 active" count and both win their own row's transition.
+    const { run: runA } = await careerRun();
+    await db.yusuf_agent_runs.update({
+      where: { id: runA.id },
+      data: { status: "QUEUED", startedAt: null },
+    });
+    const taskB = await fixture.createTask({
+      objective: "Track a second, unrelated career opportunity.",
+    });
+    await db.yusuf_tasks.update({
+      where: { id: taskB.id },
+      data: { assignedAgentId: fixture.career.id, status: "RUNNING" },
+    });
+    const runB = await db.yusuf_agent_runs.create({
+      data: {
+        uuid: randomUUID(),
+        taskId: taskB.id,
+        agentId: fixture.career.id,
+        requestedByPrincipalType: "AGENT",
+        requestedByPrincipalId: fixture.chief.uuid,
+        status: "QUEUED",
+        runKind: "IMPLEMENTATION",
+        requestId: randomUUID(),
+      },
+    });
+
+    const coordinator = new AgentRunCoordinator(db);
+    const startRun = coordinator.startRun.bind(coordinator);
+    let entrants = 0;
+    let releaseStarts;
+    const bothEntered = new Promise((resolve) => {
+      releaseStarts = resolve;
+    });
+    coordinator.startRun = async (args) => {
+      entrants += 1;
+      if (entrants === 2) releaseStarts();
+      await bothEntered;
+      return startRun(args);
+    };
+
+    const outcomes = await Promise.allSettled([
+      coordinator.startRun({ runId: runA.id }),
+      coordinator.startRun({ runId: runB.id }),
+    ]);
+
+    // The security-relevant invariant is that the cap is never exceeded, not
+    // the exact shape of the loser's error: under real contention on this
+    // project's single-connection SQLite setup, the loser may see a clean
+    // CONFLICT from the concurrency check, or the underlying connector may
+    // itself refuse the second concurrent write transaction outright. Both
+    // are safe (fail closed, no double-start); only the count matters here.
+    expect(outcomes.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.filter((o) => o.status === "rejected")).toHaveLength(1);
+    const runningCount = await db.yusuf_agent_runs.count({
+      where: { agentId: fixture.career.id, status: "RUNNING" },
+    });
+    expect(runningCount).toBe(1);
+  });
+
   test("a stale lease owner cannot terminalize the current owner's run", async () => {
     const { run } = await careerRun();
     await db.yusuf_agent_runs.update({
