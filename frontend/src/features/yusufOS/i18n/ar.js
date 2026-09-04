@@ -198,6 +198,19 @@ export default {
       ADAPTER_OFFLINE: "المحوّل {{adapterId}} في حالة {{status}}",
       NOTIFICATION: "{{notificationKind}}",
     },
+    // تسميات القيمة الخام لـ yusuf_notifications.kind، تُستبدل داخل attention.kind.NOTIFICATION أعلاه.
+    // يعود إلى القيمة الخام لأي نوع مستقبلي لم تلحق به هذه القائمة بعد.
+    notificationKind: {
+      APPROVAL_NEEDED: "بحاجة إلى موافقة",
+      TASK_BLOCKED: "مهمة متوقّفة",
+      EXECUTION_UNKNOWN: "نتيجة التنفيذ غير معروفة",
+      MONITORING_BREACH: "خرق في المراقبة",
+      ADAPTER_OFFLINE: "المحوّل غير متصل",
+      SCHEDULER_FAILURE: "فشل الجدولة",
+      MODEL_UNAVAILABLE: "النموذج غير متاح",
+      BROWSER_DISCONNECTED: "المتصفح غير متصل",
+      INBOX_IMPORTANT: "رسالة هامة في صندوق الوارد",
+    },
   },
   agent: {
     title: "الوكلاء",

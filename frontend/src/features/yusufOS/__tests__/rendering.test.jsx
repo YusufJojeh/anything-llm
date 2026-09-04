@@ -189,6 +189,41 @@ describe("loading, empty and error are distinguishable", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("push feature/gate-g")).toBeInTheDocument();
   });
+
+  test("a durable notification's raw server kind is translated, not shown verbatim", () => {
+    const items = buildAttentionQueue(
+      dashboardFixture({
+        notificationAttentionQueue: [
+          {
+            notificationId: "notice-1",
+            kind: "SCHEDULER_FAILURE",
+            severity: "WARNING",
+            summary: "Retention retry is pending.",
+          },
+        ],
+      })
+    );
+    renderWithI18n(<AttentionQueue items={items} loading={false} />);
+    expect(screen.getByText("Scheduler failure")).toBeInTheDocument();
+    expect(screen.queryByText("SCHEDULER_FAILURE")).not.toBeInTheDocument();
+  });
+
+  test("an unrecognized notification kind falls back to the raw value instead of breaking", () => {
+    const items = buildAttentionQueue(
+      dashboardFixture({
+        notificationAttentionQueue: [
+          {
+            notificationId: "notice-2",
+            kind: "SOME_FUTURE_KIND",
+            severity: "WARNING",
+            summary: "A kind this UI has not caught up with yet.",
+          },
+        ],
+      })
+    );
+    renderWithI18n(<AttentionQueue items={items} loading={false} />);
+    expect(screen.getByText("SOME_FUTURE_KIND")).toBeInTheDocument();
+  });
 });
 
 describe("dialog behaviour", () => {

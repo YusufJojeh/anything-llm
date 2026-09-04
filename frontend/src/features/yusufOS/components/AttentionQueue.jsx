@@ -48,6 +48,21 @@ export default function AttentionQueue({ items, loading, onAcknowledge }) {
       <ul className="flex flex-col">
         {items.map((item) => {
           const style = toneStyle(item.tone);
+          // The raw yusuf_notifications.kind enum (e.g. "SCHEDULER_FAILURE")
+          // is a server-internal identifier, not user-facing copy — resolve
+          // it to a real label (falling back to the raw value for a kind
+          // this list has not caught up with) before it is substituted into
+          // the sentence below.
+          const values =
+            item.kind === "NOTIFICATION"
+              ? {
+                  ...item.values,
+                  notificationKind: t(
+                    `yusufOS:attention.notificationKind.${item.values.notificationKind}`,
+                    item.values.notificationKind
+                  ),
+                }
+              : item.values;
           return (
             <li key={item.id}>
               <Link
@@ -87,7 +102,7 @@ export default function AttentionQueue({ items, loading, onAcknowledge }) {
                     className="text-pretty text-sm font-medium leading-snug"
                     style={{ color: "var(--yos-text)" }}
                   >
-                    {t(`yusufOS:attention.kind.${item.kind}`, item.values)}
+                    {t(`yusufOS:attention.kind.${item.kind}`, values)}
                   </UntrustedText>
                   {item.values.targetSummary ? (
                     <UntrustedText

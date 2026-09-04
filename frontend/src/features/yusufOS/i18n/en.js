@@ -184,6 +184,20 @@ export default {
       ADAPTER_OFFLINE: "Adapter {{adapterId}} is {{status}}",
       NOTIFICATION: "{{notificationKind}}",
     },
+    // Labels for the raw yusuf_notifications.kind enum (server/domain/yusufOS/notifications/NotificationService.js),
+    // substituted into attention.kind.NOTIFICATION above. Falls back to the
+    // raw kind string for a future kind this list has not caught up with.
+    notificationKind: {
+      APPROVAL_NEEDED: "Approval needed",
+      TASK_BLOCKED: "Task blocked",
+      EXECUTION_UNKNOWN: "Execution outcome unknown",
+      MONITORING_BREACH: "Monitoring breach",
+      ADAPTER_OFFLINE: "Adapter offline",
+      SCHEDULER_FAILURE: "Scheduler failure",
+      MODEL_UNAVAILABLE: "Model unavailable",
+      BROWSER_DISCONNECTED: "Browser disconnected",
+      INBOX_IMPORTANT: "Important inbox message",
+    },
   },
   agent: {
     title: "Agents",
