@@ -251,3 +251,23 @@ automatically redesign schema":
     reaches the affected path today (confirmed by the auditing agent), so there is no reproducible
     failure to write a regression test against. Documented for whichever future phase adds the
     call site that would make this reachable.
+
+A fresh independent review (an agent with no memory of the reasoning above, re-reading all six
+diffs cold plus their surrounding non-diff code) confirmed all six fixes SOUND with genuinely
+failing-before/passing-after regression tests, and surfaced two additional non-exploitable notes:
+
+25. **[P2, COSMETIC] Notification-kind i18n has no explicit null/undefined guard.** [VERIFIED_BY_TEST]
+    `AttentionQueue.jsx`'s translation lookup assumes `item.values.notificationKind` is always a
+    string; the one production caller (`buildAttentionQueue` in `commandCenterModel.js`) always
+    sets it for every `NOTIFICATION`-kind item, so this cannot happen via the current data path.
+    If a future backend change ever emits `kind: null`, the label degrades to blank/`"undefined"`
+    rather than a raw-string fallback — worth a defensive default if that emission path is ever
+    added, not urgent today.
+26. **[P2, DESIGN NOTE] `AgentReasoningLoop`'s COMPLETE-decision evidence re-query (commit `c2b8a909`)
+    is scoped by `taskId`, not `runId`** — evidence from a *different* run of the same task is
+    citable in a completion. [VERIFIED_FROM_REPOSITORY] This is **not a regression**: the pre-fix
+    code read `run.task.evidence` via the same task-scoped Prisma `include`, and `#reviewContext`
+    elsewhere in the file uses the identical task-scoped pattern — the fix reproduces existing
+    scoping semantics, just freshly rather than staleness. Whether completion evidence *should* be
+    run-scoped instead of task-scoped is a real design question, but it predates this session and
+    is out of scope for a bug fix commit; raise it if a future phase revisits evidence semantics.
