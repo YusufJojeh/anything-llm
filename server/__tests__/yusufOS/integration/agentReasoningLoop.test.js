@@ -512,6 +512,43 @@ describe("Phase T — real Agent reasoning loop", () => {
     ).toMatchObject({ status: "FAILED", failureKind: "CONTRACT_VIOLATION" });
   });
 
+  test("a COMPLETE citing evidence recorded earlier in the same run is not rejected as unknown", async () => {
+    // Regression for a stale-snapshot bug: #loadRun reads run.task.evidence
+    // once before the model is ever invoked, so evidence created mid-run
+    // (here, inside the model's own reasoning callback) never appears in
+    // that snapshot. The COMPLETE-decision check must re-read evidence at
+    // validation time instead of trusting the load-time snapshot, or a
+    // legitimate self-cited completion is wrongly rejected as unknown.
+    const { run, task } = await careerRun();
+    const coordinator = new AgentRunCoordinator(db);
+    const model = new DeterministicModelClient({
+      "career:reasoning": [
+        async () => {
+          const evidence = await coordinator.recordEvidence({
+            runId: run.id,
+            taskId: task.id,
+            kind: "IMPLEMENTATION",
+            status: "INFO",
+            summary: "Recorded mid-run, after the loop's initial load.",
+          });
+          return {
+            type: "COMPLETE",
+            summary: "Cites evidence recorded earlier in this same run.",
+            evidenceRefs: [evidence.uuid],
+          };
+        },
+      ],
+    });
+    const result = await new AgentReasoningLoop({
+      db,
+      modelClient: model,
+    }).execute({ runId: run.id });
+    expect(result.outcome).toBe("COMPLETED");
+    expect(
+      await db.yusuf_agent_runs.findUnique({ where: { id: run.id } })
+    ).toMatchObject({ status: "COMPLETED" });
+  });
+
   test("a stale run cannot reason after task ownership changes", async () => {
     const { run, task } = await careerRun();
     await db.yusuf_tasks.update({

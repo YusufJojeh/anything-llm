@@ -983,8 +983,21 @@ class AgentReasoningLoop {
 
       // COMPLETE ends only this Agent's turn. It does not modify the Task,
       // create evidence, submit a review, or invoke CompletionPolicy.
+      //
+      // `run.task.evidence` was loaded once before this reasoning loop
+      // started and never refreshed, but evidence can be recorded mid-run
+      // (#projectGovernedEvidence, called after every CALL_CAPABILITY for
+      // Engineering). A run that itself cites evidence it just created in
+      // this same run would otherwise see that real, persisted evidence as
+      // unknown and be terminalized on a false VALIDATION_ERROR. This fails
+      // closed (no forged evidence gets through either way), but re-reading
+      // the current set directly avoids rejecting a legitimate completion.
+      const currentEvidence = await this.db.yusuf_run_evidence.findMany({
+        where: { taskId: run.taskId },
+        select: { uuid: true },
+      });
       const persistedEvidenceRefs = new Set(
-        run.task.evidence.map((item) => item.uuid)
+        currentEvidence.map((item) => item.uuid)
       );
       const unknownEvidenceRefs = decision.evidenceRefs.filter(
         (reference) => !persistedEvidenceRefs.has(reference)
