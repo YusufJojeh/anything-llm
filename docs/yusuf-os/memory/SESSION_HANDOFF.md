@@ -1,5 +1,67 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-09-05 — CAVEMAN AUDIT continuation: post-V1 hardening pass (Claude Code, Sonnet 5)
+
+**What was done:** Continuation of the same large "final audit and completion" prompt referenced
+in the 2026-09-04 entry below. This session's slice: triage findings from four parallel
+background-agent audits (security kernel, Browser Broker/voice, domain verticals/scheduler, agent
+runtime/reasoning loop) run against the tree after the Agent Workspace landed. Per the prompt's own
+instruction ("do not stop after findings if they are locally fixable"), fixed six real issues, each
+with its own regression test and its own local commit:
+
+1. TOCTOU in `AgentRunCoordinator.startRun` (count-then-transition across two DB calls) — wrapped
+   in one `$transaction`. `2566344c`.
+2. `ExecutionCoordinator` misclassified a `prepare()`-stage failure as `FAILED_UNKNOWN` instead of
+   `FAILED` — split the combined try/catch. `fbfd04b0`.
+3. Unbounded recursion depth in `canonicalJson.js`/`redaction.js` — added a 64-level cap, throwing
+   in the validator and degrading to a placeholder in the best-effort sanitizer (different
+   contracts, deliberately different failure modes). `5a3102c6`.
+4. `CdpBrowserDriver.readPageState()` could hang forever on a stalled `page.evaluate()` —
+   `setDefaultTimeout` doesn't bound `evaluate()`; wrapped it in a `Promise.race`. `022284ec`.
+5. Raw `yusuf_notifications.kind` enum leaking untranslated into `/os` Attention Queue text —
+   added an English/Arabic label map with a safe fallback for unrecognized future kinds. `2c030aae`.
+6. `AgentReasoningLoop`'s COMPLETE-decision evidence check trusted a load-time snapshot
+   (`run.task.evidence`) instead of re-querying, so a legitimate self-cited completion citing
+   evidence recorded mid-run could be wrongly rejected. Fixed to re-query by `taskId` at validation
+   time. `c2b8a909`.
+
+Also fixed a stray prettier formatting nit in `redaction.js` and committed the still-pending
+`SKILLS_INVENTORY.md` rewrite from the prior segment (`cd9483c7`).
+
+**Deliberately NOT fixed** (documented in `KNOWN_RISKS.md` #20-24 with reasoning): no
+`busy_timeout` on the shared Prisma/SQLite client (broad blast radius, pre-existing, upstream-
+shared — this is also what caused this session's own test flake, confirmed via isolated reruns);
+an ALLOW-path TOCTOU and an audit-checkpoint-contention window, both watch items with no proven
+live concurrent caller; a DB CHECK-constraint gap on newer tables (same shape as risk #11, deferred
+to the next migration that touches those tables per "do not automatically redesign schema"); and
+`ChiefOfStaff`'s missing compensation path, which has no live call site to write a regression
+test against.
+
+**Verified:** full backend suite serial (`--runInBand`) to avoid the SQLite contention above — 57
+suites, 771 passed, 1 optional Ollama skip, 0 failed. Full frontend suite — 174/174 passed. Prisma
+schema valid, `git diff --check` clean, targeted lint clean after the one auto-fix.
+
+**Fresh independent review:** launched a background agent with no memory of this session's own
+reasoning to adversarially re-review all six diffs cold (git show on each commit, plus the
+surrounding non-diff code) — see the next entry in this log (or `KNOWN_RISKS.md`/`GATE_HISTORY.md`
+if this entry predates that agent's completion) for its verdict, per this project's own standing
+lesson that self-review alone is insufficient once real security surface is at stake.
+
+**Also corrected two stale memory entries found while updating docs this session** (both pre-dated
+this session's own changes): `NOW_NEXT_LATER.md`/`BACKLOG.md` still listed YOS-005 (Agent
+Workspace) as PROPOSED despite it being built and partially verified on 2026-09-04; and
+`SKILLS_INVENTORY.md`'s 2026-09-04 revision asserted several skills were no longer enabled, which
+this session's own available-skills listing directly contradicted — corrected to record enabled-
+skill set as observed to fluctuate session-to-session rather than a fixed fact.
+
+**Next continuation point:** the remaining CAVEMAN AUDIT sections not yet exercised this session —
+Section 10 (frontend route audit, scoped to where this session's fixes could plausibly touch
+already-proven frontend behavior — likely minimal, since none of the six fixes changed a frontend-
+visible contract except the notification-kind label, already covered), Section 15 (release/
+reliability: startup, backup, restore, restart, scheduler recovery, kill switch, audit HMAC,
+corrupt config), Section 17 (safe cleanup pass), and Section 20 (final structured report with
+honest FINAL CLASSIFICATION, once the independent review above lands clean).
+
 ## 2026-09-04 — Post-V1: Agent Workspace / Section 20 (Claude Code, Sonnet 5)
 
 **What was done:** Continuation of a large "final audit and completion" prompt from an
