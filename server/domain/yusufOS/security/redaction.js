@@ -66,7 +66,12 @@ function isSecretReference(value) {
   );
 }
 
-function assertReferencesOnly(value, path = "$", seen = new WeakSet(), depth = 0) {
+function assertReferencesOnly(
+  value,
+  path = "$",
+  seen = new WeakSet(),
+  depth = 0
+) {
   if (value === null || value === undefined) return;
   if (typeof value === "string") {
     if (redactString(value) !== value)

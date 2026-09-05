@@ -145,13 +145,15 @@ P1-equivalent issues *were* found during Gate D's own review and are documented 
     capability calls. Wiring AnythingLLM's provider abstraction in is a later gate — and the
     security properties are designed to hold regardless of what the model emits.
 
-13. **`startRun`'s concurrency check is read-then-transition, not atomic.** [VERIFIED_FROM_REPOSITORY,
-    Gate E] Two truly simultaneous `startRun` calls for the same Agent could each observe
-    `active < maxConcurrent` and both proceed, briefly exceeding the limit by one. The conditional
-    transition still prevents double-starting the *same* run, and the current orchestration is
-    sequential, so this is a consistency wrinkle rather than a security boundary. If Gate F+ adds
-    parallel workers, make the limit atomic (e.g. a conditional update against a counter) rather
-    than relying on the count query.
+13. **[FIXED 2026-09-05, commit `2566344c`] `startRun`'s concurrency check was read-then-transition,
+    not atomic.** [VERIFIED_BY_TEST] Originally flagged in Gate E: two truly simultaneous `startRun`
+    calls for the same Agent could each observe `active < maxConcurrent` and both proceed, briefly
+    exceeding the limit by one. A CAVEMAN AUDIT background review confirmed this was live (not just
+    theoretical) once Gate F+ introduced concurrent callers. Fixed by wrapping the count and the
+    QUEUED→RUNNING `conditionalTransition` inside one `db.$transaction`, using SQLite's
+    single-writer serialization for atomicity — the same pattern `ExecutionCoordinator`'s claim
+    transaction already used. Regression test: "two different queued runs for the same agent cannot
+    both pass the concurrency cap" in `agentReasoningLoop.test.js`.
 
 14. **Task ownership (`assignedAgentId`) follows the handoff, by design.** [DOCUMENTED_DECISION,
     Gate E] Gate C's `IntentService` requires the acting Agent to match the task's assigned Agent,
@@ -196,3 +198,56 @@ P1-equivalent issues *were* found during Gate D's own review and are documented 
     (`{error: {code, message, details, requestId}}`). Migrating would change a contract Gate C's
     tests assert, so it was deliberately deferred rather than done halfway. Do it as its own small
     change with the tests updated together, not as a side effect of a feature gate.
+
+## CAVEMAN AUDIT findings — 2026-09-05
+
+Four independent background-agent audits (security kernel, Browser Broker/voice, domain
+verticals/scheduler, agent runtime/reasoning loop) ran against the current tree. Real, locally
+fixable findings were fixed with regression tests and committed (see `GATE_HISTORY.md` for the
+full list — TOCTOU in `AgentRunCoordinator.startRun`, `ExecutionCoordinator` prepare()-failure
+misclassified as `FAILED_UNKNOWN`, unbounded recursion depth in canonicalization/redaction,
+`CdpBrowserDriver.readPageState()` unbounded hang, raw notification-kind enum leaking into `/os`
+UI text, stale `run.task.evidence` snapshot rejecting a legitimate self-cited `COMPLETE`). The
+following were found and deliberately **not** fixed this session, per `CLAUDE.md`'s "never
+refactor stable security-critical code without necessity" and the governing audit's "do not
+automatically redesign schema":
+
+20. **[MEDIUM, KEEP_DEFERRED] No `busy_timeout` is configured on the shared SQLite connection —
+    production or test.** [VERIFIED_FROM_REPOSITORY] Both `server/utils/prisma/index.js` (the
+    production Prisma client) and `server/__testUtils__/yusufOS/testDatabase.js` (the test harness)
+    use Prisma's SQLite connector via the experimental `node:sqlite` driver with no `busy_timeout`
+    PRAGMA set anywhere. Under genuine concurrent `$transaction` calls this surfaces as a raw
+    `PrismaClientUnknownRequestError` / `ConnectorError("Timed out during query execution.")`
+    instead of either a graceful queue or a clean application-level error — reproduced directly by
+    this session's own concurrency regression tests, which had to relax their assertions to "one
+    caller wins, one fails" rather than asserting a specific error shape for the loser. This is a
+    pre-existing, upstream-shared infrastructure gap (not introduced by any Yusuf OS code), and its
+    blast radius is broader than any single fix in this session's scope — every `$transaction`
+    caller across the whole domain would need to either tolerate this error shape or the client
+    needs a `busy_timeout` PRAGMA set once at connection time. Fix as its own deliberate change
+    (`PRAGMA busy_timeout = <n>` on the shared client), with its own tests, not as a side effect of
+    an unrelated fix.
+21. **[LOW, KEEP_DEFERRED] ALLOW-path (auto-approved, non-approval-gated) capability calls have a
+    theoretical TOCTOU window analogous to the fixed `startRun` race.** [VERIFIED_FROM_REPOSITORY,
+    security-kernel audit] Not exercised by a failing test and not confirmed to have a live
+    concurrent caller today (unlike `startRun`, which Gate F+ orchestration does call concurrently).
+    Documented as a watch item, not fixed, to avoid touching stable `ExecutionCoordinator`/Policy
+    code without a proven live reproduction.
+22. **[LOW, KEEP_DEFERRED] Audit-checkpoint contention under concurrent writers.** [VERIFIED_FROM_REPOSITORY,
+    security-kernel audit] `AuditService`'s hash-chain append (`previousHash` read-then-write) has
+    the same class of read-then-write window as the fixed `startRun` race, but audit appends are
+    already serialized in practice by every caller going through `ExecutionCoordinator`'s own
+    transaction boundaries; no live concurrent-writer path to `AuditService.append` independent of
+    those boundaries was found. Watch item, not fixed.
+23. **[SAFE_TO_FIX_NOW, but deferred per schema-change rule] DB `CHECK` constraints on newer tables
+    have the same Prisma "RedefineTables drops CHECK constraints" exposure documented in risk #11.**
+    [VERIFIED_FROM_REPOSITORY, domain-verticals audit] Not applied this session because it requires
+    a migration touch, and the governing audit's Section 3 instruction is explicit: "do not
+    automatically redesign schema." Apply alongside the next migration that already needs to touch
+    the affected tables, re-verifying with `migrationSafety.test.js`, rather than as a standalone
+    schema change.
+24. **[LOW, KEEP_DEFERRED] `ChiefOfStaff` has no compensation path if a downstream step fails after
+    a handoff is recorded.** [VERIFIED_FROM_REPOSITORY, agent-runtime audit] No live call site
+    reaches the affected path today (confirmed by the auditing agent), so there is no reproducible
+    failure to write a regression test against. Documented for whichever future phase adds the
+    call site that would make this reachable.
