@@ -1,5 +1,32 @@
 # Test Baseline
 
+## CAVEMAN AUDIT continuation — 2026-09-05 [VERIFIED_BY_TEST]
+
+- Full Yusuf OS backend, serial to avoid SQLite cross-file contention:
+  `npx jest --runInBand server/__tests__/yusufOS` → **57 suites passed; 771
+  passed, 1 skipped (optional live Ollama smoke), 0 failed**.
+- The same suite run with Jest's default parallel workers showed 3 spurious
+  failures (`agentReasoningLoop.test.js`, `careerAgenticE2E.test.js`,
+  `engineeringAgenticE2E.test.js`), all sharing one signature:
+  `ConnectorError("Timed out during query execution.")` or a Windows `EPERM`
+  temp-dir cleanup race. Reran all three in isolation per the established
+  flake protocol — all passed cleanly (24/24). Confirmed flake from SQLite
+  single-connection contention under parallel file workers (see
+  `KNOWN_RISKS.md` #20 for the underlying `busy_timeout` gap), not a
+  regression from this session's changes.
+- Frontend: `cd frontend && npx vitest run --config vitest.config.js` →
+  **14 suites, 174 tests, all passed** (unchanged suite count; the 2
+  notification-i18n tests added this session were already included).
+  Pre-existing `act(...)` console warnings are unrelated noise, not failures.
+- `npx prisma validate` (from `server/`): valid.
+- `git diff --check`: clean.
+- Targeted ESLint on the 15 files touched this session: one prettier
+  formatting nit in `redaction.js`, fixed with `--fix`; otherwise clean.
+- Six fixes landed this session, each with its own regression test — see
+  `GATE_HISTORY.md` for the full list and commit hashes.
+- Local commits: `2566344c`, `fbfd04b0`, `5a3102c6`, `022284ec`, `2c030aae`,
+  `c2b8a909`, `cd9483c7`.
+
 ## Post-V1: Agent Workspace (Section 20) — 2026-09-04 [VERIFIED_BY_TEST]
 
 - Frontend: `npx vitest run --config vitest.config.js` → **13 suites, 171 tests, all

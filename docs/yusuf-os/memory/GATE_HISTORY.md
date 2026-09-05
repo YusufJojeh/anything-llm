@@ -1,5 +1,47 @@
 # Gate History
 
+## CAVEMAN AUDIT continuation — Post-V1 hardening pass [VERIFIED_BY_TEST, 2026-09-05]
+
+Four independent background-agent audits (security kernel, Browser Broker/voice, domain
+verticals/scheduler, agent runtime/reasoning loop) ran against the post-Agent-Workspace tree
+looking for orphans, races, TOCTOU, idempotency gaps, and security boundary violations. No P0s or
+unresolved P1s. Six real, locally-fixable issues were fixed, each with a regression test:
+
+1. **TOCTOU in `AgentRunCoordinator.startRun`** — the active-run count and the QUEUED→RUNNING
+   transition were two separate DB calls; wrapped both in one `$transaction`. Commit `2566344c`.
+2. **`ExecutionCoordinator` misclassified a `prepare()` failure as `FAILED_UNKNOWN`** — `prepare()`
+   runs strictly before `execute()` (the only method allowed to cause a real effect), so any
+   failure there must terminalize `FAILED`, never `FAILED_UNKNOWN`. Split the combined try/catch
+   so `prepare()`'s catch always finalizes `FAILED`. Commit `fbfd04b0`.
+3. **Unbounded recursion depth** in `canonicalJson.js`'s `normalize()` and `redaction.js`'s
+   `assertReferencesOnly()`/`redactForPersistence()` — added a 64-level depth cap; the validator
+   throws at the cap, the best-effort sanitizer degrades to a placeholder (different contracts,
+   deliberately different failure modes). Commit `5a3102c6`.
+4. **`CdpBrowserDriver.readPageState()` could hang forever** — `page.setDefaultTimeout()` only
+   bounds Puppeteer's navigation/wait helpers, not `evaluate()`. Wrapped `evaluate()` in a
+   `Promise.race` against the existing `NAVIGATION_TIMEOUT_MS`. Commit `022284ec`.
+5. **Raw `yusuf_notifications.kind` enum leaking into `/os` UI text** (e.g. `SCHEDULER_FAILURE`
+   shown verbatim, untranslated). Added an `attention.notificationKind` label map (English +
+   Arabic) with a safe fallback for a future kind the UI hasn't caught up with. Commit `2c030aae`.
+6. **`AgentReasoningLoop`'s COMPLETE-decision evidence check used a stale snapshot** —
+   `run.task.evidence` is loaded once by `#loadRun` before the reasoning loop starts, but evidence
+   can be recorded mid-run (`#projectGovernedEvidence`, after every `CALL_CAPABILITY`). A
+   legitimate self-cited completion could be wrongly rejected as unknown. Re-query
+   `yusuf_run_evidence` by `taskId` at validation time instead. Commit `c2b8a909`.
+
+Four further findings were confirmed real but deliberately left deferred (no live reproducible
+failure, or out of this session's stated scope per `CLAUDE.md`'s "never refactor stable
+security-critical code without necessity" / "do not automatically redesign schema") — see
+`KNOWN_RISKS.md` #20-24 for each with its reasoning, most notably that neither the production
+Prisma/SQLite client nor the test harness configures a `busy_timeout` PRAGMA, which is what
+produced this session's own SQLite-contention test flake (proven flake, not a regression, via
+isolated reruns — see `TEST_BASELINE.md`).
+
+Full regression (serial, to avoid the contention above): 57 suites, 771 passed, 1 optional Ollama
+skip, 0 failed. Frontend: 14 suites, 174 passed. Prisma schema valid; lint clean after one
+formatting auto-fix; `git diff --check` clean. Commits `2566344c`, `fbfd04b0`, `5a3102c6`,
+`022284ec`, `2c030aae`, `c2b8a909`, `cd9483c7`.
+
 ## Phase AE — Final Full-System E2E [VERIFIED_BY_TEST, 2026-08-24]
 
 The final V1 release sweep found a real stale integration fixture attempting to

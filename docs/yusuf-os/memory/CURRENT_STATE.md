@@ -1,6 +1,22 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-24, Phase AE final release gate._
+_Last verified: 2026-09-05, CAVEMAN AUDIT continuation._
+
+**CAVEMAN AUDIT continuation added (2026-09-05):** a post-V1 hardening pass, not a new gate — four
+independent background-agent audits across the security kernel, Browser Broker/voice, domain
+verticals/scheduler, and agent runtime found and fixed six real issues (a concurrency TOCTOU in
+`AgentRunCoordinator.startRun`, a `FAILED`/`FAILED_UNKNOWN` misclassification on `prepare()`
+failure, unbounded recursion depth in two security primitives, an unbounded browser-evaluate hang,
+a raw enum leaking into `/os` UI text, and a stale evidence snapshot that could reject a legitimate
+agent completion), each with a regression test. Four further findings were confirmed real but
+deliberately left deferred — see `KNOWN_RISKS.md` #20-24, most notably that neither the production
+nor test SQLite client configures a `busy_timeout`. Full detail: `GATE_HISTORY.md`,
+`TEST_BASELINE.md`. No gate H is defined; do not start one without Yusuf's explicit instruction.
+
+**Post-V1 (2026-09-04): the Agent Workspace was added** (`/os/agents`) — per-agent detail beyond
+the constellation click-through: capability grants, task history, run history, and a voice
+console, reusing already-reviewed projection data. Review-only from here forward per the
+governing session's instruction — **do not rebuild it**. Commits `776102cc`, `48913e32`.
 
 **Phase AE added:** final V1 regression caught and repaired the stale Command
 Center scheduler fixture (`workerStatus` was no longer a persisted Prisma

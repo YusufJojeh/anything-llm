@@ -1,6 +1,6 @@
 # Yusuf OS Product Backlog
 
-_Updated: 2026-08-27. The detailed current ordering and all required item fields live in `NOW_NEXT_LATER.md`._
+_Updated: 2026-09-05. The detailed current ordering and all required item fields live in `NOW_NEXT_LATER.md`._
 
 | ID | Outcome | Horizon | Status |
 |---|---|---|---|
@@ -8,7 +8,7 @@ _Updated: 2026-08-27. The detailed current ordering and all required item fields
 | YOS-002 | Prove real Chrome attachment and one read-only browser observation | NOW | READY — HUMAN-ASSISTED |
 | YOS-003 | Register and prove one governed real external action | NEXT | DISCOVERY |
 | YOS-004 | Deliver Gmail as the first controlled integration slice | NEXT | PROPOSED |
-| YOS-005 | Deliver a dedicated Agent Workspace experience | NEXT | PROPOSED |
+| YOS-005 | Deliver a dedicated Agent Workspace experience | NEXT | BUILT / PARTIALLY VERIFIED (2026-09-04; live unlocked-session validation still outstanding) |
 | YOS-006 | Turn existing capabilities into a daily operations loop | NEXT | PROPOSED |
 | YOS-007 | Add Calendar integration | LATER | DEFERRED |
 | YOS-008 | Add LinkedIn integration | LATER | DEFERRED |

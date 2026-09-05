@@ -32,6 +32,9 @@ _Established: 2026-08-27. NOW is intentionally limited to two items because the 
 
 ## NEXT
 
+_YOS-005 is kept in this section for its original planning context, but its status line below is
+current: it is now BUILT, not proposed. It does not block the remaining NEXT items._
+
 ### YOS-003 — First governed real external action
 
 - **Objective:** Register and execute one controlled external action end to end.
@@ -58,7 +61,7 @@ _Established: 2026-08-27. NOW is intentionally limited to two items because the 
 - **Owner/Agent:** Inbox + Chief of Staff; Engineering integration owner; Reviewer assurance.
 - **Deferred reason:** First external-action pattern must be commissioned before a durable provider integration.
 
-### YOS-005 — Dedicated Agent Workspace
+### YOS-005 — Dedicated Agent Workspace [BUILT 2026-09-04 — see below, was stale as PROPOSED]
 
 - **Objective:** Create the focused technical operating console distinct from the global `/os` Command Center.
 - **User outcome:** Yusuf can converse and work with one Agent while seeing its context, capabilities, approvals, evidence, tasks, and runtime in one responsive workspace.
@@ -66,10 +69,21 @@ _Established: 2026-08-27. NOW is intentionally limited to two items because the 
 - **Dependencies:** Commissioning feedback from YOS-001 and reuse of existing state/API components.
 - **Risk:** Medium—large UI surface may duplicate routes or imply capabilities the backend does not expose.
 - **Acceptance criteria:** Clearly distinct from generic chat; no fake activity; desktop/tablet/mobile and EN/AR/RTL acceptance; keyboard/screen-reader paths; governed actions remain visible; performance budget defined.
-- **Status:** PROPOSED.
-- **Evidence:** Current implementation has global `/os`, Agent detail drawers, route-specific evidence, and a voice dock, but not the complete workspace composition.
+- **Status:** IMPLEMENTED / PARTIALLY VERIFIED (this entry was stale at PROPOSED; corrected 2026-09-05).
+  `/os/agents` is now the full three-pane Workspace (left Department-grouped roster, center live
+  per-Agent console with a strictly real non-fabricated activity state, right Agent/Task/Evidence
+  tabs, bottom the existing voice dock), built entirely against already-existing, already-tested
+  backend projections — no new backend endpoint or capability surface was added. Full frontend
+  suite (13 suites/171 tests including new Workspace-specific coverage), lint, and production
+  build were verified. **Not yet verified:** the unlocked UI against a live control plane with
+  real data — reaching it requires entering `YUSUF_OS_CONTROL_TOKEN`, a credential entry no agent
+  will perform (see `HUMAN_ACTION_REQUIRED.md`). No independent security review was run, since no
+  new capability/policy/execution surface exists for one to meaningfully attack.
+- **Evidence:** `CURRENT_GATE.md` "Post-V1 — Agent Workspace" entry; `TEST_BASELINE.md` "Post-V1:
+  Agent Workspace" entry; commits `776102cc`, `48913e32`.
 - **Owner/Agent:** Chief of Staff product owner + Engineering; Reviewer/accessibility review.
-- **Deferred reason:** Real Command Center usage should shape the workspace before implementation.
+- **Deferred reason:** Not deferred — built. Live human-driven visual/UX validation against a real
+  unlocked session remains outstanding, same as the rest of `/os` (see YOS-001).
 
 ### YOS-006 — Daily operations loop
 
