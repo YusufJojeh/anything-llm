@@ -1,6 +1,30 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-09-06, OpenAI live commissioning._
+_Last verified: 2026-09-06, text command front door._
+
+**Text command front door (2026-09-06):** a spoken voice command earlier this session produced no
+task/run/approval — root cause is on the browser mic/transcription side, outside this session's
+sandbox visibility. Rather than leave microphone capture as the *only* way to originate any Yusuf
+OS work, added a typed-text composer to the existing persistent voice/command dock
+(`VoiceConsole.jsx`, both `dock` and `panel` variants). It is not a second command path: the
+composer's `submitDraft` calls the exact same `runCommand` function the mic already called, which
+calls the exact same `yusufApi.runVoiceCommand` → `POST /voice/commands` → `VoiceService.command()`
+→ Chief of Staff → `AgentReasoningLoop` → Policy → Approval → Execution → Verification → Audit
+pipeline — zero backend changes. `taskId`/`runId` (already returned by `VoiceService.command()`,
+previously discarded by the frontend) now render as real "View task"/"View run" links, only when
+the server actually returns them. No agent-targeting UI was added (the route has no per-agent
+parameter to target). No auto-approval: an `APPROVAL_REQUIRED` result only renders a link to
+`/os/approvals/:id`. Frontend-only change: `VoiceConsole.jsx`, `en.js`, `ar.js`,
+`voiceConsole.test.jsx` (+25 tests, 220/220 frontend suite green). Independent cold review (fresh
+agent, no session context): **0 P0/P1** across all 10 required boundary checks. **Status:
+`TEXT_COMMAND_FRONT_DOOR = IMPLEMENTED` + `VERIFIED_BY_TEST`. NOT YET `LIVE_VALIDATED`** — per this
+session's own judgment call, the actual real-command-submission proof (typing a harmless command
+into the live UI, and separately triggering a real approval-required command) was left for Yusuf to
+perform himself in the real UI, consistent with the standing pattern that Yusuf originates real
+consequential governed actions rather than this agent doing so unilaterally; see
+`HUMAN_ACTION_REQUIRED.md`. Voice's own live/mic-capture validation status is unchanged by this
+session and must not be read as improved. Full detail: `CURRENT_GATE.md`, `SESSION_HANDOFF.md`,
+`TEST_BASELINE.md`.
 
 **OpenAI live commissioning (2026-09-06):** Yusuf set a real `OPENAI_API_KEY` in
 `server/.env.development`; `OpenAIProvider.hasApiKey()` and `ModelRouter.describe().openaiConfigured`

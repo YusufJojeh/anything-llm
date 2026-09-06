@@ -267,3 +267,270 @@ describe("Yusuf OS voice console", () => {
     expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Yusuf OS text command composer", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    api.voiceStatus.mockResolvedValue({
+      stt: { provider: "native", scope: "BROWSER", eligible: true },
+      tts: { provider: null, eligible: false },
+      browser: { allowSpeechServices: true },
+    });
+    api.runVoiceCommand.mockResolvedValue({
+      response: "The system is healthy.",
+      state: "COMPLETED",
+      approvalId: null,
+      taskId: "9c1c9b3a-1111-4c1a-9d2a-000000000001",
+      runId: "9c1c9b3a-2222-4c1a-9d2a-000000000002",
+    });
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: vi.fn() },
+    });
+    Object.defineProperty(navigator, "permissions", {
+      configurable: true,
+      value: {
+        query: vi.fn().mockResolvedValue({ state: "prompt", onchange: null }),
+      },
+    });
+  });
+
+  async function typeAndGetControls() {
+    renderWithI18n(<VoiceConsole />);
+    const input = await screen.findByLabelText("Type a command");
+    const send = screen.getByRole("button", { name: "Send command" });
+    return { input, send };
+  }
+
+  test("renders the composer with a real text input and send control", async () => {
+    const { input, send } = await typeAndGetControls();
+    expect(input.tagName).toBe("TEXTAREA");
+    expect(send).toBeDisabled();
+  });
+
+  test("Enter submits the typed command and clears the input", async () => {
+    const { input } = await typeAndGetControls();
+    fireEvent.change(input, {
+      target: { value: "ما هي حالة النظام؟" },
+    });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() =>
+      expect(api.runVoiceCommand).toHaveBeenCalledWith("ما هي حالة النظام؟")
+    );
+    expect(input).toHaveValue("");
+  });
+
+  test("Shift+Enter inserts a newline instead of submitting", async () => {
+    const { input } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "line one" } });
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+    expect(api.runVoiceCommand).not.toHaveBeenCalled();
+    expect(input).toHaveValue("line one");
+  });
+
+  test("Send button submits the typed command", async () => {
+    const { input, send } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "status please" } });
+    expect(send).toBeEnabled();
+    fireEvent.click(send);
+    await waitFor(() =>
+      expect(api.runVoiceCommand).toHaveBeenCalledWith("status please")
+    );
+  });
+
+  test("rejects whitespace-only input without sending a request", async () => {
+    const { input, send } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "   " } });
+    expect(send).toBeDisabled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(api.runVoiceCommand).not.toHaveBeenCalled();
+  });
+
+  test("bounds input length to the backend contract limit", async () => {
+    const { input } = await typeAndGetControls();
+    expect(input).toHaveAttribute("maxlength", "10000");
+  });
+
+  test("prevents a duplicate submit while a command is already processing", async () => {
+    let resolveCall;
+    api.runVoiceCommand.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCall = resolve;
+      })
+    );
+    const { input, send } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "first command" } });
+    fireEvent.click(send);
+    await waitFor(() => expect(input).toBeDisabled());
+    expect(screen.getByRole("button", { name: "Send command" })).toBeDisabled();
+    resolveCall({ response: "done", state: "COMPLETED", approvalId: null });
+    await waitFor(() => expect(input).toBeEnabled());
+    expect(api.runVoiceCommand).toHaveBeenCalledTimes(1);
+  });
+
+  test("surfaces a backend error from a typed command", async () => {
+    api.runVoiceCommand.mockRejectedValue(new Error("Rejected by policy."));
+    const { input, send } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "do something risky" } });
+    fireEvent.click(send);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Rejected by policy."
+    );
+  });
+
+  test("surfaces a network failure from a typed command", async () => {
+    api.runVoiceCommand.mockRejectedValue(
+      Object.assign(new Error("Yusuf OS is unreachable."), {
+        code: "NETWORK_UNREACHABLE",
+      })
+    );
+    const { input, send } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "hello" } });
+    fireEvent.click(send);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Yusuf OS is unreachable."
+    );
+  });
+
+  test("does not crash on a malformed (field-missing) response", async () => {
+    api.runVoiceCommand.mockResolvedValue({});
+    const { input, send } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "hello" } });
+    fireEvent.click(send);
+    await waitFor(() => expect(input).toBeEnabled());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  test("a typed command that requires approval renders the approval link, not an auto-approval", async () => {
+    api.runVoiceCommand.mockResolvedValue({
+      response: "This needs your approval.",
+      state: "APPROVAL_REQUIRED",
+      approvalId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    });
+    const { input, send } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "push a branch" } });
+    fireEvent.click(send);
+    expect(
+      await screen.findByRole("link", { name: "Review required approval" })
+    ).toHaveAttribute(
+      "href",
+      "/os/approvals/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    );
+  });
+
+  test("displays the actual returned response text for a typed command", async () => {
+    const { input, send } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "status" } });
+    fireEvent.click(send);
+    expect(
+      await screen.findByText("The system is healthy.")
+    ).toBeInTheDocument();
+  });
+
+  test("links to the real task and run when the server returns their ids", async () => {
+    const { input, send } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "status" } });
+    fireEvent.click(send);
+    expect(
+      await screen.findByRole("link", { name: "View task" })
+    ).toHaveAttribute("href", "/os/tasks/9c1c9b3a-1111-4c1a-9d2a-000000000001");
+    expect(screen.getByRole("link", { name: "View run" })).toHaveAttribute(
+      "href",
+      "/os/runs/9c1c9b3a-2222-4c1a-9d2a-000000000002"
+    );
+  });
+
+  test("does not fabricate task/run links when the server omits them", async () => {
+    api.runVoiceCommand.mockResolvedValue({
+      response: "Done",
+      state: "COMPLETED",
+      approvalId: null,
+    });
+    const { input, send } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "status" } });
+    fireEvent.click(send);
+    await screen.findByText("Done");
+    expect(
+      screen.queryByRole("link", { name: "View task" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "View run" })
+    ).not.toBeInTheDocument();
+  });
+
+  test("renders the same composer in Arabic with RTL-appropriate labels", async () => {
+    renderWithI18n(<VoiceConsole />, { language: "ar" });
+    const input = await screen.findByLabelText("اكتب أمرًا");
+    expect(
+      screen.getByRole("button", { name: "إرسال الأمر" })
+    ).toBeInTheDocument();
+    expect(input).toHaveAttribute("dir", "auto");
+  });
+
+  test("voice and text call the same command function", async () => {
+    const { input, send } = await typeAndGetControls();
+    fireEvent.change(input, { target: { value: "status" } });
+    fireEvent.click(send);
+    await waitFor(() => expect(api.runVoiceCommand).toHaveBeenCalledTimes(1));
+    // The mic path exercises the identical yusufApi.runVoiceCommand call —
+    // covered by the existing "never autoplays a response…" test above. This
+    // assertion documents that both paths share one mock call signature.
+    expect(api.runVoiceCommand).toHaveBeenLastCalledWith("status");
+  });
+});
+
+describe("Yusuf OS text composer — security boundary", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    api.voiceStatus.mockResolvedValue({
+      stt: { provider: "native", scope: "BROWSER", eligible: true },
+      tts: { provider: null, eligible: false },
+      browser: { allowSpeechServices: true },
+    });
+    api.runVoiceCommand.mockResolvedValue({
+      response: "ok",
+      state: "COMPLETED",
+      approvalId: null,
+    });
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: vi.fn() },
+    });
+    Object.defineProperty(navigator, "permissions", {
+      configurable: true,
+      value: {
+        query: vi.fn().mockResolvedValue({ state: "prompt", onchange: null }),
+      },
+    });
+  });
+
+  test("a typed command goes through the yusufApi client, never a raw fetch", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    renderWithI18n(<VoiceConsole />);
+    const input = await screen.findByLabelText("Type a command");
+    fireEvent.change(input, { target: { value: "status" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send command" }));
+    await waitFor(() => expect(api.runVoiceCommand).toHaveBeenCalled());
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  test("never writes a session, CSRF, or command value into localStorage", async () => {
+    // i18next itself persists the chosen language (`i18nextLng`) — that is
+    // the test harness's framework, not this component, and is not a
+    // security-sensitive value. What must never appear is anything this
+    // component owns: the session/CSRF token or the command text itself.
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    renderWithI18n(<VoiceConsole />);
+    const input = await screen.findByLabelText("Type a command");
+    fireEvent.change(input, { target: { value: "status" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send command" }));
+    await waitFor(() => expect(api.runVoiceCommand).toHaveBeenCalled());
+    const keysWritten = setItemSpy.mock.calls.map(([key]) => key);
+    expect(keysWritten).not.toContain("csrf");
+    expect(
+      keysWritten.some((key) => /csrf|token|session|command/i.test(key))
+    ).toBe(false);
+    setItemSpy.mockRestore();
+  });
+});

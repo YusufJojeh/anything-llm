@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -9,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import {
   Microphone,
   MicrophoneSlash,
+  PaperPlaneRight,
   Play,
   SpeakerHigh,
   SpeakerSlash,
@@ -28,6 +30,11 @@ const MIME_TYPES = [
   "audio/mp4",
 ];
 const MAX_RECORDING_MS = 60_000;
+// Mirrors VoiceService's MAX_UTTERANCE_CHARS (server/domain/yusufOS/voice/VoiceService.js).
+// Kept as a literal, not an import, since the frontend never depends on server code — the
+// backend remains the source of truth and rejects anything longer regardless of this cap.
+const MAX_COMMAND_CHARS = 10000;
+const COMPOSER_MAX_HEIGHT_PX = 128;
 
 /**
  * Phase → status tone.
@@ -75,6 +82,9 @@ export default function VoiceConsole({ variant = "panel" }) {
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
   const [approvalId, setApprovalId] = useState(null);
+  const [taskId, setTaskId] = useState(null);
+  const [runId, setRunId] = useState(null);
+  const [draft, setDraft] = useState("");
   const [provider, setProvider] = useState(null);
   const [statusLoaded, setStatusLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -92,6 +102,8 @@ export default function VoiceConsole({ variant = "panel" }) {
   const audioContextRef = useRef(null);
   const audioRef = useRef(null);
   const audioUrlRef = useRef(null);
+  const composerRef = useRef(null);
+  const composerId = useId();
 
   const browserStt = provider?.stt?.scope === "BROWSER";
   const allowBrowserSpeech = Boolean(provider?.browser?.allowSpeechServices);
@@ -167,6 +179,12 @@ export default function VoiceConsole({ variant = "panel" }) {
     setLevel(0);
   }, []);
 
+  /**
+   * The single command entry point. Both the mic (after transcription) and
+   * the typed composer call this — same request, same governed pipeline,
+   * same result handling. Neither input modality is allowed a shortcut of
+   * its own.
+   */
   const runCommand = useCallback(
     async (value) => {
       const clean = String(value || "").trim();
@@ -175,12 +193,18 @@ export default function VoiceConsole({ variant = "panel" }) {
         return;
       }
       setTranscript(clean);
+      setResponse("");
+      setApprovalId(null);
+      setTaskId(null);
+      setRunId(null);
       setPhase("PROCESSING");
       setError("");
       try {
         const result = await yusufApi.runVoiceCommand(clean);
         setResponse(result.response || "");
         setApprovalId(result.approvalId || null);
+        setTaskId(result.taskId || null);
+        setRunId(result.runId || null);
         setPhase(
           result.state === "APPROVAL_REQUIRED" ? "APPROVAL_REQUIRED" : "READY"
         );
@@ -191,6 +215,32 @@ export default function VoiceConsole({ variant = "panel" }) {
     },
     [t]
   );
+
+  const submitDraft = useCallback(() => {
+    const clean = draft.trim();
+    if (!clean) return;
+    setDraft("");
+    runCommand(clean);
+  }, [draft, runCommand]);
+
+  const handleComposerKeyDown = useCallback(
+    (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        submitDraft();
+      }
+    },
+    [submitDraft]
+  );
+
+  // Lightweight auto-grow so a Shift+Enter newline is actually visible,
+  // without pulling in a textarea-sizing library for one field.
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT_PX)}px`;
+  }, [draft]);
 
   const transcribeRecording = useCallback(
     async (blob, mimeType) => {
@@ -443,6 +493,10 @@ export default function VoiceConsole({ variant = "panel" }) {
   const listening = phase === "LISTENING";
   const busy = ["PROCESSING", "TRANSCRIBING", "SPEAKING"].includes(phase);
   const levelPercent = Math.min(100, (level / 255) * 100);
+  // Voice and text are mutually exclusive at any instant: while the mic is
+  // capturing or a command is already in flight, the composer does not
+  // accept a second, competing origination of work.
+  const composerDisabled = busy || listening;
 
   /**
    * The microphone control.
@@ -546,6 +600,34 @@ export default function VoiceConsole({ variant = "panel" }) {
     </Link>
   ) : null;
 
+  // Only rendered when the server actually returned an id — never inferred
+  // or guessed at from the client side.
+  const taskLink = taskId ? (
+    <Link
+      to={`/os/tasks/${taskId}`}
+      className="yos-touch-target inline-flex items-center rounded border px-3 text-xs font-semibold"
+      style={{
+        color: "var(--yos-text-secondary)",
+        borderColor: "var(--yos-border-strong)",
+      }}
+    >
+      {t("yusufOS:voice.viewTask")}
+    </Link>
+  ) : null;
+
+  const runLink = runId ? (
+    <Link
+      to={`/os/runs/${runId}`}
+      className="yos-touch-target inline-flex items-center rounded border px-3 text-xs font-semibold"
+      style={{
+        color: "var(--yos-text-secondary)",
+        borderColor: "var(--yos-border-strong)",
+      }}
+    >
+      {t("yusufOS:voice.viewRun")}
+    </Link>
+  ) : null;
+
   const errorBlock = error ? (
     <p
       className="text-xs"
@@ -555,6 +637,56 @@ export default function VoiceConsole({ variant = "panel" }) {
       <UntrustedText>{error}</UntrustedText>
     </p>
   ) : null;
+
+  /**
+   * The typed command composer. It is a second entry point onto exactly the
+   * same `runCommand` used by the mic — same route, same session/CSRF
+   * handling in `yusufApi`, same governed pipeline. There is no separate
+   * "text command" backend path and none is created here.
+   */
+  const composer = (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        submitDraft();
+      }}
+      className="flex items-end gap-2"
+    >
+      <label htmlFor={composerId} className="sr-only">
+        {t("yusufOS:voice.commandInput")}
+      </label>
+      <textarea
+        id={composerId}
+        ref={composerRef}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={handleComposerKeyDown}
+        disabled={composerDisabled}
+        maxLength={MAX_COMMAND_CHARS}
+        rows={1}
+        dir="auto"
+        placeholder={t("yusufOS:voice.commandPlaceholder")}
+        className="yos-touch-target min-w-0 flex-1 resize-none rounded-lg border bg-transparent px-3 py-2 text-sm leading-relaxed disabled:opacity-60"
+        style={{
+          borderColor: "var(--yos-border-strong)",
+          color: "var(--yos-text)",
+          maxHeight: `${COMPOSER_MAX_HEIGHT_PX}px`,
+        }}
+      />
+      <button
+        type="submit"
+        disabled={composerDisabled || !draft.trim()}
+        aria-label={t("yusufOS:voice.send")}
+        className="yos-touch-target flex size-11 shrink-0 items-center justify-center rounded-full border disabled:opacity-50"
+        style={{
+          borderColor: "var(--yos-border-strong)",
+          color: "var(--yos-text)",
+        }}
+      >
+        <PaperPlaneRight size={18} />
+      </button>
+    </form>
+  );
 
   const playbackControls = (
     <>
@@ -683,6 +815,7 @@ export default function VoiceConsole({ variant = "panel" }) {
         <h2 id="yos-voice-title" className="sr-only">
           {t("yusufOS:voice.title")}
         </h2>
+        {composer}
         <div className="flex items-center gap-3 md:gap-4">
           {micControl}
           <div className="min-w-0 flex-1">
@@ -705,6 +838,8 @@ export default function VoiceConsole({ variant = "panel" }) {
             </div>
             <div className="mt-2">{levelMeter}</div>
           </div>
+          {taskLink}
+          {runLink}
           {approvalLink}
           {cancelButton}
         </div>
@@ -735,6 +870,7 @@ export default function VoiceConsole({ variant = "panel" }) {
       <SectionTitle id="yos-voice-title">
         {t("yusufOS:voice.title")}
       </SectionTitle>
+      <div className="mt-3">{composer}</div>
       <div className="mt-3 flex items-center gap-3">
         {micControl}
         <div className="min-w-0 flex-1">
@@ -767,7 +903,13 @@ export default function VoiceConsole({ variant = "panel" }) {
           {responseBlock}
         </div>
       ) : null}
-      {approvalLink ? <div className="mt-3">{approvalLink}</div> : null}
+      {taskLink || runLink || approvalLink ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {taskLink}
+          {runLink}
+          {approvalLink}
+        </div>
+      ) : null}
       {errorBlock ? <div className="mt-3">{errorBlock}</div> : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">

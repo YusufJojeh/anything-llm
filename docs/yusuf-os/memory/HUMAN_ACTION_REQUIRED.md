@@ -7,6 +7,48 @@ Do not add ordinary engineering questions to this file.
 
 ---
 
+## O. `OPEN_MANUAL_VALIDATION` — text command front door live proof [OPEN since 2026-09-06]
+
+**Why it is human-only:** submitting a real command through the live `/os` UI creates a real Task
+and Run and may make a real, billed model call — this session's own standing pattern (established
+earlier the same session, "you speak the command yourself") is that Yusuf originates real
+consequential governed actions himself rather than this agent doing so unilaterally. The
+implementing session verified everything else about the new typed-text composer live (rendering,
+typing, keyboard shortcuts, enable/disable states, 375px mobile layout, a live button-size fix) but
+deliberately stopped short of clicking Send on a real command.
+
+**What is already proven without it:** the composer reuses the exact existing governed voice
+pipeline with zero backend changes (confirmed by direct code reading and by a fresh independent
+cold review finding 0 P0/P1 across all 10 required boundary checks — same runtime, no CSRF bypass,
+no fabricated agent-targeting, no auto-approval, honest task/run links, duplicate-submission
+handling, input bounds matching the server, accessibility, RTL/i18n, non-tautological tests). Full
+frontend regression (220/220), lint, production build, and `git diff --check` all pass. See
+`CURRENT_GATE.md`'s "Text Command Front Door" entry for full detail.
+
+**What is NOT proven:** that a real typed command, submitted through the real live UI, actually
+produces a new Task with a current timestamp, a new Run, and a real model response visible in the
+Command Center / Agent Workspace. **This has not passed and must not be recorded as passing.**
+
+**To close it, in the real running `/os` UI (composer at the bottom of the Command Center or Agent
+Workspace):**
+
+1. Type a harmless command, e.g. `What is my current system status?`, and press Enter or click
+   Send.
+2. Confirm a "View task" and "View run" link appear, and that following them shows a real,
+   current-timestamped Task/Run with an actual model response (not an error).
+3. Optionally, separately, type an approval-triggering command such as: *"Ask Engineering to
+   prepare a safe test action that requires my approval. Do not execute anything until I approve
+   it."* Confirm a real pending approval appears and can be opened for review. **Do not click
+   Approve** — the point is only to prove the approval-required path renders correctly end-to-end,
+   not to execute anything.
+
+Once done, report the Task ID / Run ID / model response (and Approval ID if attempted), and this
+item closes: `TEXT_COMMAND_FRONT_DOOR` flips from `VERIFIED_BY_TEST` to `LIVE_VALIDATED` in
+`CURRENT_STATE.md` and `CURRENT_GATE.md`. This is unrelated to and does not change voice's own
+live/mic-capture validation status, which remains whatever it was before this session.
+
+---
+
 ## N. `OPEN_MANUAL_VALIDATION` — live Ollama / OpenAI model runtime [OPEN since 2026-08-21]
 
 **Why it is human-only:** proving `ModelRouter` against a real provider requires either a local

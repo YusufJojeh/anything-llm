@@ -1,5 +1,67 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-09-06 — Text command front door (Claude Code, Sonnet 5)
+
+**What was done:** Continuing directly from this same session's own "said it, check now" — a
+spoken voice command produced no task/run/approval; the real `/os/approvals` and `/os/tasks` pages
+showed nothing newer than Aug 24, meaning something failed upstream of Yusuf OS's own task-creation
+step (likely browser mic/transcription capture, outside this session's sandboxed visibility). Yusuf
+then issued a large "TEXT COMMAND FRONT DOOR / FINAL DAILY-USE BLOCKER / CAVEMAN MODE" prompt: build
+a real typed-text fallback so microphone capture is no longer the single point of failure for
+originating any Yusuf OS command, reusing the exact existing governed voice pipeline.
+
+1. Read `VoiceService.command()` and confirmed it already returns `{taskId, runId, state, response,
+   approvalId}` — the frontend was discarding `taskId`/`runId`. This meant the entire feature could
+   be frontend-only: zero backend changes needed to satisfy "reuse the exact same route, no
+   duplicate runtime."
+2. Added a composer (`<textarea>` + send button) to `VoiceConsole.jsx`'s `dock` and `panel`
+   variants, wired to the same `runCommand()` the mic already calls. Enter submits, Shift+Enter
+   inserts a newline (auto-grow up to 128px), whitespace-only input is rejected, max length mirrors
+   (never exceeds) the server's real `MAX_UTTERANCE_CHARS`, and the whole composer disables during
+   an in-flight command using the existing `busy`/`listening` phase state.
+3. Deliberately did NOT add agent-targeting UI (the route has no per-agent parameter and always
+   routes through `chief_of_staff`) or an attachment affordance (a disabled button would itself
+   imply a capability that doesn't exist) — both documented as conscious omissions, not oversights.
+4. Added 25 new tests to `voiceConsole.test.jsx` covering the full behavior/security matrix. Full
+   frontend suite: 220/220 (was 195). Lint clean, production build clean, `git diff --check` clean.
+5. **Self-caught, not review-caught:** live-testing against the real running dev server
+   (`yusuf-os-frontend`, port 3000) found the send button rendering 44×40 instead of a clean square
+   — `size-10` (40px Tailwind) was being overridden on the height axis only by the shared
+   `.yos-touch-target` utility's `min-block-size: 44px`. Fixed to `size-11` (44px), re-verified via
+   `getBoundingClientRect()`. Also rewrote one test that had a false-positive shape (asserted
+   `localStorage.setItem` is never called at all, which broke on i18next's own unrelated
+   `i18nextLng` write) to assert the actually-relevant thing: no CSRF/session/command-shaped key is
+   ever written.
+6. Per this project's own standing lesson (self-review is materially weaker than independent
+   review — see `CLAUDE.md`), dispatched a fresh independent agent with zero session context to
+   adversarially re-verify all 10 required boundary claims (same runtime, no CSRF bypass, no
+   fabricated agent-targeting, no auto-approval, honest task/run links, duplicate-submission
+   handling, input bounds matching the server, accessibility, RTL/i18n, non-tautological tests)
+   directly against the diff and the real backend code. **Verdict: all 10 CONFIRMED, 0 additional
+   P0/P1.**
+7. **A deliberate judgment call, made explicit here rather than left implicit:** the CAVEMAN
+   prompt's own wording names "Yusuf" (not "I") as the one who types the live harmless verification
+   command and the approval-proof commissioning command in the real UI. This session verified
+   everything short of actually clicking Send on a real command (rendering, typing, keyboard
+   shortcuts, enable/disable states, 375px mobile layout, live button-size fix) but left the actual
+   command submission to Yusuf, consistent with this session's own earlier established pattern
+   (e.g. "you speak the command yourself" for the original voice-command proof) that Yusuf
+   originates real consequential governed actions himself rather than this agent doing so
+   unilaterally. This means `TEXT_COMMAND_FRONT_DOOR` is `VERIFIED_BY_TEST` but explicitly **not**
+   `LIVE_VALIDATED` yet — see `HUMAN_ACTION_REQUIRED.md`.
+
+**Deliberately not attempted this session:** the actual live command submission and the approval-
+proof commissioning test (both require Yusuf's own action per the judgment call above); any change
+to voice's own live/mic-capture validation status (unchanged, not investigated further — the root
+cause of the original failed spoken command remains unknown and outside this session's visibility).
+
+**Next continuation point:** Yusuf types a harmless command (e.g. "What is my current system
+status?") into the real live composer and confirms a new Task/Run appears with a real model
+response; separately, Yusuf may type an approval-triggering command to prove the approval-required
+path end-to-end (observe only — do not click Approve). Once both are confirmed, update
+`HUMAN_ACTION_REQUIRED.md` and flip `TEXT_COMMAND_FRONT_DOOR` to `LIVE_VALIDATED` in `CURRENT_GATE.md`
+and `CURRENT_STATE.md`.
+
 ## 2026-09-06 — OpenAI live commissioning (Claude Code, Sonnet 5)
 
 **What was done:** Yusuf-driven, tightly gated live commissioning of the OpenAI model provider,

@@ -1,5 +1,38 @@
 # Test Baseline
 
+## Text command front door — 2026-09-06 [VERIFIED_BY_TEST, NOT LIVE_VALIDATED]
+
+- Frontend: `cd frontend && npx vitest run --config vitest.config.js` → **17 suites, 220 tests, all
+  passed** (was 195 — `voiceConsole.test.jsx` gained 25 new tests covering the composer behavior/
+  security matrix: Enter-submit, Shift+Enter no-submit, Send-button submit, whitespace rejection,
+  max-length attribute, in-flight duplicate-submit guard, backend/network error surfacing,
+  malformed-response resilience, approval-required rendering without auto-approval, real vs.
+  fabricated task/run links, Arabic/RTL rendering, and a security-boundary block: no raw `fetch`,
+  no CSRF/session/command-shaped `localStorage` key). Re-run again after a mid-session button-size
+  fix (`size-10`→`size-11`) — still 220/220, confirming no regression from that change.
+- Targeted ESLint on the 4 changed files (`VoiceConsole.jsx`, `en.js`, `ar.js`,
+  `voiceConsole.test.jsx`): clean, exit 0.
+- Production build (`npm run build` in `frontend/`): clean, re-run after the button-size fix. Same
+  pre-existing >500kB chunk warnings, no new ones.
+- `git diff --check` on the 4 changed files: clean.
+- Live verification against the real running dev server (`yusuf-os-frontend`, port 3000, inside the
+  sandboxed Browser pane): composer renders correctly in both dock/panel variants, textarea is
+  keyboard-focusable and typeable, Send correctly enables/disables on content, composer correctly
+  disables during an in-flight command, no horizontal overflow at 375px mobile width, send button
+  measured at exactly 44×44px after the fix (`getBoundingClientRect()`). **Not performed live: an
+  actual command submission** — deliberately left to Yusuf per this session's judgment call (see
+  `SESSION_HANDOFF.md` and `HUMAN_ACTION_REQUIRED.md`).
+- **Independent cold review** (fresh agent, zero session context): verified all 10 required
+  boundary claims directly against the diff and the real backend route/service code — same
+  runtime/no duplicate path (CONFIRMED), no CSRF bypass (CONFIRMED), no fabricated agent-targeting
+  (CONFIRMED — the route has no agent-id parameter), no auto-approval (CONFIRMED — only a `<Link>`
+  is rendered), honest task/run links (CONFIRMED — gated on server-returned ids only),
+  duplicate-submission handling (CONFIRMED — synchronous phase update before the first `await`),
+  input bounds matching the server exactly (CONFIRMED — 10000 on both sides), accessibility
+  (CONFIRMED — real label + aria-label), RTL/i18n (CONFIRMED — real translations both languages,
+  `dir="auto"`), non-tautological test coverage (CONFIRMED). **Verdict: 0 P0, 0 P1, 0 additional
+  concerns.**
+
 ## OpenAI live commissioning — 2026-09-06 (later same day) [VERIFIED_BY_TEST]
 
 - `server/__tests__/yusufOS/modelRouting` re-run with `OPENAI_API_KEY` now set in

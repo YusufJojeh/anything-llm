@@ -472,11 +472,6 @@ export default {
     notRecorded: "Not recorded",
     never: "Never",
   },
-  commandBar: {
-    placeholder: "Command bar — not yet available",
-    unavailable:
-      "There is no command surface in the backend yet, so Yusuf OS does not pretend to offer one.",
-  },
   voice: {
     title: "Voice command",
     start: "Start listening",
@@ -486,6 +481,11 @@ export default {
     transcript: "Transcript",
     response: "Response",
     approvalRequired: "Review required approval",
+    viewTask: "View task",
+    viewRun: "View run",
+    commandInput: "Type a command",
+    commandPlaceholder: "Type a command…",
+    send: "Send command",
     failed: "The voice command failed.",
     unsupported: "Voice recording is not supported in this browser.",
     providerUnavailable:

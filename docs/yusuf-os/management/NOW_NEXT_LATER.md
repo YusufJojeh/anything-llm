@@ -16,6 +16,15 @@ _Established: 2026-08-27. NOW is intentionally limited to two items because the 
 - **Evidence:** Phases S, U, Z, AD, and AE; fresh backend/frontend test and build evidence dated 2026-08-27.
 - **Owner/Agent:** Yusuf + Chief of Staff; Engineering handles defects only.
 - **Deferred reason:** Not deferred.
+- **Update 2026-09-06:** a spoken voice command produced no task/run/approval during this
+  commissioning attempt (root cause outside the implementing session's sandboxed visibility —
+  likely browser mic/transcription capture). Rather than leave microphone capture as the sole way
+  to originate work, a typed-text composer was added to the same governed pipeline
+  (`TEXT_COMMAND_FRONT_DOOR`, see `CURRENT_GATE.md`), removing that single point of failure without
+  changing voice's own unresolved validation status. The mic-specific acceptance criteria below are
+  still open and still require Yusuf's own device/browser judgment; the text path gives an
+  alternative way to exercise the rest of this item's criteria (real unlocked session, live SSE,
+  drilldowns) independent of microphone capture working.
 
 ### YOS-002 — Prove a real read-only Browser Broker observation
 

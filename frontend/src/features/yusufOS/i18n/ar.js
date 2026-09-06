@@ -500,11 +500,6 @@ export default {
     notRecorded: "غير مُسجَّل",
     never: "أبدًا",
   },
-  commandBar: {
-    placeholder: "شريط الأوامر — غير متاح بعد",
-    unavailable:
-      "لا توجد واجهة أوامر في الخادم بعد، لذا لا يتظاهر نظام يوسف بوجودها.",
-  },
   voice: {
     title: "أمر صوتي",
     start: "بدء الاستماع",
@@ -514,6 +509,11 @@ export default {
     transcript: "النص المنسوخ",
     response: "الاستجابة",
     approvalRequired: "مراجعة الموافقة المطلوبة",
+    viewTask: "عرض المهمة",
+    viewRun: "عرض التشغيل",
+    commandInput: "اكتب أمرًا",
+    commandPlaceholder: "اكتب أمرًا…",
+    send: "إرسال الأمر",
     failed: "فشل الأمر الصوتي.",
     unsupported: "التسجيل الصوتي غير مدعوم في هذا المتصفح.",
     providerUnavailable:

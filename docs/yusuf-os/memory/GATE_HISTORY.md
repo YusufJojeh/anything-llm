@@ -1,5 +1,34 @@
 # Gate History
 
+## Text command front door [VERIFIED_BY_TEST, NOT LIVE_VALIDATED — 2026-09-06]
+
+Closed a real product gap surfaced by this same session's own investigation: a spoken voice command
+produced no task/run/approval, and Yusuf OS had no way to originate a command other than the
+microphone. Added a typed-text composer to `VoiceConsole.jsx` that calls the exact same
+`runCommand()`/`yusufApi.runVoiceCommand()`/`POST /voice/commands`/`VoiceService.command()` chain
+the mic already used — zero backend changes, zero duplicate command path. `taskId`/`runId`
+(already returned by `VoiceService.command()`, previously discarded by the frontend) now render as
+real links, gated on the server actually returning them.
+
+**No bug found in existing code this time** — unlike most prior entries in this log, the
+independent review's 10-point adversarial pass found all 10 claims CONFIRMED with 0 additional
+P0/P1. The only issues were self-caught before that review: a non-square 44×40 send button (Tailwind
+`size-10` overridden on the height axis only by `.yos-touch-target`'s `min-block-size: 44px`,
+fixed to `size-11`), and one test with a false-positive-prone assertion (`localStorage.setItem`
+never called at all — broke on i18next's own unrelated `i18nextLng` write; rewritten to assert no
+CSRF/session/command-shaped key specifically).
+
+**Deliberately deferred to Yusuf, not skipped:** the actual live command submission and the
+approval-proof commissioning test. The CAVEMAN prompt's own wording names Yusuf as the one who
+types these in the real UI; this session verified everything else live (rendering, typing, keyboard
+behavior, disabled states, 375px mobile, the button-size fix) but did not click Send on a real
+command, consistent with the session's own earlier-established pattern that Yusuf originates real
+consequential governed actions. `TEXT_COMMAND_FRONT_DOOR` is `VERIFIED_BY_TEST`, not yet
+`LIVE_VALIDATED`. See `HUMAN_ACTION_REQUIRED.md`, `SESSION_HANDOFF.md`, `TEST_BASELINE.md`.
+
+Full frontend regression: 17 suites/220 tests (was 195); lint, production build, `git diff --check`
+all clean.
+
 ## CAVEMAN AUDIT continuation — frontend coverage gap + realtime bug fix [VERIFIED_BY_TEST, 2026-09-06]
 
 Closed a real frontend test-coverage gap (7 of 11 `/os` route pages had zero direct render-level

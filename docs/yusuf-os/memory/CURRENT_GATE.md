@@ -1,5 +1,80 @@
 # Current Gate
 
+## Post-V1 — Text Command Front Door — status: IMPLEMENTED / VERIFIED_BY_TEST / NOT LIVE_VALIDATED
+
+**Trigger:** immediately after this session's own live investigation confirmed a spoken voice
+command had produced no task/run/approval, Yusuf issued a large explicit "TEXT COMMAND FRONT DOOR /
+FINAL DAILY-USE BLOCKER" prompt: microphone/browser capture being the *only* way to originate Yusuf
+OS work is a single point of failure that blocks daily use, and it must be closed by reusing the
+exact existing governed voice-command runtime — not a second/duplicate command path.
+
+**What changed (frontend-only, zero backend changes):** `VoiceConsole.jsx` gained a typed-command
+composer (`<textarea>` + send button) rendered above the mic control in both the `dock` variant
+(used in `CommandCenter.jsx` and `Agents.jsx`) and the `panel` variant. `submitDraft()` calls the
+same `runCommand()` the mic already called after transcription; `runCommand()` has exactly one call
+site into the backend, `yusufApi.runVoiceCommand()` → `POST /voice/commands` →
+`VoiceService.command()` — the same Task→Run→`AgentReasoningLoop`→Policy→Approval→Execution→
+Verification→Audit chain voice already used. `VoiceService.command()` already returned
+`{taskId, runId, state, response, approvalId}`; the frontend was discarding `taskId`/`runId` before
+this change. They now render as "View task"/"View run" links, gated purely on the server actually
+returning a truthy id — never client-constructed.
+
+**Deliberately not built, to avoid fabricating capability that doesn't exist:**
+- **No agent-targeting UI.** `/voice/commands` accepts only `{utterance}` — no agent id parameter —
+  and always routes through `chief_of_staff` regardless of any Agent Workspace selection context
+  (which `VoiceConsole` doesn't even receive as a prop). Adding a "Working with X" display would
+  either be disconnected from reality or imply a routing capability the runtime doesn't have.
+- **No attachment affordance.** A visible-but-disabled attach button would itself imply a future
+  capability; omitting it entirely makes no false claim.
+
+**Boundary guarantees (independently re-verified, see below):** the composer's max length
+(`MAX_COMMAND_CHARS = 10000`) is a client-side literal mirroring, never exceeding,
+`VoiceService.MAX_UTTERANCE_CHARS` — the server remains the sole source of truth and enforces its
+own limit regardless. Whitespace-only input is rejected before any request is sent. The whole
+composer (`composerDisabled = busy || listening`) is disabled for the duration of an in-flight
+command, using the same `busy`/`listening` phase state the mic already used — no new disabled-state
+mechanism, no path to two concurrent submissions from one piece of text. An `APPROVAL_REQUIRED`
+result only ever renders a `<Link>` to `/os/approvals/:id`; nothing in this file calls a decide/
+approve function. The textarea has `dir="auto"` for bidi-safe rendering and a real (sr-only but
+programmatically associated) `<label>`; the icon-only send button has a real `aria-label`.
+
+**Tests:** `voiceConsole.test.jsx` gained 25 new tests (Enter-to-send, Shift+Enter-newline,
+Send-button, whitespace rejection, max-length attribute, duplicate-submit prevention via a
+manually-controlled pending Promise, backend-error/network-error surfacing, malformed-response
+resilience, approval-required rendering without auto-approval, task/run link presence-only-when-
+returned, Arabic/RTL rendering, and a security-boundary block asserting no raw `fetch` and nothing
+CSRF/session/command-shaped written to `localStorage`). Full frontend suite: **17 suites, 220 tests,
+all passed** (was 195; +25). Targeted lint clean. Production build clean. `git diff --check` clean.
+
+**Independent cold review** (a fresh agent with no session context, per this project's own
+standing lesson that self-review is materially weaker than independent review): re-derived and
+verified, from the diff and the actual backend route/service code, all 10 required boundary claims
+— same runtime/no duplicate path, no CSRF bypass, no fabricated agent-targeting, no auto-approval,
+honest task/run links, duplicate-submission handling, input bounds matching the server exactly,
+accessibility, RTL/i18n, and non-tautological test coverage. **Verdict: all 10 CONFIRMED, 0
+additional P0/P1 found.**
+
+**Self-caught issues fixed before the independent review (not P0/P1, noted for completeness):** the
+send button initially used Tailwind's `size-10` (40px) with the shared `.yos-touch-target` utility
+(`min-block-size: 44px`), rendering a non-square 44×40 button because `min-block-size` only affects
+block-size — fixed to `size-11` (44px), confirmed via live `getBoundingClientRect()` against the
+running dev server. One test assertion (`localStorage.setItem` never called) was rewritten after a
+real failure revealed i18next itself writes `i18nextLng` — the test now asserts no CSRF/session/
+command-shaped *key* is written, which is what actually mattered.
+
+**What is genuinely NOT verified — the live proof, deliberately deferred to Yusuf:** this session
+verified the composer's rendering, typing, keyboard behavior, enable/disable states, and mobile
+layout live against the real running dev server (`yusuf-os-frontend`, port 3000) inside the
+sandboxed Browser pane, but **did not click Send to submit a real command**. The CAVEMAN prompt's
+own text names "Yusuf" (not "I") as the one who types the live verification command and the
+approval-proof commissioning command ("Ask Engineering to prepare a safe test action that requires
+my approval. Do not execute anything until I approve it.") — consistent with this session's
+standing pattern that Yusuf originates real consequential governed actions himself. Until Yusuf
+performs that live submission, `TEXT_COMMAND_FRONT_DOOR` stays `VERIFIED_BY_TEST`, not
+`LIVE_VALIDATED`. See `HUMAN_ACTION_REQUIRED.md`.
+
+**Local commit:** see `SESSION_HANDOFF.md` for the hash. No push, no PR, no deploy.
+
 ## Post-V1 — Agent Workspace (Section 20) — status: IMPLEMENTED / PARTIALLY VERIFIED
 
 V1 (Phases B–AE) is COMPLETE and released, below. This entry is a later,

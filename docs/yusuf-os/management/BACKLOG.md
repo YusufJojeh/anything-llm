@@ -4,7 +4,7 @@ _Updated: 2026-09-05. The detailed current ordering and all required item fields
 
 | ID | Outcome | Horizon | Status |
 |---|---|---|---|
-| YOS-001 | Commission real `/os`, SSE, and microphone | NOW | READY — HUMAN-ASSISTED |
+| YOS-001 | Commission real `/os`, SSE, and microphone | NOW | READY — HUMAN-ASSISTED (text-command fallback added 2026-09-06, see `NOW_NEXT_LATER.md`) |
 | YOS-002 | Prove real Chrome attachment and one read-only browser observation | NOW | READY — HUMAN-ASSISTED |
 | YOS-003 | Register and prove one governed real external action | NEXT | DISCOVERY |
 | YOS-004 | Deliver Gmail as the first controlled integration slice | NEXT | PROPOSED |
