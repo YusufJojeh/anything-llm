@@ -36,6 +36,17 @@ result or backend log. See `CURRENT_GATE.md`'s Phase AC update for full detail. 
 the Ollama half (no local daemon check performed this session — out of scope per explicit
 instruction to stop after the OpenAI validation).
 
+**Updated 2026-09-06 (later same session, real UI):** Yusuf unlocked the `/os` session himself
+(the implementing session never touched the control token) and asked for `/os/runtime` to be
+checked. Real page, live data: `OpenAI` shows **Configured** (label: "Configuration presence
+only. Credential values never enter this projection."), `Ollama` shows **UNREACHABLE** (no local
+daemon, as expected), and "Recent model completions" correctly shows none recorded — expected,
+since the live smoke test above called `OpenAIProvider`/`ModelRouter` directly via a standalone
+script, not through `AgentRunCoordinator`. This closes the previously-blocked HTTP/UI-level
+confirmation gap for OpenAI specifically. Incidentally, the connection indicator read **LIVE**
+(green) — relevant to item 1's SSE-reaches-LIVE question below — but item 1 is not being closed
+by this alone; no task/run/approval drilldown was opened this pass.
+
 **Updated 2026-09-06 (later same session):** `server/__tests__/yusufOS/modelRouting` was re-run
 with the env file loaded (a plain `npx jest ...` does not load `.env.development` — dotenv had to
 be preloaded explicitly). Result: **7 suites, 57 passed, 0 skipped** — the suite's own conditional
