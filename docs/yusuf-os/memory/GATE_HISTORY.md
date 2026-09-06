@@ -1,5 +1,58 @@
 # Gate History
 
+## CAVEMAN AUDIT continuation — frontend coverage gap + realtime bug fix [VERIFIED_BY_TEST, 2026-09-06]
+
+Closed a real frontend test-coverage gap (7 of 11 `/os` route pages had zero direct render-level
+tests) and found a genuine production bug while doing it.
+
+1. **`ApprovalReview.jsx`'s realtime auto-refresh was silently disabled.** The shared
+   `useYusufResource(loader, {watch=null}={})` hook (`YusufOSProvider.jsx:361`, exactly 2 params)
+   was called with a stray 3rd positional array argument:
+   `useYusufResource(load, [approvalId, reloadKey], {watch: realtime.lastAppliedSequence})`. JS
+   destructured `{watch}` from the array (yielding `undefined`), and the real `{watch: ...}` object
+   landed in an ignored 3rd argument. Every sibling page (`Tasks.jsx`, `Runs.jsx`, `TaskDetail.jsx`,
+   `RunDetail.jsx`, `Approvals.jsx`, `Agents.jsx`, `AgentDetailPanel.jsx`) already used the correct
+   2-argument form. Net effect: the highest-stakes L3/L4 approval-decision screen never re-fetched
+   on live SSE updates, only on the operator's own `decide()` call — it could render stale
+   PENDING/decidable state for an approval already decided, invalidated, or expired elsewhere.
+   Fixed by removing the stray argument. Commit `83484ef6`.
+2. **Added 28 new tests** across `listAndDetailPages.test.jsx`, `commandCenterAndApprovals.test.jsx`,
+   and `approvalReview.test.jsx`, covering `Tasks`, `Runs`, `Projects`, `TaskDetail`, `RunDetail`,
+   `CommandCenter`, `Approvals`, and `ApprovalReview` across LOADING/EMPTY/POPULATED/ERROR states.
+   Every asserted translation string was checked against the real `en.js`. No other code defects
+   found in these pages — all already met the project's honesty/accessibility bar. Commit
+   `83484ef6` (same commit as the fix; the tests are what surfaced it).
+3. **Regression-test verification discipline applied twice over.** Used `git stash push -- <file>`
+   to revert just the fix and confirmed the resync test fails deterministically against the pre-fix
+   code (times out waiting for a 2nd `approvalReview` call). This also caught a bug in the test's
+   own first draft — a bare `.rerender(<ApprovalReview />)` dropped the MemoryRouter/I18nextProvider
+   context mid-test, producing an untrustworthy "1 passed" result with a hidden uncaught exception
+   from `react-router-dom`'s `LinkWithRef` — fixed by reconstructing the full wrapper tree
+   (`I18nextProvider` + `MemoryRouter`) on every render/rerender call.
+4. **Cold independent review**: 0 P0, 0 P1, verdict SAFE TO COMMIT. Two P2 notes both addressed —
+   confirmed the two stale-doc files described below weren't accidentally widened in scope, and
+   noted (correctly) that the two coverage-only test files broaden the diff slightly beyond the
+   strict bug fix, judged acceptable as regression coverage landing in the same commit.
+5. **Stale-doc corrections** (docs-only, commit `28035163`), from a separate background
+   release/reliability audit that re-verified every open `KNOWN_RISKS.md` item against current
+   code: `KNOWN_RISKS.md` #5 (browser-session security — the governed bridge contract is now built,
+   not "unresolved by design") and #12 (agent reasoning's production default is already the real
+   provider-routed client, not "not yet wired") were both stale framings superseded by Phases H/I
+   and R/T respectively; #10's local-ahead-of-remote commit count was stale ("four" → currently 48,
+   with a note to re-derive rather than trust a written number). Also corrected
+   `docs/yusuf-os/management/RISKS.md` R-006 (SQLite contention is a reproduced live issue this
+   session, not a hypothetical future-datastore concern — same KEEP_DEFERRED conclusion, corrected
+   description) and R-007 (notification-kind labeling was already resolved in commit `2c030aae`,
+   marked as still-open in error) and R-010 (same stale commit count as #10).
+6. **Live browser pass** against the pre-existing dev-only fixture harness at 1440/768/390px and in
+   Arabic/RTL found zero defects (see `TEST_BASELINE.md` for the detailed checklist). This is
+   fixture data through real components, not a substitute for Yusuf's own real-unlocked-session
+   pass.
+
+Full regression: backend 88 suites/1075 tests (one suite's parallel-only SQLite contention flake
+reproduced 2/2 green in isolation — `PARALLEL_WINDOWS_SQLITE_CONTENTION_FLAKE`, not a regression);
+frontend 17 suites/202 tests; production build clean. Local commits: `83484ef6`, `28035163`.
+
 ## CAVEMAN AUDIT continuation — Post-V1 hardening pass [VERIFIED_BY_TEST, 2026-09-05]
 
 Four independent background-agent audits (security kernel, Browser Broker/voice, domain

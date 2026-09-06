@@ -1,5 +1,42 @@
 # Test Baseline
 
+## CAVEMAN AUDIT continuation — 2026-09-06 [VERIFIED_BY_TEST]
+
+- Full Yusuf OS backend, default parallel workers: `npx jest server/__tests__/yusufOS server` (from
+  repo root) → **87 suites passed, 1 failed; 1072 passed, 2 failed, 1 skipped, 1075 total**. The one
+  failure (`engineeringAgenticE2E.test.js`) showed the same signature as the prior session's
+  documented flake: `ConnectorError("Timed out during query execution.")` on a `deleteMany` cleanup
+  call, plus a Windows `EPERM` temp-dir cleanup race. Reran in isolation
+  (`npx jest server/__tests__/yusufOS/integration/engineeringAgenticE2E.test.js --runInBand`) →
+  **2/2 passed cleanly**. Confirmed `PARALLEL_WINDOWS_SQLITE_CONTENTION_FLAKE`, not a regression —
+  same root cause as `KNOWN_RISKS.md` #20 (no `busy_timeout` on the shared SQLite connection),
+  KEEP_DEFERRED reaffirmed this session (see `GATE_HISTORY.md`).
+- Frontend: `cd frontend && npx vitest run --config vitest.config.js` → **17 suites, 202 tests, all
+  passed** (was 14 suites/174 tests; +3 new suites/+28 tests this session — `listAndDetailPages.
+  test.jsx`, `commandCenterAndApprovals.test.jsx`, `approvalReview.test.jsx`).
+- Production build (`npm run build` in `frontend/`): clean. Same pre-existing >500kB chunk warnings
+  (`CoreRingsWebGL`, `purify`, `index`), no new ones.
+- `npx eslint` on the 4 files touched this session: 4 prettier formatting nits in the new test
+  files, fixed with `--fix`; `ApprovalReview.jsx` itself was already clean. Re-ran the affected
+  tests after the autofix — still 20/20 green.
+- One real bug found and fixed: `ApprovalReview.jsx`'s realtime auto-refresh was silently disabled
+  by a 3-argument call into a 2-argument hook (see `GATE_HISTORY.md` for detail). Regression test
+  verified genuine via `git stash push -- <file>` → confirmed the test fails deterministically
+  against the pre-fix code (times out waiting for a 2nd `approvalReview` call, not a false
+  positive) → `git stash pop` to restore the fix.
+- Independent cold review of the fix + all 3 new test files: **0 P0, 0 P1, verdict SAFE TO
+  COMMIT**.
+- Live browser pass (dev-only fixture harness, `frontend/yusuf-os-harness.html`, no control token
+  needed) at 1440/768/390px and in Arabic/RTL: zero console errors, nav mirrors correctly, all
+  icon-only controls carry real translated `aria-label`s, 3D constellation correctly gated below
+  `lg` breakpoint with the accessible roster unaffected, agent detail drawer is a real
+  `role="dialog"` with a labeled close button and closes on Escape, keyboard focus ring visible in
+  both LTR and RTL. Not a substitute for Yusuf's own real-unlocked-session pass (see
+  `HUMAN_ACTION_REQUIRED.md`) — this is fixture data through real components, not live system
+  state.
+- Local commits this session: fix + tests commit, and a separate docs-only stale-entry-correction
+  commit (see `GATE_HISTORY.md` for hashes).
+
 ## CAVEMAN AUDIT continuation — 2026-09-05 [VERIFIED_BY_TEST]
 
 - Full Yusuf OS backend, serial to avoid SQLite cross-file contention:

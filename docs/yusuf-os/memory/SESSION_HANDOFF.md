@@ -1,5 +1,77 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-09-06 — CAVEMAN AUDIT continuation: frontend coverage gap + realtime bug fix, stale-doc correction, live responsive/RTL/a11y pass (Claude Code, Sonnet 5)
+
+**What was done:** Continuation of the same standing "final audit closure" prompt. This session's
+slice: closed a real frontend test-coverage gap and found a genuine bug while doing it.
+
+1. Read the real router (`frontend/src/main.jsx`), not any assumed list — confirmed 11 real `/os`
+   routes. Grepped every test file to find which of the 11 page components had zero direct
+   render-level coverage: 9 of 11 (all but `Runtime.jsx`, `Agents.jsx`).
+2. Added 28 new passing tests across three new files (`listAndDetailPages.test.jsx`,
+   `commandCenterAndApprovals.test.jsx`, `approvalReview.test.jsx`) covering `Tasks`, `Runs`,
+   `Projects`, `TaskDetail`, `RunDetail`, `CommandCenter`, `Approvals`, `ApprovalReview` across
+   LOADING/EMPTY/POPULATED/ERROR states, honest blocked/cost/agent-identity rendering, and
+   pending/decided approval separation. Every asserted string was checked against the real
+   `en.js`, not guessed.
+3. While writing `ApprovalReview.jsx`'s test, found a real bug: it called the shared
+   `useYusufResource(loader, {watch}={})` hook with a stray 3rd positional array argument
+   (`[approvalId, reloadKey]`), which JS silently destructured as `{watch: undefined}`, dropping
+   the real `{watch: realtime.lastAppliedSequence}` object passed as an ignored 3rd argument. Net
+   effect: the highest-stakes L3/L4 approval-decision screen never re-fetched on live SSE updates —
+   only on the operator's own decide() call — while every sibling page already used the correct
+   2-argument form. Fixed by removing the stray argument.
+4. Proved the regression test genuinely catches the bug using `git stash push -- <file>` to revert
+   just the fix, confirming the test fails deterministically (times out waiting for a 2nd
+   `approvalReview` call) against the pre-fix code, then `git stash pop` to restore it. This also
+   caught a bug in my own first draft of the test (a bare `.rerender(<ApprovalReview />)` dropped
+   the MemoryRouter/I18nextProvider context mid-test, producing an untrustworthy "1 passed" result
+   with a hidden uncaught exception) — fixed by reconstructing the full wrapper tree on every
+   render/rerender call rather than trusting RTL's rerender to preserve context.
+5. Dispatched a cold independent review of the fix + all three new test files: verdict **0 P0 / 0
+   P1, SAFE TO COMMIT** (two non-blocking P2 notes, both addressed — see `GATE_HISTORY.md`).
+6. In parallel, a background agent completed the release/reliability + SQLite decision + PM
+   backlog review the prior session had left running. It re-verified startup/migration/backup/
+   restart/kill-switch/audit behavior (all PASS), reaffirmed KEEP_DEFERRED on the SQLite
+   `busy_timeout` question (blast radius spans 85 files via the shared Prisma singleton, not
+   scoped to Yusuf OS), and found three stale `KNOWN_RISKS.md` entries (#5, #10, #12) and two stale
+   `docs/yusuf-os/management/RISKS.md` entries (R-006, R-007) plus one stale commit count (R-010) —
+   corrected all six in a separate docs-only commit.
+7. Ran a live browser pass against the pre-existing dev-only fixture harness
+   (`frontend/yusuf-os-harness.html`, real components + real i18n, no control token needed) at
+   1440/768/390px and in Arabic/RTL: nav rail mirrors correctly, all icon-only controls carry real
+   translated `aria-label`s (spot-checked in both languages), the 3D constellation correctly
+   disappears below its `lg` breakpoint while the accessible roster keeps the same data, the agent
+   detail drawer opens as a real `role="dialog"` with a labeled close button and closes on Escape,
+   keyboard Tab produces a visible focus ring in both LTR and RTL, and `prefers-reduced-motion` is
+   already wired in `displayCapabilities.js`/`depth.css`/`tokens.css`. Zero defects found. WebGL
+   perf was not independently re-measured this session (no profiling tool available in the browser
+   session) beyond confirming the existing lazy/breakpoint-gated load is still in place.
+8. Full regression before and after: backend 88 suites / 1075 tests (one suite's failure under
+   parallel Jest workers reproduced 2/2 green in an isolated `--runInBand` rerun — confirmed
+   `PARALLEL_WINDOWS_SQLITE_CONTENTION_FLAKE`, not a real regression); frontend 17 suites / 202
+   tests, all green; production build clean (same pre-existing >500kB chunk warnings, no new ones).
+
+**Two local commits this session:** the fix + tests (`ApprovalReview.jsx` realtime resync +
+coverage gap), and the stale-doc corrections (docs-only, no code).
+
+**Deliberately not attempted this session:** a deep re-audit of the Agent Workspace beyond the
+existing test suite plus the live drawer/focus checks above (nothing regressed, no new redesign
+attempted, per the standing "review only, do not redesign" instruction); a fresh WebGL performance
+measurement (no profiling tool available; the lazy-load gate itself was re-confirmed by code
+inspection, not by live metrics); any change to the SQLite `busy_timeout` question (KEEP_DEFERRED
+reaffirmed, would require a scoped change to the upstream-shared `server/utils/prisma/index.js`,
+out of scope for this pass); and Section 14's cleanup pass (no dead code, stale TODOs, or
+superseded comments were found while working through the files touched this session — nothing to
+safely remove).
+
+**Next continuation point:** if further CAVEMAN AUDIT work is requested — a live WebGL perf trace
+using an actual profiler; the still-unresolved dev-harness gap where only 5 of 11 routes are
+wired through its internal `<Routes>` (tasks/runs/projects/runtime and their detail routes are not
+reachable via the harness without adding routes to it); `SystemHealth.jsx` still has no direct
+component-level test (only exercised indirectly via `System.jsx`'s thin wrapper, now covered, and
+via `systemCore.test.jsx`'s sub-component tests).
+
 ## 2026-09-05 — CAVEMAN AUDIT continuation: post-V1 hardening pass (Claude Code, Sonnet 5)
 
 **What was done:** Continuation of the same large "final audit and completion" prompt referenced

@@ -1,6 +1,19 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-09-05, CAVEMAN AUDIT continuation._
+_Last verified: 2026-09-06, CAVEMAN AUDIT continuation._
+
+**CAVEMAN AUDIT continuation (2026-09-06):** closed a real frontend test-coverage gap (7 of 11
+`/os` route pages had zero direct render-level tests — 28 new tests added, no code defects found in
+them) and, while doing it, found and fixed a genuine bug: `ApprovalReview.jsx`'s realtime
+auto-refresh was silently disabled by a stray 3-argument call into the 2-argument
+`useYusufResource` hook, so the highest-stakes L3/L4 decision screen never re-fetched on live SSE
+updates. Cold independent review: 0 P0/P1, SAFE TO COMMIT. Also corrected three stale
+`KNOWN_RISKS.md` entries and three stale `docs/yusuf-os/management/RISKS.md` entries surfaced by a
+fresh release/reliability audit (SQLite `busy_timeout` KEEP_DEFERRED reaffirmed; browser-session
+security and agent-reasoning-provider entries were stale framings predating later phases; a stale
+commit-count entry). A live browser pass against the dev-only fixture harness at 1440/768/390px and
+in Arabic/RTL found zero defects. Full detail: `GATE_HISTORY.md`, `TEST_BASELINE.md`,
+`SESSION_HANDOFF.md`.
 
 **CAVEMAN AUDIT continuation added (2026-09-05):** a post-V1 hardening pass, not a new gate — four
 independent background-agent audits across the security kernel, Browser Broker/voice, domain

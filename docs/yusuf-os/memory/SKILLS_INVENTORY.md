@@ -1,34 +1,48 @@
 # Skills Inventory
 
-**Last verified: 2026-09-05**, via the harness's own available-skills listing (ground truth for
-what is actually enabled/invocable *this session*) — **not** by grepping installed `SKILL.md`
-files under `marketplace-sources/`, which lists everything *available in the marketplace*, not
-everything *enabled*.
+**Last verified: 2026-09-06**, via a live `ListSkills` call (ground truth for what is actually
+enabled/invocable *this session*) — **not** by grepping installed `SKILL.md` files under
+`marketplace-sources/`, which lists everything *available in the marketplace*, not everything
+*enabled*, and **not** by trusting any list recorded below from a prior session.
 
 ## The enabled-skill set is observed to fluctuate session-to-session — do not trust a snapshot
 
-The 2026-08-17 discovery listed `backend-security`, `backend-reliability`, `backend-testing`,
-`database-engineer`, `frontend-architecture`, `frontend-accessibility`, `security-review`,
-`migration-safety`, `api-contract-quality`, `auth-session-engineer`, etc. as available. The
-2026-09-04 revision of this file asserted, having checked that session's listing, that **none**
-of those were present anymore. **This session (2026-09-05), checked directly against the actual
-harness listing, every one of them is present again** — `backend-security`, `backend-reliability`,
-`backend-testing`, `database-engineer`, `frontend-architecture`, `frontend-accessibility`,
-`security-review`, `migration-safety`, `api-contract-quality`, `auth-session-engineer`,
-`api-client-contracts`, `component-api-quality`, `realtime-engineer`, `state-data-flow-engineer`,
-`internationalization-rtl`, `responsive-ui-engineer`, `design-system-engineer`,
-`progressive-enhancement-engineer`, `frontend-performance`, `frontend-overengineering-killer`,
-`backend-performance`, `backend-debugger`, `backend-audit`, `backend-overengineering-killer`,
-`multi-tenant-saas`, `monorepo-workspace-engineer`, `project-conventions`,
-`fullstack-project-conventions`, `deployment-production-readiness` are all currently enabled.
+Three independent data points now confirm this, not two:
 
-**The lesson is not "the 09-04 entry was wrong" — it's that this file's contents are a snapshot of
-a set that changes between sessions** (workspace/plugin configuration, not something Yusuf OS code
-controls). **Never rely on a name from this file's history sections without checking the current
-session's own available-skills listing (or calling `ListSkills`) first** — that is the one part of
-this file's guidance that has now been proven right twice by being violated once.
+- 2026-08-17: `backend-security`, `backend-reliability`, `backend-testing`, `database-engineer`,
+  `frontend-architecture`, `frontend-accessibility`, `security-review`, `migration-safety`,
+  `api-contract-quality`, `auth-session-engineer`, etc. present.
+- 2026-09-04: none of those present; a different set.
+- 2026-09-05: every one of the 2026-08-17 names present again, plus more (full list below).
+- **2026-09-06 (this session): a live `ListSkills` call returned yet another completely different
+  enabled set — largely consumer/marketing/creative-tool skills, with none of the specific backend/
+  frontend engineering skill names listed anywhere in this file's history.** This is the third
+  distinct roster observed across four checks, ruling out "it settles after the first surprise" —
+  the set is genuinely re-randomized or re-configured per session, not converging on a stable
+  baseline. This session did not capture the exact new roster verbatim before compaction; the
+  finding that matters is the fluctuation itself, not this particular session's specific list.
 
-## Enabled and relevant to Yusuf OS engineering, confirmed this session (2026-09-05)
+**The lesson is not that any one entry below was wrong — it's that this file's contents are a
+snapshot of a set that changes between sessions** (workspace/plugin configuration, not something
+Yusuf OS code controls). **Never rely on a name from this file's history sections without checking
+the current session's own available-skills listing (or calling `ListSkills`) first** — that is the
+one part of this file's guidance that has now been proven right three times by being violated once
+each time. Treat every specific skill name below as "was available at least once," never as "is
+available now."
+
+## Enabled set observed 2026-09-05 (superseded by the 2026-09-06 fluctuation above — history only)
+
+`backend-security`, `backend-reliability`, `backend-testing`, `database-engineer`,
+`frontend-architecture`, `frontend-accessibility`, `security-review`, `migration-safety`,
+`api-contract-quality`, `auth-session-engineer`, `api-client-contracts`, `component-api-quality`,
+`realtime-engineer`, `state-data-flow-engineer`, `internationalization-rtl`,
+`responsive-ui-engineer`, `design-system-engineer`, `progressive-enhancement-engineer`,
+`frontend-performance`, `frontend-overengineering-killer`, `backend-performance`,
+`backend-debugger`, `backend-audit`, `backend-overengineering-killer`, `multi-tenant-saas`,
+`monorepo-workspace-engineer`, `project-conventions`, `fullstack-project-conventions`,
+`deployment-production-readiness` were all enabled that session.
+
+## Historically relevant to Yusuf OS engineering when enabled (last confirmed enabled 2026-09-05; NOT enabled 2026-09-06 — see fluctuation note above)
 
 - `backend-security`, `fullstack-security` — direct fit for the Yusuf OS security kernel.
 - `security-best-practices`, `security-threat-model` (anthropic-skills), `security-review` (slash
