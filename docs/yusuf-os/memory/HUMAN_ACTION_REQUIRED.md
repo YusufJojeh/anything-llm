@@ -34,8 +34,15 @@ set a real `OPENAI_API_KEY` in the environment, then re-run
 (`KNOWN`), cost `~3 micros` (`ESTIMATED`), no fallback, zero secret-fragment matches in the
 result or backend log. See `CURRENT_GATE.md`'s Phase AC update for full detail. **Still open:**
 the Ollama half (no local daemon check performed this session — out of scope per explicit
-instruction to stop after the OpenAI validation) and `npx jest server/__tests__/yusufOS/modelRouting`
-has not been re-run against the now-live key.
+instruction to stop after the OpenAI validation).
+
+**Updated 2026-09-06 (later same session):** `server/__tests__/yusufOS/modelRouting` was re-run
+with the env file loaded (a plain `npx jest ...` does not load `.env.development` — dotenv had to
+be preloaded explicitly). Result: **7 suites, 57 passed, 0 skipped** — the suite's own conditional
+`OpenAIProvider` live-smoke test (previously always skipped, `test.skip` when `OPENAI_API_KEY` is
+unset) executed for real this time and passed. The Ollama live-smoke test in the same run still
+gracefully skips internally (no local daemon reachable), which is expected and separate from the
+`test.skip` mechanism.
 
 ---
 

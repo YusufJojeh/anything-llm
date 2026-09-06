@@ -1,5 +1,21 @@
 # Test Baseline
 
+## OpenAI live commissioning — 2026-09-06 (later same day) [VERIFIED_BY_TEST]
+
+- `server/__tests__/yusufOS/modelRouting` re-run with `OPENAI_API_KEY` now set in
+  `server/.env.development`. A plain `npx jest server/__tests__/yusufOS/modelRouting` from repo
+  root does **not** load `.env.development` (no dotenv preload in `jest.config.cjs`), so the
+  suite's conditional live-smoke test (`test.skip` unless `OPENAI_API_KEY` is set) initially still
+  skipped. Re-ran with dotenv explicitly preloaded
+  (`node -r dotenv/config node_modules/jest/bin/jest.js server/__tests__/yusufOS/modelRouting`,
+  `DOTENV_CONFIG_PATH` pointed at `server/.env.development`) → **7 suites passed, 57/57 tests
+  passed, 0 skipped**. The `OpenAIProvider` live-smoke test executed for real and passed; the
+  separate `OllamaProvider` live-smoke test still gracefully self-skips internally (no local
+  daemon reachable), which is expected and unrelated to `test.skip`. No secret value was printed
+  in any test output.
+- See `CURRENT_GATE.md` (Phase AC update) and `HUMAN_ACTION_REQUIRED.md` item N for the live
+  completion evidence (model, latency, tokens, cost) behind this.
+
 ## CAVEMAN AUDIT continuation — 2026-09-06 [VERIFIED_BY_TEST]
 
 - Full Yusuf OS backend, default parallel workers: `npx jest server/__tests__/yusufOS server` (from
