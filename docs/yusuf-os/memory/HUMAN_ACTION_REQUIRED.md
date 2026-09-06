@@ -83,6 +83,29 @@ Open `http://localhost:3000/os`, unlock, and confirm three things:
 2. the connection indicator reaches `LIVE` — the least-proven path, since tests stub `EventSource`;
 3. a task, a run and an approval each open from the Command Center.
 
+**Updated 2026-09-06:** Yusuf unlocked the session himself (the implementing session never
+touched the control token). All three points checked against the real, unlocked session:
+
+1. **Real projections render** — dashboard, `/os/runtime`, `/os/tasks`, `/os/runs`, and
+   `/os/approvals` all showed genuine data (real agent roster, real Arabic voice-command task
+   history from Aug 24 2026, a real `Failed`/`MODEL_UNAVAILABLE` run predating today's OpenAI
+   configuration, real capability lists) — not fixture data.
+2. **Connection indicator reached `LIVE`** (green) — confirmed by screenshot.
+3. **Task and run both opened successfully** with real drilldown detail (completion gates,
+   blockers, handoffs, linked run for the task; agent/kind/status/model/failure-kind/cost for the
+   run). **Approval could not be opened** — the real database currently has zero pending and zero
+   decided approvals (matches the dashboard's `APPROVALS 0` tile), so there is nothing to click
+   into. The approvals list itself renders this correctly as an honest empty state, not fixture
+   data standing in for something real. Whether an empty-but-correctly-rendering approvals list
+   satisfies point 3, or whether a real approval needs to be produced and opened before this item
+   can be marked fully closed, is Yusuf's call, not the implementing session's to decide.
+
+One incidental, unrelated observation from this pass: the browser console showed three
+`401 Unauthorized` resource-load errors originating from AnythingLLM's own upstream `Sidebar`/
+`ActiveWorkspaces` components (not from any Yusuf OS code or the control-plane guard) — likely a
+pre-existing upstream single-user-mode auth quirk unrelated to this task. Not investigated further
+here; flagging only for awareness, not treating it as a Yusuf OS regression.
+
 Then say so, and the evidence gets recorded in `GATE_HISTORY.md` and Gate G closes.
 
 **Updated 2026-09-04:** the new Agent Workspace at `/os/agents` (see `CURRENT_GATE.md`'s
