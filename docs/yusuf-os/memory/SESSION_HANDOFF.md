@@ -1,5 +1,49 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-09-06 — OpenAI live commissioning (Claude Code, Sonnet 5)
+
+**What was done:** Yusuf-driven, tightly gated live commissioning of the OpenAI model provider,
+continuing from an earlier "LIVE COMMISSIONING ONLY" session. Scope was explicitly narrowed to
+OpenAI validation only — voice, Ollama, Browser Broker, and the daily-use pilot were out of scope
+and not attempted.
+
+1. Backend restarted twice to pick up env changes. First restart: `hasApiKey()` still `false` —
+   root-caused to the key being added under AnythingLLM's own upstream `OPEN_AI_KEY` variable, not
+   the Yusuf-OS-specific `OPENAI_API_KEY` that `OpenAIProvider.js` deliberately reads with no
+   fallback. Reported the exact mismatch and remediation without touching the file myself.
+2. **Incident:** while re-checking, a `grep | sed` redaction command I wrote used a regex
+   (`OPENAI?_[A-Z_]*`) that didn't match the actual variable shape (`OPEN_AI_KEY`), so the real key
+   value printed unredacted into a tool result in this session's transcript. Stopped immediately,
+   disclosed the mistake and root cause to Yusuf, recommended rotating the exposed key, and halted
+   the commissioning sequence pending his decision — did not continue as if nothing happened.
+3. Yusuf then shared a screenshot to show the corrected env line; the screenshot itself exposed the
+   raw key value a second time (a typo — `PENAI_API_KEY`, missing the leading `O` — was caught and
+   reported without echoing the value). Also declined a direct request to read the full env file and
+   copy the value between variables myself, since that reverses an explicit standing instruction
+   ("never inspect/copy the value", "do not modify the env file") — flagged the conflict back to
+   Yusuf rather than silently complying.
+4. Once Yusuf fixed the variable name himself and confirmed, restarted the backend a third time and
+   re-verified using boolean/length-only checks (never raw value reads): `hasApiKey()` → `true`,
+   `ModelRouter.describe().openaiConfigured` → `true`.
+5. Ran the single authorized live smoke test: one bounded completion directly through
+   `OpenAIProvider` → `ModelRouter` (`EXPLICIT_MODEL` policy, 5-token cap, 15s explicit timeout, no
+   retries, no Agent/browser/tool-call involvement). Succeeded — full result and evidence recorded
+   in `CURRENT_GATE.md`'s Phase AC update. Structural leak check (result JSON + backend log grepped
+   for the key-shape prefix and `Authorization`/`Bearer`) found zero matches.
+6. Updated `CURRENT_STATE.md`, `CURRENT_GATE.md`, and `HUMAN_ACTION_REQUIRED.md` with dated,
+   factual additions (not rewrites of prior historical entries) reflecting OpenAI as
+   LIVE-VALIDATED. Did not touch `.claude/`, routing policy, or provider isolation code.
+
+**Lesson recorded:** a redaction script is itself security-sensitive code and needs the same
+scrutiny as the thing it's redacting — a regex that doesn't match the actual data format fails
+open, not closed. Prefer direct boolean/length probes (`hasApiKey()`, `.length`) over
+grep-and-redact patterns against raw secret-bearing files wherever possible.
+
+**Next continuation point:** Ollama half of `HUMAN_ACTION_REQUIRED.md` item N is still open; no
+HTTP-level (`/api/yusuf-os/runtime`) or UI-level (`/os/runtime`) confirmation of the OpenAI change
+has been done (both require the control token, which the implementing session does not hold);
+`npx jest server/__tests__/yusufOS/modelRouting` has not been re-run against the now-live key.
+
 ## 2026-09-06 — CAVEMAN AUDIT continuation: frontend coverage gap + realtime bug fix, stale-doc correction, live responsive/RTL/a11y pass (Claude Code, Sonnet 5)
 
 **What was done:** Continuation of the same standing "final audit closure" prompt. This session's

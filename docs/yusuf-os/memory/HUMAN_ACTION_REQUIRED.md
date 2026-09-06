@@ -27,6 +27,16 @@ cases.
 set a real `OPENAI_API_KEY` in the environment, then re-run
 `npx jest server/__tests__/yusufOS/modelRouting`.
 
+**Updated 2026-09-06:** the OpenAI half is now closed. Yusuf set a real `OPENAI_API_KEY` in
+`server/.env.development` and a single bounded live completion was run directly through
+`OpenAIProvider` → `ModelRouter` (module-level; not a full Agent run). Real result: provider
+`OPENAI`, served model `gpt-4o-mini-2024-07-18`, latency `3916ms`, usage 16/1/17 tokens
+(`KNOWN`), cost `~3 micros` (`ESTIMATED`), no fallback, zero secret-fragment matches in the
+result or backend log. See `CURRENT_GATE.md`'s Phase AC update for full detail. **Still open:**
+the Ollama half (no local daemon check performed this session — out of scope per explicit
+instruction to stop after the OpenAI validation) and `npx jest server/__tests__/yusufOS/modelRouting`
+has not been re-run against the now-live key.
+
 ---
 
 ## 1. `OPEN_MANUAL_VALIDATION` — real unlocked `/os` [OPEN since 2026-08-18]

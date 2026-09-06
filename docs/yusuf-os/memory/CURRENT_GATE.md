@@ -103,6 +103,19 @@ Evidence: [PHASE_AC_PROVIDER_VALIDATION.md](PHASE_AC_PROVIDER_VALIDATION.md). In
 **P0=0/P1=0/P2=0**, PASS; mocked provider regression is **25 passed, 1 conditional OpenAI skip**.
 `.claude/` remains untracked. No push, deployment, or live external mutation occurred.
 
+**Updated 2026-09-06:** `OPENAI_API_KEY` is now set in `server/.env.development`. A single bounded
+live completion was run directly through `OpenAIProvider` → `ModelRouter` (module-level, not via
+HTTP/Agent/browser) — `EXPLICIT_MODEL` policy, 5-token completion cap, 15s explicit timeout, no
+retries. Result: provider `OPENAI`, served model `gpt-4o-mini-2024-07-18` (requested
+`gpt-4o-mini`; the date-suffixed alias is expected/allowed), latency `3916ms`, usage
+`{promptTokens:16, completionTokens:1, totalTokens:17}` (confidence `KNOWN`), cost `~3 micros`
+(confidence `ESTIMATED`), `fallbackOccurred:false`. Structural secret-leakage check (result object
++ backend log, grepped for the key-shape prefix and for `Authorization`/`Bearer`) found zero
+matches. OpenAI is therefore **LIVE-VALIDATED** as of this date. This was a direct provider/router
+smoke test only — no live Agent run, no `/api/yusuf-os/runtime` HTTP-level confirmation (requires
+the control token, which the implementing session does not hold), and no `/os/runtime` UI
+confirmation (session still locked). Routing policy defaults are unchanged.
+
 **Next:** Phase AD — Release / Ops / Backup.
 
 ## Phase AB — Reliability / Recovery — status: COMPLETE

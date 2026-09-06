@@ -1,6 +1,18 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-09-06, CAVEMAN AUDIT continuation._
+_Last verified: 2026-09-06, OpenAI live commissioning._
+
+**OpenAI live commissioning (2026-09-06):** Yusuf set a real `OPENAI_API_KEY` in
+`server/.env.development`; `OpenAIProvider.hasApiKey()` and `ModelRouter.describe().openaiConfigured`
+both confirmed `true`, and a single bounded live completion run directly through
+`OpenAIProvider` → `ModelRouter` succeeded (provider `OPENAI`, model `gpt-4o-mini-2024-07-18`,
+16/1/17 tokens, ~3 micros estimated cost, no fallback, zero secret-fragment leakage found by
+structural check). OpenAI is now **LIVE-VALIDATED** (see `CURRENT_GATE.md` Phase AC update,
+`HUMAN_ACTION_REQUIRED.md` item N). This was a module-level provider/router smoke test only — no
+live Agent run, no HTTP-level `/api/yusuf-os/runtime` confirmation, no `/os/runtime` UI
+confirmation (session still locked), no routing-policy change, and the Ollama half of item N
+remains open. Per explicit instruction, no further commissioning steps (voice, Browser Broker,
+daily-use pilot) were attempted this session.
 
 **CAVEMAN AUDIT continuation (2026-09-06):** closed a real frontend test-coverage gap (7 of 11
 `/os` route pages had zero direct render-level tests — 28 new tests added, no code defects found in
