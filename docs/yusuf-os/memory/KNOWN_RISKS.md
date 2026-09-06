@@ -79,11 +79,17 @@ P1-equivalent issues *were* found during Gate D's own review and are documented 
    (`server/utils/MCP/index.js`), excluded from governed runtimes rather than governed in place.
    Governed MCP side effects are explicitly deferred (see `DEFERRED_WORK.md`).
 
-5. **Future browser-session security is unresolved by design.** [DOCUMENTED_DECISION, ADR-005 /
-   Gate B verdict] The Chrome bridge mechanism for browser-first execution remains intentionally
-   unspecified — it does not block Gate C/D because browser automation itself is deferred. Don't
-   assume a browser adapter exists or is safe to build without revisiting
-   `docs/yusuf-os/gate-b/adapter-governance.md` §2 first.
+5. **[SUPERSEDED, reworded 2026-09-06] Browser-session security — the governed bridge contract is
+   now substantially built, not unresolved.** [VERIFIED_FROM_REPOSITORY] This item originally
+   predated Phase H/I and described the Chrome bridge as intentionally unspecified. It no longer is:
+   the `docs/yusuf-os/gate-b/adapter-governance.md` §2 contract (explicit opt-in, never copy
+   cookies/tokens, allowlist origins, separate observe/prepare/submit, preflight-immediately-before-
+   mutation, typed operations not raw CDP, fail closed on identity mismatch) is implemented in
+   `BrowserAdapter.js`, `CdpBrowserDriver.js`, `formRegistry.js`, and `mutationGuards.js`, and has
+   been independently reviewed clean across Phases H, I, and X. The genuinely-still-open residual is
+   narrower and already tracked elsewhere: item 1 above ("CDP driver is unproven against a real
+   browser") and `HUMAN_ACTION_REQUIRED.md` item 2 (Browser Broker attachment opt-in). Treat those
+   two as the current open browser-security items, not this one.
 
 6. **Git hooks / credential helper / textconv / fsmonitor risk — addressed, not eliminated by
    assumption.** [VERIFIED_BY_TEST, Gate D] Windows path handling, symlinks/junctions, protected-
@@ -122,11 +128,13 @@ P1-equivalent issues *were* found during Gate D's own review and are documented 
    remote but becomes relevant the moment a network transport (Gate E+) is introduced. Revisit
    `LocalGitAdapter.execute`'s `git.push_feature_branch` case before adding a network remote.
 
-10. **Working tree has four uncommitted-to-remote local checkpoint commits.** [VERIFIED_FROM_REPOSITORY]
-    Gate B, Gate C, Claude memory, and Gate D are each a separate local commit on
-    `feature/yusuf-os-core`, none pushed. Not a security risk, but worth knowing before any
-    destructive git operation — always `git status`/`git log` first, per the harness's own safety
-    rules, and never push without Yusuf's explicit approval.
+10. **[COUNT CORRECTED 2026-09-06] Working tree has local commits not on the remote.** [VERIFIED_FROM_REPOSITORY]
+    `git rev-list --left-right --count origin/feature/yusuf-os-core...feature/yusuf-os-core` now
+    reports local ahead 48, behind 1 — not "four" as originally recorded right after Gate D. The
+    exact count will keep drifting session to session; re-derive it with that command rather than
+    trusting any number written here. The underlying caution is unchanged and still the point of
+    this entry: not a security risk, but always run `git status`/`git log` first before any
+    destructive git operation, and never push without Yusuf's explicit approval.
 
 ## Added in Gate E (2026-08-17)
 
@@ -138,12 +146,15 @@ P1-equivalent issues *were* found during Gate D's own review and are documented 
     verify with the regression test in `migrationSafety.test.js`** — never ship the generated SQL
     unread.
 
-12. **Agent reasoning is not yet wired to a real LLM provider.** [DOCUMENTED_DECISION, Gate E]
-    `ModelClient` is provider-agnostic with a `DeterministicModelClient` used by all core tests,
-    so CI needs no API key and no network. The orchestration, security, and completion behavior
-    are fully proven; what is *not* yet proven is a real model's ability to choose good
-    capability calls. Wiring AnythingLLM's provider abstraction in is a later gate — and the
-    security properties are designed to hold regardless of what the model emits.
+12. **[SUPERSEDED, reworded 2026-09-06] Agent reasoning's production default is already the real
+    provider-routed client — only a live round-trip is unproven.** [VERIFIED_FROM_REPOSITORY] This
+    item's original "not yet wired to a real LLM provider" framing is stale: as of Phases R/T,
+    `AgentReasoningLoop.js` constructs `this.modelClient = modelClient || new RoutedModelClient()` —
+    the production default already routes to a real provider (Ollama/OpenAI via `ModelRouter`).
+    `DeterministicModelClient` is only ever injected by tests, for determinism, not the production
+    path. The genuinely-still-open piece — a real model actually completing a live reasoning
+    round-trip — is already tracked precisely in `HUMAN_ACTION_REQUIRED.md` (the live Ollama/OpenAI
+    model runtime item). Treat that as the current open item, not this one.
 
 13. **[FIXED 2026-09-05, commit `2566344c`] `startRun`'s concurrency check was read-then-transition,
     not atomic.** [VERIFIED_BY_TEST] Originally flagged in Gate E: two truly simultaneous `startRun`
