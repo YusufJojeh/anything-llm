@@ -9,6 +9,9 @@
 - Browser QA (headless Chromium + Playwright against the dev harness): 1440/1920/1024/768/390,
   Arabic RTL, keyboard order, WebGL on (SwiftShader) and off (SVG fallback), reduced motion,
   mic amplitude via fake-device WAV fixture, server-TTS amplitude via WAV fixture.
+- Independent review: pass 1 P0=0/P1=4 → fixed; pass 2 found 1 new P1 (stale local approval
+  holding the Core amber) → fixed; final pass **P0=0/P1=0/P2=1** (voice transcription may
+  still submit after leaving `/os`; accepted: Stop means submit).
 
 ## Phase U baseline — 2026-08-21 [VERIFIED_BY_TEST]
 
