@@ -13,9 +13,25 @@ import {
   SpeakerHigh,
   SpeakerSlash,
   Stop,
+  Vibrate,
   X,
 } from "@phosphor-icons/react";
 import { yusufApi } from "../api/client";
+import {
+  CommandSessionProvider,
+  useCommandSession,
+} from "../state/CommandSession";
+import {
+  SIGNAL_SOURCES,
+  createAudioMeter,
+  smoothLevel,
+} from "../state/audioReactivity";
+import {
+  hapticsEnabled,
+  hapticsSupported,
+  pulseHaptic,
+  setHapticsEnabled,
+} from "../state/haptics";
 import { Panel, SectionTitle, UntrustedText } from "./primitives";
 
 const MIME_TYPES = [
@@ -25,6 +41,9 @@ const MIME_TYPES = [
   "audio/mp4",
 ];
 const MAX_RECORDING_MS = 60_000;
+// The on-screen meter is React state; it only needs ~10 updates a second.
+// The Core reads the per-frame level from the signal store instead.
+const METER_UPDATE_MS = 100;
 
 function extensionForMime(mimeType) {
   if (mimeType.includes("mp4")) return "mp4";
@@ -37,21 +56,50 @@ function browserRecognition() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
-export default function VoiceConsole() {
+/**
+ * Voice input/output. Push-to-talk only; it never autoplays and never
+ * approves. When mounted inside a `CommandSessionProvider` it shares the
+ * session (and therefore the command path and the Core signal) with the text
+ * composer; mounted alone it creates its own session.
+ */
+export default function VoiceConsole(props) {
+  const session = useCommandSession();
+  if (session) return <VoiceConsoleInner {...props} session={session} />;
+  return (
+    <CommandSessionProvider>
+      <StandaloneVoiceConsole {...props} />
+    </CommandSessionProvider>
+  );
+}
+
+function StandaloneVoiceConsole(props) {
+  const session = useCommandSession();
+  return <VoiceConsoleInner {...props} session={session} />;
+}
+
+function VoiceConsoleInner({ session, embedded = false }) {
   const { t, i18n } = useTranslation();
-  const [phase, setPhase] = useState("IDLE");
+  const {
+    phase,
+    setPhase,
+    transcript,
+    setTranscript,
+    response,
+    approvalId,
+    error,
+    setError,
+    runCommand: runSessionCommand,
+    signal,
+  } = session;
   const [permission, setPermission] = useState("prompt");
   const [level, setLevel] = useState(0);
-  const [transcript, setTranscript] = useState("");
-  const [response, setResponse] = useState("");
-  const [approvalId, setApprovalId] = useState(null);
   const [provider, setProvider] = useState(null);
   const [statusLoaded, setStatusLoaded] = useState(false);
-  const [error, setError] = useState("");
   const [muted, setMuted] = useState(false);
   const [rate, setRate] = useState(1);
   const [voices, setVoices] = useState([]);
   const [voiceName, setVoiceName] = useState("");
+  const [haptics, setHaptics] = useState(() => hapticsEnabled());
   const recorderRef = useRef(null);
   const recognitionRef = useRef(null);
   const streamRef = useRef(null);
@@ -59,7 +107,9 @@ export default function VoiceConsole() {
   const cancelledRef = useRef(false);
   const animationRef = useRef(null);
   const recordingTimeoutRef = useRef(null);
-  const audioContextRef = useRef(null);
+  const meterRef = useRef(null);
+  const outputMeterRef = useRef(null);
+  const outputFrameRef = useRef(null);
   const audioRef = useRef(null);
   const audioUrlRef = useRef(null);
 
@@ -81,6 +131,7 @@ export default function VoiceConsole() {
   const supported =
     typeof navigator !== "undefined" &&
     Boolean(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+  const canVibrate = useMemo(() => hapticsSupported(), []);
 
   useEffect(() => {
     let active = true;
@@ -125,6 +176,11 @@ export default function VoiceConsole() {
     );
   }, [availableVoices]);
 
+  // Semantic haptics: only on a real approval result, opt-in, never repeating.
+  useEffect(() => {
+    if (phase === "APPROVAL_REQUIRED") pulseHaptic("APPROVAL_NEEDED");
+  }, [phase]);
+
   const stopMedia = useCallback(() => {
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
     animationRef.current = null;
@@ -132,34 +188,32 @@ export default function VoiceConsole() {
     recordingTimeoutRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
-    audioContextRef.current?.close().catch(() => {});
-    audioContextRef.current = null;
+    meterRef.current?.close();
+    meterRef.current = null;
+    signal.set({ source: SIGNAL_SOURCES.NONE, level: 0, bands: null });
     setLevel(0);
-  }, []);
+  }, [signal]);
+
+  const stopOutputMeter = useCallback(() => {
+    if (outputFrameRef.current) cancelAnimationFrame(outputFrameRef.current);
+    outputFrameRef.current = null;
+    outputMeterRef.current?.close();
+    outputMeterRef.current = null;
+    signal.set({
+      source: SIGNAL_SOURCES.NONE,
+      level: 0,
+      boundaryAt: null,
+      bands: null,
+    });
+  }, [signal]);
 
   const runCommand = useCallback(
-    async (value) => {
-      const clean = String(value || "").trim();
-      if (!clean) {
-        setPhase("IDLE");
-        return;
-      }
-      setTranscript(clean);
-      setPhase("PROCESSING");
-      setError("");
-      try {
-        const result = await yusufApi.runVoiceCommand(clean);
-        setResponse(result.response || "");
-        setApprovalId(result.approvalId || null);
-        setPhase(
-          result.state === "APPROVAL_REQUIRED" ? "APPROVAL_REQUIRED" : "READY"
-        );
-      } catch (cause) {
-        setError(cause.message || t("yusufOS:voice.failed"));
-        setPhase("ERROR");
-      }
-    },
-    [t]
+    (value) =>
+      runSessionCommand(value, {
+        via: "voice",
+        failedMessage: t("yusufOS:voice.failed"),
+      }),
+    [runSessionCommand, t]
   );
 
   const transcribeRecording = useCallback(
@@ -177,7 +231,7 @@ export default function VoiceConsole() {
         setPhase("ERROR");
       }
     },
-    [runCommand, t]
+    [runCommand, setError, setPhase, t]
   );
 
   const start = useCallback(async () => {
@@ -194,28 +248,27 @@ export default function VoiceConsole() {
     cancelledRef.current = false;
     setError("");
     setTranscript("");
-    setResponse("");
-    setApprovalId(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       setPermission("granted");
-      const AudioContextClass =
-        window.AudioContext || window.webkitAudioContext;
-      const context = AudioContextClass ? new AudioContextClass() : null;
-      audioContextRef.current = context;
-      if (!context) throw new Error(t("yusufOS:voice.unsupported"));
-      const analyser = context.createAnalyser();
-      analyser.fftSize = 256;
-      context.createMediaStreamSource(stream).connect(analyser);
-      const samples = new Uint8Array(analyser.frequencyBinCount);
-      const draw = () => {
-        analyser.getByteFrequencyData(samples);
-        setLevel(
-          Math.round(
-            samples.reduce((sum, item) => sum + item, 0) / samples.length
-          )
-        );
+      pulseHaptic("VOICE_ACTIVATED");
+      const meter = createAudioMeter({ stream });
+      if (!meter) throw new Error(t("yusufOS:voice.unsupported"));
+      meterRef.current = meter;
+      let smoothed = 0;
+      let lastMeterUpdate = 0;
+      const draw = (now = 0) => {
+        smoothed = smoothLevel(smoothed, meter.read());
+        signal.set({
+          source: SIGNAL_SOURCES.MIC,
+          level: smoothed,
+          bands: meter.bands?.(32) || null,
+        });
+        if (!lastMeterUpdate || now - lastMeterUpdate >= METER_UPDATE_MS) {
+          lastMeterUpdate = now || 1;
+          setLevel(Math.round(smoothed * 255));
+        }
         animationRef.current = requestAnimationFrame(draw);
       };
       draw();
@@ -299,6 +352,10 @@ export default function VoiceConsole() {
     permission,
     provider,
     runCommand,
+    setError,
+    setPhase,
+    setTranscript,
+    signal,
     statusLoaded,
     stopMedia,
     supported,
@@ -310,7 +367,7 @@ export default function VoiceConsole() {
     setPhase("TRANSCRIBING");
     if (recorderRef.current?.state !== "inactive") recorderRef.current?.stop();
     recognitionRef.current?.stop();
-  }, []);
+  }, [setPhase]);
 
   const cancel = useCallback(() => {
     cancelledRef.current = true;
@@ -319,7 +376,7 @@ export default function VoiceConsole() {
     if (recorderRef.current?.state !== "inactive") recorderRef.current?.stop();
     stopMedia();
     setPhase("IDLE");
-  }, [stopMedia]);
+  }, [setPhase, stopMedia]);
 
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis?.cancel();
@@ -327,8 +384,9 @@ export default function VoiceConsole() {
     audioRef.current = null;
     if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
     audioUrlRef.current = null;
+    stopOutputMeter();
     setPhase(response ? "READY" : "IDLE");
-  }, [response]);
+  }, [response, setPhase, stopOutputMeter]);
 
   const speak = useCallback(async () => {
     if (!response || muted) return;
@@ -342,8 +400,21 @@ export default function VoiceConsole() {
       utterance.lang = i18n.language.startsWith("ar") ? "ar" : "en";
       utterance.rate = rate;
       utterance.voice = selectedVoice;
-      utterance.onend = () => setPhase("READY");
+      // speechSynthesis exposes no audio to analyse. Its word boundaries are
+      // the only real signal, so the Core runs a timing envelope, labelled as
+      // such — never presented as amplitude.
+      signal.set({ source: SIGNAL_SOURCES.SPEECH_TIMING, boundaryAt: null });
+      utterance.onboundary = () =>
+        signal.set({
+          source: SIGNAL_SOURCES.SPEECH_TIMING,
+          boundaryAt: performance.now(),
+        });
+      utterance.onend = () => {
+        stopOutputMeter();
+        setPhase("READY");
+      };
       utterance.onerror = () => {
+        stopOutputMeter();
         setError(t("yusufOS:voice.speechFailed"));
         setPhase("ERROR");
       };
@@ -356,25 +427,44 @@ export default function VoiceConsole() {
       audioUrlRef.current = url;
       const audio = new Audio(url);
       audio.playbackRate = rate;
-      audio.onended = () => {
+      const finish = () => {
         URL.revokeObjectURL(url);
         audioUrlRef.current = null;
         audioRef.current = null;
+        stopOutputMeter();
+      };
+      audio.onended = () => {
+        finish();
         setPhase("READY");
       };
       audio.onerror = () => {
-        URL.revokeObjectURL(url);
-        audioUrlRef.current = null;
-        audioRef.current = null;
+        finish();
         setError(t("yusufOS:voice.speechFailed"));
         setPhase("ERROR");
       };
       audioRef.current = audio;
+      // Real output amplitude: the server TTS audio runs through an analyser.
+      const meter = createAudioMeter({ mediaElement: audio });
+      outputMeterRef.current = meter;
+      if (meter) {
+        let smoothed = 0;
+        const frame = () => {
+          smoothed = smoothLevel(smoothed, meter.read());
+          signal.set({
+            source: SIGNAL_SOURCES.TTS_AUDIO,
+            level: smoothed,
+            bands: meter.bands?.(32) || null,
+          });
+          outputFrameRef.current = requestAnimationFrame(frame);
+        };
+        frame();
+      }
       await audio.play();
     } catch (cause) {
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
       audioRef.current = null;
+      stopOutputMeter();
       setError(cause.message || t("yusufOS:voice.speechFailed"));
       setPhase("ERROR");
     }
@@ -384,10 +474,13 @@ export default function VoiceConsole() {
     rate,
     response,
     availableVoices,
+    setError,
+    setPhase,
+    signal,
+    stopOutputMeter,
     stopSpeaking,
     t,
     voiceName,
-    voices,
   ]);
 
   useEffect(
@@ -398,53 +491,61 @@ export default function VoiceConsole() {
       if (recorderRef.current?.state !== "inactive")
         recorderRef.current?.stop();
       stopMedia();
+      stopOutputMeter();
       window.speechSynthesis?.cancel();
       audioRef.current?.pause();
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
       audioRef.current = null;
     },
-    [stopMedia]
+    [stopMedia, stopOutputMeter]
   );
 
   const phaseLabel = t(`yusufOS:voice.phase.${phase}`);
-  return (
-    <Panel className="p-4" aria-labelledby="yos-voice-title">
-      <SectionTitle id="yos-voice-title">
-        {t("yusufOS:voice.title")}
-      </SectionTitle>
-      <div className="mt-3 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={phase === "LISTENING" ? stop : start}
-          disabled={
-            !statusLoaded ||
-            ["PROCESSING", "TRANSCRIBING", "SPEAKING"].includes(phase)
-          }
-          className="yos-touch-target flex size-12 shrink-0 items-center justify-center rounded-full border"
-          style={{
-            borderColor: "var(--yos-border-strong)",
-            color: "var(--yos-accent-strong)",
-          }}
-          aria-label={
-            phase === "LISTENING"
-              ? t("yusufOS:voice.stop")
-              : t("yusufOS:voice.start")
-          }
-          aria-pressed={phase === "LISTENING"}
-        >
-          {permission === "denied" ? (
-            <MicrophoneSlash size={22} />
-          ) : (
-            <Microphone size={22} />
-          )}
-        </button>
+  const listening = phase === "LISTENING";
+  const micButton = (
+    <button
+      type="button"
+      onClick={listening ? stop : start}
+      disabled={
+        !statusLoaded ||
+        ["PROCESSING", "TRANSCRIBING", "SPEAKING"].includes(phase)
+      }
+      className="yos-press yos-touch-target flex size-11 shrink-0 items-center justify-center rounded-full border disabled:opacity-40"
+      data-active={listening ? "true" : undefined}
+      style={{
+        borderColor: listening ? "var(--yos-cyan)" : "var(--yos-line-strong)",
+        color: "var(--yos-cyan-bright)",
+        minWidth: 44,
+      }}
+      aria-label={
+        listening ? t("yusufOS:voice.stop") : t("yusufOS:voice.start")
+      }
+      aria-pressed={listening}
+    >
+      {permission === "denied" ? (
+        <MicrophoneSlash size={20} aria-hidden="true" />
+      ) : (
+        <Microphone size={20} aria-hidden="true" />
+      )}
+    </button>
+  );
+
+  const body = (
+    <>
+      <div className="flex items-center gap-3">
+        {micButton}
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium" aria-live="polite">
+          <p
+            className="yos-mono text-[11px] font-semibold uppercase"
+            aria-live="polite"
+            data-voice-phase={phase}
+            style={{ color: "var(--yos-text)" }}
+          >
             {phaseLabel}
           </p>
           <p
-            className="mt-0.5 text-[11px]"
+            className="mt-0.5 truncate text-[11px]"
             style={{ color: "var(--yos-text-muted)" }}
           >
             {t(`yusufOS:voice.permission.${permission}`, {
@@ -452,8 +553,8 @@ export default function VoiceConsole() {
             })}
           </p>
           <div
-            className="mt-2 h-1.5 overflow-hidden rounded-full"
-            style={{ background: "var(--yos-border-faint)" }}
+            className="mt-1.5 h-1 overflow-hidden rounded-full"
+            style={{ background: "var(--yos-line-faint)" }}
             aria-label={t("yusufOS:voice.level")}
             role="meter"
             aria-valuemin="0"
@@ -461,56 +562,46 @@ export default function VoiceConsole() {
             aria-valuenow={level}
           >
             <div
-              className="h-full rounded-full"
+              className="h-full origin-left rounded-full rtl:origin-right"
               style={{
-                width: `${Math.min(100, (level / 255) * 100)}%`,
-                background: "var(--yos-accent)",
+                transform: `scaleX(${Math.min(1, level / 255)})`,
+                background: "var(--yos-cyan)",
               }}
             />
           </div>
         </div>
-        {phase === "LISTENING" ? (
+        {listening ? (
           <button
             type="button"
             onClick={cancel}
-            className="yos-touch-target rounded px-2"
+            className="yos-press yos-touch-target flex min-w-[44px] items-center justify-center rounded"
             aria-label={t("yusufOS:voice.cancel")}
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         ) : null}
       </div>
 
-      {transcript ? (
+      {!embedded && transcript ? (
         <div className="mt-4">
-          <p
-            className="text-[10px] uppercase tracking-[0.12em]"
-            style={{ color: "var(--yos-text-muted)" }}
-          >
-            {t("yusufOS:voice.transcript")}
-          </p>
+          <p className="yos-label">{t("yusufOS:voice.transcript")}</p>
           <UntrustedText as="p" className="mt-1 text-sm leading-relaxed">
             {transcript}
           </UntrustedText>
         </div>
       ) : null}
-      {response ? (
+      {!embedded && response ? (
         <div
           className="mt-4 border-t pt-3"
-          style={{ borderColor: "var(--yos-border-faint)" }}
+          style={{ borderColor: "var(--yos-line-faint)" }}
         >
-          <p
-            className="text-[10px] uppercase tracking-[0.12em]"
-            style={{ color: "var(--yos-text-muted)" }}
-          >
-            {t("yusufOS:voice.response")}
-          </p>
+          <p className="yos-label">{t("yusufOS:voice.response")}</p>
           <UntrustedText as="p" className="mt-1 text-sm leading-relaxed">
             {response}
           </UntrustedText>
         </div>
       ) : null}
-      {approvalId ? (
+      {!embedded && approvalId ? (
         <a
           href={`/os/approvals/${approvalId}`}
           className="mt-3 inline-flex rounded border px-3 py-2 text-xs font-semibold"
@@ -522,7 +613,7 @@ export default function VoiceConsole() {
           {t("yusufOS:voice.approvalRequired")}
         </a>
       ) : null}
-      {error ? (
+      {!embedded && error ? (
         <p
           className="mt-3 text-xs"
           role="alert"
@@ -532,12 +623,13 @@ export default function VoiceConsole() {
         </p>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         {phase === "ERROR" ? (
           <button
             type="button"
             onClick={() => (transcript ? runCommand(transcript) : start())}
-            className="yos-touch-target rounded border px-3 text-xs"
+            className="yos-press yos-touch-target rounded border px-3 text-xs"
+            style={{ borderColor: "var(--yos-line-strong)" }}
           >
             {t("yusufOS:voice.retry")}
           </button>
@@ -547,9 +639,14 @@ export default function VoiceConsole() {
             type="button"
             onClick={phase === "SPEAKING" ? stopSpeaking : speak}
             disabled={muted}
-            className="yos-touch-target flex items-center gap-1 rounded border px-3 text-xs"
+            className="yos-press yos-touch-target flex items-center gap-1 rounded border px-3 text-xs"
+            style={{ borderColor: "var(--yos-line-strong)" }}
           >
-            {phase === "SPEAKING" ? <Stop size={14} /> : <Play size={14} />}
+            {phase === "SPEAKING" ? (
+              <Stop size={14} aria-hidden="true" />
+            ) : (
+              <Play size={14} aria-hidden="true" />
+            )}
             {phase === "SPEAKING"
               ? t("yusufOS:voice.stopSpeaking")
               : t("yusufOS:voice.replay")}
@@ -561,10 +658,14 @@ export default function VoiceConsole() {
             setMuted((value) => !value);
             stopSpeaking();
           }}
-          className="yos-touch-target flex items-center gap-1 rounded px-2 text-xs"
+          className="yos-press yos-touch-target flex items-center gap-1 rounded px-2 text-xs"
           aria-pressed={muted}
         >
-          {muted ? <SpeakerSlash size={14} /> : <SpeakerHigh size={14} />}
+          {muted ? (
+            <SpeakerSlash size={14} aria-hidden="true" />
+          ) : (
+            <SpeakerHigh size={14} aria-hidden="true" />
+          )}
           {muted ? t("yusufOS:voice.unmute") : t("yusufOS:voice.mute")}
         </button>
         <label className="text-xs">
@@ -572,7 +673,7 @@ export default function VoiceConsole() {
           <select
             value={rate}
             onChange={(event) => setRate(Number(event.target.value))}
-            className="rounded border bg-transparent px-1 py-1"
+            className="yos-select rounded border px-1 py-1"
           >
             <option value="0.8">0.8×</option>
             <option value="1">1×</option>
@@ -586,7 +687,7 @@ export default function VoiceConsole() {
             <select
               value={voiceName}
               onChange={(event) => setVoiceName(event.target.value)}
-              className="max-w-36 rounded border bg-transparent px-1 py-1"
+              className="yos-select max-w-36 rounded border px-1 py-1"
             >
               {availableVoices.map((voice) => (
                 <option key={voice.name} value={voice.name}>
@@ -596,13 +697,46 @@ export default function VoiceConsole() {
             </select>
           </label>
         ) : null}
+        {canVibrate ? (
+          <button
+            type="button"
+            onClick={() => {
+              setHapticsEnabled(!haptics);
+              setHaptics(!haptics);
+            }}
+            className="yos-press yos-touch-target flex items-center gap-1 rounded px-2 text-xs"
+            aria-pressed={haptics}
+          >
+            <Vibrate size={14} aria-hidden="true" />
+            {t("yusufOS:voice.haptics")}
+          </button>
+        ) : null}
       </div>
       <p
-        className="mt-3 text-[11px]"
+        className="mt-2 text-[11px] leading-snug"
         style={{ color: "var(--yos-text-muted)" }}
       >
         {t("yusufOS:voice.securityNote")}
       </p>
+    </>
+  );
+
+  if (embedded)
+    return (
+      <section aria-labelledby="yos-voice-title" className="yos-voice">
+        <h3 id="yos-voice-title" className="sr-only">
+          {t("yusufOS:voice.title")}
+        </h3>
+        {body}
+      </section>
+    );
+
+  return (
+    <Panel className="p-4" aria-labelledby="yos-voice-title">
+      <SectionTitle id="yos-voice-title">
+        {t("yusufOS:voice.title")}
+      </SectionTitle>
+      <div className="mt-3">{body}</div>
     </Panel>
   );
 }
