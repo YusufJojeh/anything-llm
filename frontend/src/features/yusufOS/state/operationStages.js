@@ -41,11 +41,28 @@ export const EVENT_STAGE = Object.freeze({
 export const ACTIVE_WINDOW_MS = 15000;
 export const RECENT_WINDOW_MS = 120000;
 
+/**
+ * When the event actually happened. `occurredAt` wins so a reconnect backlog
+ * of old events never lights a stage as if it were happening now; the
+ * browser receive time is only a fallback.
+ */
 function eventTime(event) {
-  const received = Date.parse(event?.receivedAt || "");
-  if (Number.isFinite(received)) return received;
   const occurred = Date.parse(event?.occurredAt || "");
-  return Number.isFinite(occurred) ? occurred : null;
+  if (Number.isFinite(occurred)) return occurred;
+  const received = Date.parse(event?.receivedAt || "");
+  return Number.isFinite(received) ? received : null;
+}
+
+/** True while any event is still inside the RECENT window. */
+export function hasRecentStageEvent(recentEvents = [], now = Date.now()) {
+  return recentEvents.some((event) => {
+    const at = eventTime(event);
+    return (
+      at !== null &&
+      now - at >= -ACTIVE_WINDOW_MS &&
+      now - at <= RECENT_WINDOW_MS
+    );
+  });
 }
 
 export function deriveStages({
@@ -67,8 +84,9 @@ export function deriveStages({
     if (!stage) continue;
     const at = eventTime(event);
     if (at === null) continue;
-    const age = now - at;
-    if (age < 0 || age > RECENT_WINDOW_MS) continue;
+    // Small negative ages are clock skew between server and browser.
+    const age = Math.max(0, now - at);
+    if (now - at < -ACTIVE_WINDOW_MS || age > RECENT_WINDOW_MS) continue;
     if (!activeAssigned && age <= ACTIVE_WINDOW_MS) {
       result[stage] = STAGE_STATUS.ACTIVE;
       activeAssigned = true;

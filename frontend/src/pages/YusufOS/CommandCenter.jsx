@@ -8,7 +8,10 @@ import {
   useCommandSession,
 } from "@/features/yusufOS/state/CommandSession";
 import { deriveCoreMode } from "@/features/yusufOS/state/coreVisualState";
-import { deriveStages } from "@/features/yusufOS/state/operationStages";
+import {
+  deriveStages,
+  hasRecentStageEvent,
+} from "@/features/yusufOS/state/operationStages";
 import {
   buildCorePanels,
   buildCurrentOperation,
@@ -45,14 +48,31 @@ import { toneFor, toneStyle } from "@/features/yusufOS/state/statusSemantics";
 const LEFT_PANELS = ["PROCESSING", "KNOWLEDGE", "TOOLS"];
 const RIGHT_PANELS = ["INTELLIGENCE", "AUTOMATION", "HEALTH"];
 
-/** Re-evaluates time-windowed stage state while there is something to expire. */
-function useNow(active, interval = 3000) {
+/**
+ * Re-evaluates time-windowed stage state only while something can still
+ * expire: an in-flight command or an event inside the RECENT window. Once
+ * everything has aged out the interval stops, so an idle console does not
+ * re-render on a timer.
+ */
+function useNow(recentEvents, processing, interval = 3000) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!active) return undefined;
-    const timer = setInterval(() => setNow(Date.now()), interval);
-    return () => clearInterval(timer);
-  }, [active, interval]);
+    if (!processing && !recentEvents.length) return undefined;
+    const tick = () => {
+      const current = Date.now();
+      setNow(current);
+      if (!processing && !hasRecentStageEvent(recentEvents, current))
+        clearInterval(timer);
+    };
+    // Take a fresh reading as soon as a new event lands, not 3s later: a
+    // stale clock would make a just-received event look like the future.
+    const first = setTimeout(tick, 0);
+    const timer = setInterval(tick, interval);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [recentEvents, processing, interval]);
   return now;
 }
 
@@ -113,7 +133,7 @@ function Console() {
   );
   const loading = phase === PHASES.LOADING && !dashboard;
   const recentEvents = realtime?.recent || [];
-  const now = useNow(recentEvents.length > 0 || session.phase === "PROCESSING");
+  const now = useNow(recentEvents, session.phase === "PROCESSING");
   const stages = useMemo(
     () => deriveStages({ recentEvents, voicePhase: session.phase, now }),
     [recentEvents, session.phase, now]
@@ -389,6 +409,10 @@ function Console() {
 }
 
 export default function CommandCenter() {
+  // The /os root provides the session so the transcript survives navigating
+  // to a task/approval and back; standalone renders get their own.
+  const existing = useCommandSession();
+  if (existing) return <Console />;
   return (
     <CommandSessionProvider>
       <Console />

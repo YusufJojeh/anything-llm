@@ -137,6 +137,7 @@ function Message({ message }) {
   if (message.role === "event") {
     return (
       <li
+        aria-hidden="true"
         className="yos-trace-new flex items-center gap-2 rounded-sm px-2 py-1 text-[10.5px]"
         data-message-role="event"
       >
@@ -308,7 +309,7 @@ export function Composer() {
       failedMessage: t("yusufOS:voice.failed"),
     });
     // A failed command keeps the text so Yusuf can retry without retyping.
-    if (!result) setDraft(value);
+    if (!result) setDraft((current) => (current ? current : value));
     textareaRef.current?.focus();
   };
 
@@ -402,13 +403,16 @@ export default function CommunicationConsole({
   // during this session, by time. Events carry types and ids only.
   const timeline = useMemo(() => {
     const events = recentEvents
-      .filter((event) => Date.parse(event.receivedAt || "") >= sessionStart)
+      .filter(
+        (event) =>
+          Date.parse(event.occurredAt || event.receivedAt || "") >= sessionStart
+      )
       .map((event) => ({
         id: `e-${event.id}`,
         role: "event",
         type: event.type,
         aggregateId: event.aggregateId,
-        at: event.receivedAt,
+        at: event.occurredAt || event.receivedAt,
       }));
     return [...session.messages, ...events]
       .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
@@ -418,7 +422,7 @@ export default function CommunicationConsole({
   useEffect(() => {
     const node = logRef.current;
     if (node) node.scrollTop = node.scrollHeight;
-  }, [timeline.length, tab]);
+  }, [timeline[timeline.length - 1]?.id, tab]);
 
   const tabs = TAB_KEYS.map((key) => ({
     key,
@@ -453,52 +457,56 @@ export default function CommunicationConsole({
         onSelect={setTab}
         className="mt-1 flex-1 px-1"
       >
-        {tab === "CHAT" ? (
-          <div className="flex min-h-0 flex-1 flex-col gap-2 p-2">
-            <ol
-              ref={logRef}
-              role="log"
-              aria-live="polite"
-              aria-label={t("yusufOS:comms.logLabel")}
-              className="yos-scroll flex min-h-[160px] flex-1 flex-col gap-2 overflow-y-auto pe-1"
+        {/* The chat and voice surface stays mounted across tab switches so a
+            live recording or in-flight playback is never orphaned. */}
+        <div
+          className={`${tab === "CHAT" ? "flex" : "hidden"} min-h-0 flex-1 flex-col gap-2 p-2`}
+          data-chat-panel
+        >
+          <ol
+            ref={logRef}
+            role="log"
+            aria-live="polite"
+            aria-label={t("yusufOS:comms.logLabel")}
+            className="yos-scroll flex min-h-[160px] flex-1 flex-col gap-2 overflow-y-auto pe-1"
+          >
+            <li
+              className="rounded-sm border px-3 py-2"
+              style={{
+                borderColor: "rgb(255 184 77 / 0.35)",
+                background: "rgb(255 184 77 / 0.05)",
+              }}
             >
-              <li
-                className="rounded-sm border px-3 py-2"
-                style={{
-                  borderColor: "rgb(255 184 77 / 0.35)",
-                  background: "rgb(255 184 77 / 0.05)",
-                }}
+              <p
+                className="yos-mono text-[10px] font-semibold uppercase"
+                style={{ color: "var(--yos-amber)" }}
               >
-                <p
-                  className="yos-mono text-[10px] font-semibold uppercase"
-                  style={{ color: "var(--yos-amber)" }}
-                >
-                  {t("yusufOS:comms.system")}
-                </p>
-                <p
-                  className="mt-1 text-[11.5px] leading-relaxed"
-                  style={{ color: "var(--yos-text-secondary)" }}
-                >
-                  {t("yusufOS:comms.systemNote")}
-                </p>
+                {t("yusufOS:comms.system")}
+              </p>
+              <p
+                className="mt-1 text-[11.5px] leading-relaxed"
+                style={{ color: "var(--yos-text-secondary)" }}
+              >
+                {t("yusufOS:comms.systemNote")}
+              </p>
+            </li>
+            {timeline.map((message) => (
+              <Message key={message.id} message={message} />
+            ))}
+            {session.phase === "PROCESSING" ? (
+              <li
+                className="yos-mono text-[11px]"
+                style={{ color: "var(--yos-cyan-strong)" }}
+                data-message-role="pending"
+              >
+                {t("yusufOS:comms.processing")}
               </li>
-              {timeline.map((message) => (
-                <Message key={message.id} message={message} />
-              ))}
-              {session.phase === "PROCESSING" ? (
-                <li
-                  className="yos-mono text-[11px]"
-                  style={{ color: "var(--yos-cyan-strong)" }}
-                  data-message-role="pending"
-                >
-                  {t("yusufOS:comms.processing")}
-                </li>
-              ) : null}
-            </ol>
-            <VoiceConsole embedded />
-            <Composer />
-          </div>
-        ) : tab === "TASKS" ? (
+            ) : null}
+          </ol>
+          <VoiceConsole embedded />
+          <Composer />
+        </div>
+        {tab === "CHAT" ? null : tab === "TASKS" ? (
           <ul className="yos-scroll flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2">
             {!dashboard ? (
               <li

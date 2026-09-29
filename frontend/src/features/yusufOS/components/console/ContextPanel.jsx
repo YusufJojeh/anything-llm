@@ -229,9 +229,11 @@ export default function ContextPanel({
                         className="yos-mono ms-2"
                         style={{ color: "var(--yos-text-muted)" }}
                       >
-                        {t("yusufOS:rail.capabilities", {
-                          count: adapter.capabilityCount ?? 0,
-                        })}
+                        {Number.isFinite(adapter.capabilityCount)
+                          ? t("yusufOS:rail.capabilities", {
+                              count: adapter.capabilityCount,
+                            })
+                          : t("yusufOS:na.NOT_REPORTED")}
                       </span>
                     </Row>
                   ))}

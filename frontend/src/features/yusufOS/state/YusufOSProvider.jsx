@@ -288,8 +288,21 @@ export function YusufOSProvider({ children }) {
     if (!realtime.lastEventAt || session !== SESSION.UNLOCKED) return undefined;
     if (eventRefreshTimerRef.current)
       clearTimeout(eventRefreshTimerRef.current);
+    // Coalesce rather than abort: if a snapshot read is already in flight,
+    // wait for it and re-read afterwards, so a steady event stream against a
+    // slow /dashboard can never starve the view of every snapshot.
+    const refresh = () => {
+      if (inFlightRef.current) {
+        eventRefreshTimerRef.current = setTimeout(
+          refresh,
+          EVENT_REFRESH_DEBOUNCE_MS
+        );
+        return;
+      }
+      loadSnapshot({ silent: true });
+    };
     eventRefreshTimerRef.current = setTimeout(
-      () => loadSnapshot({ silent: true }),
+      refresh,
       EVENT_REFRESH_DEBOUNCE_MS
     );
     return () => clearTimeout(eventRefreshTimerRef.current);

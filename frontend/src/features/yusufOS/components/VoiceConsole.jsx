@@ -112,6 +112,16 @@ function VoiceConsoleInner({ session, embedded = false }) {
   const outputFrameRef = useRef(null);
   const audioRef = useRef(null);
   const audioUrlRef = useRef(null);
+  // Lifecycle guards: an async mic/TTS request that resolves after unmount,
+  // after cancel, or behind a second tap must never start capture/playback.
+  const mountedRef = useRef(true);
+  const startingRef = useRef(false);
+  const speakTokenRef = useRef(0);
+  const phaseRef = useRef(phase);
+  const responseRef = useRef(response);
+  phaseRef.current = phase;
+  responseRef.current = response;
+  const [starting, setStarting] = useState(false);
 
   const browserStt = provider?.stt?.scope === "BROWSER";
   const allowBrowserSpeech = Boolean(provider?.browser?.allowSpeechServices);
@@ -245,11 +255,19 @@ function VoiceConsoleInner({ session, embedded = false }) {
       setPhase("ERROR");
       return;
     }
+    if (startingRef.current || streamRef.current) return;
+    startingRef.current = true;
+    setStarting(true);
     cancelledRef.current = false;
     setError("");
     setTranscript("");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!mountedRef.current || cancelledRef.current) {
+        // Unmounted or cancelled while the permission prompt was open.
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = stream;
       setPermission("granted");
       pulseHaptic("VOICE_ACTIVATED");
@@ -288,9 +306,14 @@ function VoiceConsoleInner({ session, embedded = false }) {
         const chunks = chunksRef.current;
         chunksRef.current = [];
         stopMedia();
-        if (cancelledRef.current || browserStt || !chunks.length) return;
-        const blob = new Blob(chunks, { type: recorder.mimeType });
-        if (blob.size) transcribeRecording(blob, recorder.mimeType);
+        if (cancelledRef.current || browserStt) return;
+        const blob = chunks.length
+          ? new Blob(chunks, { type: recorder.mimeType })
+          : null;
+        if (blob?.size) transcribeRecording(blob, recorder.mimeType);
+        // Nothing was captured: release the session instead of leaving it
+        // stuck in TRANSCRIBING.
+        else if (mountedRef.current) setPhase("IDLE");
       };
       recorder.start();
       recordingTimeoutRef.current = setTimeout(() => {
@@ -345,6 +368,9 @@ function VoiceConsoleInner({ session, embedded = false }) {
       setPermission(cause?.name === "NotAllowedError" ? "denied" : permission);
       setError(cause.message || t("yusufOS:voice.micDenied"));
       setPhase("ERROR");
+    } finally {
+      startingRef.current = false;
+      if (mountedRef.current) setStarting(false);
     }
   }, [
     browserStt,
@@ -364,6 +390,11 @@ function VoiceConsoleInner({ session, embedded = false }) {
   ]);
 
   const stop = useCallback(() => {
+    if (!recorderRef.current && !recognitionRef.current) {
+      // Nothing is actually recording (e.g. the console was remounted).
+      setPhase("IDLE");
+      return;
+    }
     setPhase("TRANSCRIBING");
     if (recorderRef.current?.state !== "inactive") recorderRef.current?.stop();
     recognitionRef.current?.stop();
@@ -378,19 +409,27 @@ function VoiceConsoleInner({ session, embedded = false }) {
     setPhase("IDLE");
   }, [setPhase, stopMedia]);
 
-  const stopSpeaking = useCallback(() => {
+  /** Stops TTS output only. Never touches a recording or an in-flight command. */
+  const stopOutput = useCallback(() => {
+    speakTokenRef.current += 1;
     window.speechSynthesis?.cancel();
     audioRef.current?.pause();
     audioRef.current = null;
     if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
     audioUrlRef.current = null;
     stopOutputMeter();
-    setPhase(response ? "READY" : "IDLE");
-  }, [response, setPhase, stopOutputMeter]);
+  }, [stopOutputMeter]);
+
+  const stopSpeaking = useCallback(() => {
+    const wasSpeaking = phaseRef.current === "SPEAKING";
+    stopOutput();
+    if (wasSpeaking) setPhase(responseRef.current ? "READY" : "IDLE");
+  }, [setPhase, stopOutput]);
 
   const speak = useCallback(async () => {
     if (!response || muted) return;
-    stopSpeaking();
+    stopOutput();
+    const token = speakTokenRef.current;
     setPhase("SPEAKING");
     const selectedVoice = availableVoices.find(
       (voice) => voice.name === voiceName
@@ -413,8 +452,11 @@ function VoiceConsoleInner({ session, embedded = false }) {
         stopOutputMeter();
         setPhase("READY");
       };
-      utterance.onerror = () => {
+      utterance.onerror = (event) => {
         stopOutputMeter();
+        // cancel() reports "interrupted"/"canceled": that is a stop, not a failure.
+        if (event?.error === "interrupted" || event?.error === "canceled")
+          return;
         setError(t("yusufOS:voice.speechFailed"));
         setPhase("ERROR");
       };
@@ -423,6 +465,8 @@ function VoiceConsoleInner({ session, embedded = false }) {
     }
     try {
       const blob = await yusufApi.speakVoiceResponse(response);
+      // Stopped, muted or unmounted while the audio was being fetched.
+      if (!mountedRef.current || token !== speakTokenRef.current) return;
       const url = URL.createObjectURL(blob);
       audioUrlRef.current = url;
       const audio = new Audio(url);
@@ -477,14 +521,21 @@ function VoiceConsoleInner({ session, embedded = false }) {
     setError,
     setPhase,
     signal,
+    stopOutput,
     stopOutputMeter,
-    stopSpeaking,
     t,
     voiceName,
   ]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      speakTokenRef.current += 1;
+      // The command session outlives this component: never leave it claiming
+      // a recording or playback that no longer exists.
+      if (["LISTENING", "TRANSCRIBING", "SPEAKING"].includes(phaseRef.current))
+        setPhase(responseRef.current ? "READY" : "IDLE");
       cancelledRef.current = true;
       recognitionRef.current?.abort();
       recognitionRef.current = null;
@@ -497,9 +548,8 @@ function VoiceConsoleInner({ session, embedded = false }) {
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
       audioRef.current = null;
-    },
-    [stopMedia, stopOutputMeter]
-  );
+    };
+  }, [setPhase, stopMedia, stopOutputMeter]);
 
   const phaseLabel = t(`yusufOS:voice.phase.${phase}`);
   const listening = phase === "LISTENING";
@@ -509,6 +559,7 @@ function VoiceConsoleInner({ session, embedded = false }) {
       onClick={listening ? stop : start}
       disabled={
         !statusLoaded ||
+        starting ||
         ["PROCESSING", "TRANSCRIBING", "SPEAKING"].includes(phase)
       }
       className="yos-press yos-touch-target flex size-11 shrink-0 items-center justify-center rounded-full border disabled:opacity-40"
@@ -521,7 +572,6 @@ function VoiceConsoleInner({ session, embedded = false }) {
       aria-label={
         listening ? t("yusufOS:voice.stop") : t("yusufOS:voice.start")
       }
-      aria-pressed={listening}
     >
       {permission === "denied" ? (
         <MicrophoneSlash size={20} aria-hidden="true" />

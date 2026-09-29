@@ -19,7 +19,7 @@ import { createVoiceSignal } from "./audioReactivity";
  * L3 request comes back as `APPROVAL_REQUIRED` with an approval id that only
  * the governed approval page can decide.
  *
- * The transcript lives in memory for this browser session only. The backend
+ * The transcript lives in memory for this `/os` tab only (lost on reload). The backend
  * has no chat-history projection, so the UI does not pretend to have one.
  */
 

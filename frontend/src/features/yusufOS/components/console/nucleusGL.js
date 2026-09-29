@@ -92,15 +92,23 @@ export function createNucleusRenderer(canvas, { maxDpr = 1.5 } = {}) {
     gl = null;
   }
   if (!gl) return null;
+  const release = () => {
+    try {
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+    } catch {
+      /* already lost */
+    }
+    return null;
+  };
 
   const vertex = compile(gl, gl.VERTEX_SHADER, VERTEX);
   const fragment = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
-  if (!vertex || !fragment) return null;
+  if (!vertex || !fragment) return release();
   const program = gl.createProgram();
   gl.attachShader(program, vertex);
   gl.attachShader(program, fragment);
   gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return release();
   gl.useProgram(program);
 
   const buffer = gl.createBuffer();

@@ -17,11 +17,12 @@ function finite(value) {
   return Number.isFinite(value) ? value : null;
 }
 
+/** Sum of reported counts; null (unknown) when there is nothing reported. */
 function sum(values) {
-  return Object.values(values || {}).reduce(
-    (total, value) => total + (Number.isFinite(value) ? value : 0),
-    0
-  );
+  if (!values || typeof values !== "object") return null;
+  const list = Object.values(values);
+  if (list.some((value) => !Number.isFinite(value))) return null;
+  return list.reduce((total, value) => total + value, 0);
 }
 
 /** agentId → { name, jobs } from the runtime organisation projection. */
@@ -64,7 +65,7 @@ export function buildTelemetry({ summary, runtime, runtimePhase, connection }) {
     audit: summary?.auditStatus || null,
     connection: connection || null,
     model,
-    ollamaModels: ollama ? (ollama.models?.length ?? 0) : null,
+    ollamaModels: ollama?.reachable ? (ollama.models?.length ?? null) : null,
     agents: summary
       ? { reporting: summary.agentsReporting, total: summary.agentsTotal }
       : null,
@@ -117,7 +118,9 @@ export function buildCorePanels({ summary, runtime, runtimePhase, dashboard }) {
       ],
     },
     INTELLIGENCE: {
-      value: runtime ? (ollama?.models?.length ?? 0) : null,
+      // Only a reachable daemon's list is a real count.
+      value:
+        runtime && ollama?.reachable ? (ollama.models?.length ?? null) : null,
       valueKey: "localModels",
       lines: [
         [
@@ -186,10 +189,9 @@ export function buildCorePanels({ summary, runtime, runtimePhase, dashboard }) {
         [
           "capabilities",
           summary
-            ? adapters.reduce(
-                (total, a) => total + (finite(a.capabilityCount) || 0),
-                0
-              )
+            ? adapters.every((a) => finite(a.capabilityCount) !== null)
+              ? adapters.reduce((total, a) => total + a.capabilityCount, 0)
+              : NA.NOT_REPORTED
             : NA.LOADING,
         ],
         [

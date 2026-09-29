@@ -123,7 +123,11 @@ function Nucleus({ rendererRef, onRenderer }) {
   useEffect(() => {
     if (renderer !== "webgl") return undefined;
     const canvas = canvasRef.current;
-    const onLost = () => setRenderer("svg");
+    const onLost = () => {
+      rendererRef.current?.dispose();
+      rendererRef.current = null;
+      setRenderer("svg");
+    };
     canvas?.addEventListener("webglcontextlost", onLost);
     return () => canvas?.removeEventListener("webglcontextlost", onLost);
   }, [renderer]);
@@ -209,23 +213,24 @@ export default function SystemCore({
   );
   const positions = useMemo(() => orbitPositions(agents), [agents]);
 
-  // Arrival pulse for handoffs the snapshot did not contain last time.
+  // Arrival pulse for handoffs the snapshot did not contain last time. The
+  // clear timer lives in a ref so a follow-up snapshot cannot cancel it and
+  // leave a one-shot pulse stuck on.
   const seenEdgesRef = useRef(null);
+  const freshTimerRef = useRef(null);
   const [freshEdges, setFreshEdges] = useState(() => new Set());
   useEffect(() => {
     const ids = new Set(edges.map((edge) => edge.id));
-    if (seenEdgesRef.current) {
-      const fresh = [...ids].filter((id) => !seenEdgesRef.current.has(id));
-      if (fresh.length) {
-        setFreshEdges(new Set(fresh));
-        const timer = setTimeout(() => setFreshEdges(new Set()), 5000);
-        seenEdgesRef.current = ids;
-        return () => clearTimeout(timer);
-      }
-    }
+    const previous = seenEdgesRef.current;
     seenEdgesRef.current = ids;
-    return undefined;
+    if (!previous) return;
+    const fresh = [...ids].filter((id) => !previous.has(id));
+    if (!fresh.length) return;
+    setFreshEdges(new Set(fresh));
+    clearTimeout(freshTimerRef.current);
+    freshTimerRef.current = setTimeout(() => setFreshEdges(new Set()), 5000);
   }, [edges]);
+  useEffect(() => () => clearTimeout(freshTimerRef.current), []);
 
   useEffect(() => {
     if (!signal) return undefined;
@@ -301,7 +306,7 @@ export default function SystemCore({
         wavePath(
           state?.source === SIGNAL_SOURCES.SPEECH_TIMING ? null : state?.bands,
           energy.wave,
-          reducedMotion ? 10 : 34
+          reducedMotion ? 0 : 34
         )
       );
     };

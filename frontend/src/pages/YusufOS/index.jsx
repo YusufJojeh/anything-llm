@@ -1,6 +1,7 @@
 import React from "react";
 import { YusufOSProvider } from "@/features/yusufOS/state/YusufOSProvider";
 import OSShell from "@/features/yusufOS/components/OSShell";
+import { CommandSessionProvider } from "@/features/yusufOS/state/CommandSession";
 import { registerYusufOSTranslations } from "@/features/yusufOS/i18n";
 
 /**
@@ -20,7 +21,11 @@ registerYusufOSTranslations();
 export default function YusufOSRoot() {
   return (
     <YusufOSProvider>
-      <OSShell />
+      {/* One command session for the whole /os tab: the transcript and the
+          last approval survive navigating to a task or approval and back. */}
+      <CommandSessionProvider>
+        <OSShell />
+      </CommandSessionProvider>
     </YusufOSProvider>
   );
 }

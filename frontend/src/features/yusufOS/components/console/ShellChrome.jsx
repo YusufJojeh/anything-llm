@@ -358,7 +358,11 @@ export function CommandNav({ model, connection }) {
           end
           className="yos-press yos-interactive flex min-h-[44px] items-center gap-2 rounded-sm border px-3"
           style={{ borderColor: "var(--yos-line)" }}
-          aria-label={t("yusufOS:nav.alertsLabel", { count: attention ?? 0 })}
+          aria-label={
+            attention === null
+              ? `${t("yusufOS:nav.alerts")}: ${t("yusufOS:state.unknown")}`
+              : t("yusufOS:nav.alertsLabel", { count: attention })
+          }
         >
           <Bell
             size={16}

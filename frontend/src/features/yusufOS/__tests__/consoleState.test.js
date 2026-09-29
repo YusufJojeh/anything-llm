@@ -258,3 +258,43 @@ describe("realtime recent-event buffer", () => {
     );
   });
 });
+
+describe("review regressions", () => {
+  test("stage recency uses when the event occurred, not when a backlog arrived", () => {
+    const now = Date.parse("2026-08-18T09:10:00.000Z");
+    const stages = deriveStages({
+      now,
+      recentEvents: [
+        {
+          type: "execution.claimed",
+          occurredAt: "2026-08-18T08:00:00.000Z",
+          receivedAt: new Date(now - 1000).toISOString(),
+        },
+      ],
+    });
+    expect(stages.EXECUTE).toBe(STAGE_STATUS.IDLE);
+  });
+
+  test("unknown counts stay unknown rather than zero", () => {
+    const dashboard = dashboardFixture({
+      adapterHealth: [{ adapterId: "a", status: "AVAILABLE" }],
+    });
+    const agents = buildAgents(dashboard, rosterFixture());
+    const summary = buildSummary(dashboard, agents);
+    const panels = buildCorePanels({
+      summary,
+      runtime: {
+        modelRuntime: { ollama: { reachable: false, models: [] } },
+        knowledgeEvidenceMemory: {
+          knowledge: { total: 1 },
+          memory: { total: 0 },
+        },
+      },
+      runtimePhase: "READY",
+      dashboard,
+    });
+    expect(panels.INTELLIGENCE.value).toBeNull();
+    expect(panels.KNOWLEDGE.lines[1][1]).toBe(NA.UNAVAILABLE);
+    expect(panels.TOOLS.lines[0][1]).toBe(NA.NOT_REPORTED);
+  });
+});

@@ -1,6 +1,6 @@
 import React from "react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithI18n } from "./renderWithI18n";
 
 const api = vi.hoisted(() => ({
@@ -291,5 +291,86 @@ describe("Yusuf OS voice console", () => {
     );
     expect(track.stop).toHaveBeenCalled();
     expect(api.runVoiceCommand).not.toHaveBeenCalled();
+  });
+
+  test("P1: unmounting while the permission prompt is open never starts capture", async () => {
+    const track = { stop: vi.fn() };
+    let grant;
+    navigator.mediaDevices.getUserMedia.mockImplementation(
+      () => new Promise((resolve) => (grant = resolve))
+    );
+    const view = renderWithI18n(<VoiceConsole />);
+    const start = await screen.findByRole("button", {
+      name: "Start listening",
+    });
+    await waitFor(() => expect(start).toBeEnabled());
+    fireEvent.click(start);
+    view.unmount();
+    await act(async () => grant({ getTracks: () => [track] }));
+    expect(track.stop).toHaveBeenCalled();
+    expect(recorderInstances).toHaveLength(0);
+  });
+
+  test("P1: a double tap opens exactly one microphone stream", async () => {
+    let grant;
+    navigator.mediaDevices.getUserMedia.mockImplementation(
+      () => new Promise((resolve) => (grant = resolve))
+    );
+    renderWithI18n(<VoiceConsole />);
+    const start = await screen.findByRole("button", {
+      name: "Start listening",
+    });
+    await waitFor(() => expect(start).toBeEnabled());
+    fireEvent.click(start);
+    fireEvent.click(start);
+    await act(async () => grant({ getTracks: () => [{ stop: vi.fn() }] }));
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(recorderInstances).toHaveLength(1);
+  });
+
+  test("P1: Mute never hides or ends an active recording", async () => {
+    renderWithI18n(<VoiceConsole />);
+    const start = await screen.findByRole("button", {
+      name: "Start listening",
+    });
+    await waitFor(() => expect(start).toBeEnabled());
+    fireEvent.click(start);
+    await screen.findByRole("button", { name: "Stop listening" });
+    fireEvent.click(screen.getByRole("button", { name: "Mute" }));
+    expect(
+      screen.getByRole("button", { name: "Stop listening" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Cancel recording" })
+    ).toBeInTheDocument();
+    expect(recorderInstances[0].state).toBe("recording");
+  });
+
+  test("P1: an empty recording releases the session instead of sticking in TRANSCRIBING", async () => {
+    api.voiceStatus.mockResolvedValue({
+      stt: { provider: "lemonade", scope: "LOCAL", eligible: true },
+      tts: { provider: null, eligible: false },
+      browser: { allowSpeechServices: false },
+    });
+    const originalStop = FakeRecorder.prototype.stop;
+    FakeRecorder.prototype.stop = function () {
+      this.state = "inactive";
+      this.onstop?.();
+    };
+    renderWithI18n(<VoiceConsole />);
+    const start = await screen.findByRole("button", {
+      name: "Start listening",
+    });
+    await waitFor(() => expect(start).toBeEnabled());
+    fireEvent.click(start);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Stop listening" })
+    );
+    expect(await screen.findByText("Ready to listen")).toBeInTheDocument();
+    expect(api.transcribeVoice).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Start listening" })
+    ).toBeEnabled();
+    FakeRecorder.prototype.stop = originalStop;
   });
 });
