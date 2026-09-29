@@ -1,129 +1,84 @@
-import React, { useCallback, useId, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import React, { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { CaretDown } from "@phosphor-icons/react";
 import { useYusufOS, PHASES } from "@/features/yusufOS/state/YusufOSProvider";
-import { coreStateTone } from "@/features/yusufOS/state/commandCenterModel";
-import { toneStyle, TONES } from "@/features/yusufOS/state/statusSemantics";
-import AgentConstellation from "@/features/yusufOS/components/AgentConstellation";
-import AgentRoster from "@/features/yusufOS/components/AgentRoster";
+import {
+  CommandSessionProvider,
+  useCommandSession,
+} from "@/features/yusufOS/state/CommandSession";
+import { deriveCoreMode } from "@/features/yusufOS/state/coreVisualState";
+import { deriveStages } from "@/features/yusufOS/state/operationStages";
+import {
+  buildCorePanels,
+  buildCurrentOperation,
+  departmentIndex,
+} from "@/features/yusufOS/state/consoleModel";
 import AttentionQueue from "@/features/yusufOS/components/AttentionQueue";
 import AgentDetailPanel from "@/features/yusufOS/components/AgentDetailPanel";
 import SystemHealth from "@/features/yusufOS/components/SystemHealth";
-import VoiceConsole from "@/features/yusufOS/components/VoiceConsole";
 import Drawer from "@/features/yusufOS/components/Drawer";
+import AgentRail from "@/features/yusufOS/components/console/AgentRail";
+import SystemCore from "@/features/yusufOS/components/console/SystemCore";
+import CommunicationConsole from "@/features/yusufOS/components/console/CommunicationConsole";
+import ContextPanel from "@/features/yusufOS/components/console/ContextPanel";
 import {
-  Count,
-  LoadingBlock,
-  Panel,
-  SectionTitle,
-  StatusIcon,
-} from "@/features/yusufOS/components/primitives";
+  CorePanel,
+  CurrentOperation,
+  StageRail,
+} from "@/features/yusufOS/components/console/CoreStage";
+import { toneFor, toneStyle } from "@/features/yusufOS/state/statusSemantics";
 
 /**
- * The Command Center.
+ * The Command Center — a single integrated console:
  *
- * Composition, deliberately: the constellation is the canvas and the operator
- * surfaces sit beside it. "Needs Yusuf" is placed above the fold on every
- * viewport — it is the single most important thing on the screen, and it is
- * not reachable only through a badge.
+ *   telemetry strip (shell)
+ *   Needs Yusuf + Agents │ System Core + panels + stages + operation │ Comms + Context
+ *   mission nav (shell)
  *
  * Selection lives in the URL (`?agent=` / `?focus=core`) so a view is
- * shareable, survives a refresh, and works with the browser back button.
+ * shareable, survives a refresh, and works with the back button. Below 1024px
+ * the same areas stack in operator order (core, needs Yusuf, communication,
+ * agents, context) — see `.yos-console` in tokens.css.
  */
 
-function CoreSummary({ coreState, summary, onOpen }) {
-  const { t } = useTranslation();
-  const tone = coreStateTone(coreState);
-  const style = toneStyle(tone);
-  return (
-    <Panel className="p-4">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="flex w-full flex-col items-start gap-2 text-start"
-      >
-        <span
-          className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.16em]"
-          style={{ color: style.text }}
-        >
-          <StatusIcon tone={tone} size={15} />
-          {coreState
-            ? t(`yusufOS:core.state.${coreState}`)
-            : t("yusufOS:state.unknown")}
-        </span>
-        <span
-          className="text-pretty text-sm leading-relaxed"
-          style={{ color: "var(--yos-text-secondary)" }}
-        >
-          {coreState ? t(`yusufOS:core.detail.${coreState}`) : null}
-        </span>
-        <span className="text-xs" style={{ color: "var(--yos-text-muted)" }}>
-          {summary.agentsTotal === 0
-            ? t("yusufOS:core.noAgents")
-            : t("yusufOS:core.agentsReporting", {
-                reporting: summary.agentsReporting,
-                total: summary.agentsTotal,
-              })}
-        </span>
-      </button>
+const LEFT_PANELS = ["PROCESSING", "KNOWLEDGE", "TOOLS"];
+const RIGHT_PANELS = ["INTELLIGENCE", "AUTOMATION", "HEALTH"];
 
-      {/*
-       * A status readout, not KPI cards: three real counts on one hairline-
-       * divided strip. Every value is a length the dashboard projection
-       * asserted — no derived percentages, and nothing shown while unknown.
-       */}
-      <dl
-        className="mt-4 grid grid-cols-3 border-t pt-3"
-        style={{ borderColor: "var(--yos-border-faint)" }}
-      >
-        {[
-          [
-            "yusufOS:core.countApprovals",
-            summary.pendingApprovals,
-            TONES.APPROVAL,
-          ],
-          ["yusufOS:core.countBlocked", summary.blockedTasks, TONES.BLOCKED],
-          ["yusufOS:core.countActiveRuns", summary.activeRuns, TONES.ACTIVE],
-        ].map(([key, value, tone], position) => (
-          <div
-            key={key}
-            className="flex flex-col gap-1 px-3 first:ps-0 last:pe-0"
-            style={
-              position > 0
-                ? { borderInlineStart: "1px solid var(--yos-border-faint)" }
-                : undefined
-            }
-          >
-            <dt
-              className="text-[10px] uppercase tracking-[0.11em]"
-              style={{ color: "var(--yos-text-muted)" }}
-            >
-              {t(key)}
-            </dt>
-            <dd
-              className="text-2xl font-semibold leading-none tabular-nums"
-              // A zero is deliberately quiet; a non-zero count carries its
-              // status colour so the eye lands on what is actually happening.
-              style={{
-                color:
-                  value > 0 ? toneStyle(tone).text : "var(--yos-text-muted)",
-              }}
-            >
-              <Count value={value} />
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </Panel>
-  );
+/** Re-evaluates time-windowed stage state while there is something to expire. */
+function useNow(active, interval = 3000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return undefined;
+    const timer = setInterval(() => setNow(Date.now()), interval);
+    return () => clearInterval(timer);
+  }, [active, interval]);
+  return now;
 }
 
-export default function CommandCenter() {
+function Console() {
   const { t } = useTranslation();
-  const { phase, dashboard, model, connection, realtime } = useYusufOS();
+  const {
+    phase,
+    dashboard,
+    model,
+    connection,
+    realtime,
+    runtime,
+    runtimePhase,
+  } = useYusufOS();
+  const session = useCommandSession();
   const [params, setParams] = useSearchParams();
-  const rosterHeadingId = useId();
-  const attentionHeadingId = useId();
+  const [agentsOpen, setAgentsOpen] = useState(true);
+  // Phones show the Core first and fold its six telemetry panels away.
+  const [panelsOpen, setPanelsOpen] = useState(false);
+  const ids = {
+    attention: useId(),
+    agents: useId(),
+    core: useId(),
+    comms: useId(),
+    context: useId(),
+  };
 
   const selectedAgentId = params.get("agent");
   const coreOpen = params.get("focus") === "core";
@@ -138,14 +93,12 @@ export default function CommandCenter() {
     },
     [params, setParams]
   );
-
   const openCore = useCallback(() => {
     const next = new URLSearchParams(params);
     next.delete("agent");
     next.set("focus", "core");
     setParams(next, { replace: false });
   }, [params, setParams]);
-
   const closePanels = useCallback(() => {
     const next = new URLSearchParams(params);
     next.delete("agent");
@@ -158,42 +111,220 @@ export default function CommandCenter() {
       model.agents.find((agent) => agent.agentId === selectedAgentId) || null,
     [model.agents, selectedAgentId]
   );
-
   const loading = phase === PHASES.LOADING && !dashboard;
+  const recentEvents = realtime?.recent || [];
+  const now = useNow(recentEvents.length > 0 || session.phase === "PROCESSING");
+  const stages = useMemo(
+    () => deriveStages({ recentEvents, voicePhase: session.phase, now }),
+    [recentEvents, session.phase, now]
+  );
+  const mode = deriveCoreMode({
+    coreState: model.coreState,
+    connection,
+    voicePhase: session.phase,
+    stages,
+  });
+  const departments = useMemo(() => departmentIndex(runtime), [runtime]);
+  const panels = useMemo(
+    () =>
+      buildCorePanels({
+        summary: model.summary,
+        runtime,
+        runtimePhase,
+        dashboard,
+      }),
+    [model.summary, runtime, runtimePhase, dashboard]
+  );
+  const operation = useMemo(
+    () =>
+      buildCurrentOperation({
+        dashboard,
+        agents: model.agents,
+        runtime,
+        commandPhase: session.phase,
+        lastCommand: session.lastResult,
+      }),
+    [dashboard, model.agents, runtime, session.phase, session.lastResult]
+  );
+  const completions = runtime?.modelRuntime?.recentCompletions || [];
+  const stateLabel = model.coreState
+    ? t(`yusufOS:core.state.${model.coreState}`)
+    : t("yusufOS:state.unknown");
+  const attentionCount = model.attention ? model.attention.length : null;
 
   return (
-    <div className="flex min-h-full flex-col gap-4 p-4 md:p-6 xl:h-full xl:min-h-0 xl:flex-row xl:overflow-hidden">
-      {/*
-       * The constellation. Hidden below `lg` rather than shrunk: a ring of
-       * nodes squeezed into 390px is unreadable, and the roster list below
-       * carries the same information properly on that width.
-       */}
+    <div className="yos-console" data-core-mode={mode}>
       <section
-        aria-labelledby="yos-constellation-heading"
-        className="hidden min-w-0 flex-1 lg:block xl:flex xl:min-h-0 xl:flex-col"
+        data-area="attention"
+        aria-labelledby={ids.attention}
+        className="yos-frame flex min-h-0 flex-col"
       >
-        <h2 id="yos-constellation-heading" className="sr-only">
-          {t("yusufOS:constellation.title")}
-        </h2>
-        <p className="sr-only">{t("yusufOS:constellation.description")}</p>
-        <div className="yos-canvas h-full min-h-[520px] overflow-hidden xl:min-h-0 xl:flex-1">
-          {loading ? (
-            <LoadingBlock rows={8} />
-          ) : (
-            <AgentConstellation
+        <div className="flex items-center justify-between px-3 pt-3">
+          <h2
+            id={ids.attention}
+            className="yos-title"
+            style={{ color: attentionCount ? "var(--yos-amber)" : undefined }}
+          >
+            {t("yusufOS:attention.title")}
+          </h2>
+          {attentionCount !== null ? (
+            <span
+              className="yos-mono rounded-sm px-1.5 text-[11px]"
+              style={{
+                background: attentionCount
+                  ? "rgb(255 184 77 / 0.18)"
+                  : "rgb(75 202 255 / 0.08)",
+                color: attentionCount
+                  ? "var(--yos-amber)"
+                  : "var(--yos-text-muted)",
+              }}
+            >
+              {attentionCount}
+            </span>
+          ) : null}
+        </div>
+        <div className="yos-scroll mt-1 max-h-[260px] overflow-y-auto">
+          <AttentionQueue items={model.attention} loading={loading} />
+        </div>
+      </section>
+
+      <section
+        data-area="agents"
+        aria-labelledby={ids.agents}
+        className="yos-frame flex min-h-0 flex-col"
+      >
+        <button
+          type="button"
+          className="flex min-h-[44px] items-center justify-between px-3 lg:hidden"
+          aria-expanded={agentsOpen}
+          onClick={() => setAgentsOpen((open) => !open)}
+        >
+          <span className="yos-label">{t("yusufOS:rail.toggle")}</span>
+          <CaretDown
+            size={14}
+            aria-hidden="true"
+            style={{ transform: agentsOpen ? "rotate(180deg)" : undefined }}
+          />
+        </button>
+        <div
+          className={`min-h-0 flex-1 ${agentsOpen ? "flex" : "hidden lg:flex"} flex-col`}
+        >
+          <AgentRail
+            agents={model.agents}
+            departments={departments}
+            selectedAgentId={selectedAgentId}
+            onSelectAgent={selectAgent}
+            loading={loading}
+            headingId={ids.agents}
+          />
+        </div>
+      </section>
+
+      <section
+        data-area="core"
+        aria-labelledby={ids.core}
+        className="yos-frame flex min-h-0 flex-col gap-2 p-2 md:p-3"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <h2 id={ids.core} className="yos-title">
+              {t("yusufOS:coreView.systemCore")}
+            </h2>
+            <nav
+              aria-label={t("yusufOS:coreView.viewsLabel")}
+              className="hidden items-center md:flex"
+            >
+              <span className="yos-tab px-3 py-2" aria-current="page">
+                {t("yusufOS:coreView.live")}
+              </span>
+              <Link to="/os/runtime" className="yos-tab px-3 py-2">
+                {t("yusufOS:nav.runtime")}
+              </Link>
+              <Link to="/os/runs" className="yos-tab px-3 py-2">
+                {t("yusufOS:nav.runs")}
+              </Link>
+              <Link to="/os/system" className="yos-tab px-3 py-2">
+                {t("yusufOS:nav.system")}
+              </Link>
+            </nav>
+          </div>
+          <span
+            className="yos-mono flex items-center gap-1.5 text-[10px] font-semibold uppercase"
+            style={{ color: toneStyle(toneFor("connection", connection)).text }}
+          >
+            <span className="yos-status-dot" aria-hidden="true" />
+            {t("yusufOS:coreView.realtime")} ·{" "}
+            {t(`yusufOS:connection.${connection || "IDLE"}`)}
+          </span>
+        </div>
+
+        {/*
+         * The Core fills the whole stage and the support panels overlay its
+         * outer rings, as in a mission display; on phones they stack below.
+         */}
+        <div
+          className="yos-core-stage"
+          data-panels={panelsOpen ? "open" : "closed"}
+        >
+          <div className="yos-core-cell">
+            <SystemCore
+              mode={mode}
+              stateLabel={stateLabel}
               agents={model.agents}
               edges={model.edges}
-              coreState={model.coreState}
               selectedAgentId={selectedAgentId}
-              coreSelected={coreOpen}
               onSelectAgent={selectAgent}
-              onSelectCore={openCore}
+              onOpenCore={openCore}
+              signal={session.signal}
             />
-          )}
+          </div>
+          <div className="yos-core-side" data-side="start">
+            {LEFT_PANELS.map((id) => (
+              <CorePanel
+                key={id}
+                id={id}
+                panel={panels[id]}
+                completions={completions}
+              />
+            ))}
+          </div>
+          <div className="yos-core-side" data-side="end">
+            {RIGHT_PANELS.map((id) => (
+              <CorePanel
+                key={id}
+                id={id}
+                panel={panels[id]}
+                completions={completions}
+              />
+            ))}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="yos-press flex min-h-[44px] items-center justify-between rounded-sm border px-3 md:hidden yos-divider"
+          aria-expanded={panelsOpen}
+          onClick={() => setPanelsOpen((open) => !open)}
+        >
+          <span className="yos-label">
+            {t("yusufOS:coreView.panelsToggle")}
+          </span>
+          <CaretDown
+            size={14}
+            aria-hidden="true"
+            style={{ transform: panelsOpen ? "rotate(180deg)" : undefined }}
+          />
+        </button>
+        <p className="sr-only" aria-live="polite" data-core-mode-announce>
+          {t("yusufOS:coreView.modeAnnounce", {
+            mode: t(`yusufOS:coreView.mode.${mode}`),
+          })}
+        </p>
+        <div className="mx-auto w-full max-w-[560px]">
+          <StageRail stages={stages} />
         </div>
         {model.orphanedEdges.length ? (
           <p
-            className="mt-2 px-1 text-[11px]"
+            className="px-1 text-[11px]"
             style={{ color: "var(--yos-warning-text)" }}
           >
             {t("yusufOS:constellation.orphanEdges", {
@@ -201,60 +332,38 @@ export default function CommandCenter() {
             })}
           </p>
         ) : null}
+        <CurrentOperation operation={operation} />
       </section>
 
-      {/*
-       * The operator column scrolls inside itself on desktop so the
-       * constellation stays put; below xl the page scrolls normally.
-       */}
-      <div className="flex w-full min-w-0 flex-col gap-4 xl:w-[380px] xl:min-h-0 xl:shrink-0 xl:overflow-y-auto">
-        {loading || !model.summary ? (
-          <Panel>
-            <LoadingBlock rows={4} />
-          </Panel>
-        ) : (
-          <CoreSummary
-            coreState={model.coreState}
-            summary={model.summary}
-            onOpen={openCore}
-          />
-        )}
+      <section
+        data-area="comms"
+        aria-labelledby={ids.comms}
+        className="yos-frame flex min-h-[520px] flex-col xl:min-h-0"
+      >
+        <CommunicationConsole
+          dashboard={dashboard}
+          runtime={runtime}
+          recentEvents={recentEvents}
+          connection={connection}
+          headingId={ids.comms}
+        />
+      </section>
 
-        <VoiceConsole />
-
-        <Panel aria-labelledby={attentionHeadingId}>
-          <SectionTitle id={attentionHeadingId} className="px-4 pt-4">
-            {t("yusufOS:attention.title")}
-          </SectionTitle>
-          <div className="mt-2">
-            <AttentionQueue items={model.attention} loading={loading} />
-          </div>
-        </Panel>
-
-        {/*
-         * The accessible, non-graph equivalent of the constellation — and on
-         * narrow screens, the primary representation. Always rendered, never a
-         * fallback that only appears when the graph fails.
-         */}
-        <Panel aria-labelledby={rosterHeadingId}>
-          <SectionTitle id={rosterHeadingId} className="px-4 pt-4">
-            {t("yusufOS:agent.title")}
-          </SectionTitle>
-          <div className="mt-2">
-            {loading ? (
-              <LoadingBlock rows={4} />
-            ) : (
-              <AgentRoster
-                agents={model.agents}
-                edges={model.edges}
-                selectedAgentId={selectedAgentId}
-                onSelectAgent={selectAgent}
-                labelledBy={rosterHeadingId}
-              />
-            )}
-          </div>
-        </Panel>
-      </div>
+      <section
+        data-area="context"
+        aria-labelledby={ids.context}
+        className="yos-frame flex min-h-[240px] flex-col xl:min-h-0"
+      >
+        <ContextPanel
+          operation={operation}
+          lastCommand={session.lastResult}
+          runtime={runtime}
+          runtimePhase={runtimePhase}
+          dashboard={dashboard}
+          selectedAgent={selectedAgent}
+          headingId={ids.context}
+        />
+      </section>
 
       <Drawer
         open={Boolean(selectedAgent)}
@@ -263,7 +372,6 @@ export default function CommandCenter() {
       >
         <AgentDetailPanel agent={selectedAgent} edges={model.edges} />
       </Drawer>
-
       <Drawer
         open={coreOpen}
         onClose={closePanels}
@@ -277,5 +385,13 @@ export default function CommandCenter() {
         />
       </Drawer>
     </div>
+  );
+}
+
+export default function CommandCenter() {
+  return (
+    <CommandSessionProvider>
+      <Console />
+    </CommandSessionProvider>
   );
 }

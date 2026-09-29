@@ -56,6 +56,7 @@ const STALE_AFTER_MS = 45000;
 // Collapses a burst of resync triggers into one refetch.
 const RESYNC_DEBOUNCE_MS = 350;
 const RUNTIME_REFRESH_MS = 30000;
+const EVENT_REFRESH_DEBOUNCE_MS = 600;
 
 export function YusufOSProvider({ children }) {
   const [session, setSession] = useState(SESSION.CHECKING);
@@ -275,6 +276,24 @@ export function YusufOSProvider({ children }) {
     );
     return () => clearTimeout(resyncTimerRef.current);
   }, [realtime.resyncNonce, realtime.needsSnapshot, session, loadSnapshot]);
+
+  /**
+   * An applied event means server state moved. The stream never carries the
+   * new state itself, so re-read the snapshot (debounced, so a burst of events
+   * from one agent turn is one refetch). Without this the console only changed
+   * on a sequence gap or a manual refresh.
+   */
+  const eventRefreshTimerRef = useRef(null);
+  useEffect(() => {
+    if (!realtime.lastEventAt || session !== SESSION.UNLOCKED) return undefined;
+    if (eventRefreshTimerRef.current)
+      clearTimeout(eventRefreshTimerRef.current);
+    eventRefreshTimerRef.current = setTimeout(
+      () => loadSnapshot({ silent: true }),
+      EVENT_REFRESH_DEBOUNCE_MS
+    );
+    return () => clearTimeout(eventRefreshTimerRef.current);
+  }, [realtime.lastEventAt, session, loadSnapshot]);
 
   /** Returning to the tab reconciles rather than trusting a background stream. */
   useEffect(() => {

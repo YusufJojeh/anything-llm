@@ -15,52 +15,91 @@
 .yos-root {
   color-scheme: dark;
 
-  /* --- surface hierarchy ------------------------------------------------ */
-  --yos-canvas: #07090c;
-  --yos-surface: #0c0f14;
-  --yos-surface-raised: #11151b;
-  --yos-surface-overlay: #151a22;
-  --yos-surface-hover: #1a212b;
+  /*
+   * Jarvis console palette. Navy-black foundation, one system cyan, amber
+   * reserved for "needs Yusuf", red reserved for critical. No purple, no
+   * multi-colour gradients. Contrast notes: every `-text` token and
+   * `--yos-text-muted` is >= 4.5:1 on --yos-bg-1; `--yos-text-dim` is for
+   * decorative linework and large labels only.
+   */
+  --yos-bg-0: #02070b;
+  --yos-bg-1: #050a0f;
+  --yos-bg-2: #071018;
+  --yos-bg-3: #09141d;
+  --yos-panel-0: #0b1720;
+  --yos-panel-1: #0d1b25;
+  --yos-panel-2: #10222d;
+  --yos-line: rgba(75, 202, 255, 0.2);
+  --yos-line-strong: rgba(75, 202, 255, 0.34);
+  --yos-line-faint: rgba(75, 202, 255, 0.1);
+  --yos-cyan: #22b8f5;
+  --yos-cyan-strong: #39d5ff;
+  --yos-cyan-bright: #67e8ff;
+  --yos-green: #46e6a5;
+  --yos-amber: #ffb84d;
+  --yos-red: #ff5e6c;
+  --yos-text-dim: #597080;
+
+  --yos-font-sans: "Geist", "Inter", "Plus Jakarta Sans", ui-sans-serif,
+    system-ui, -apple-system, "Segoe UI", "Noto Sans Arabic", sans-serif;
+  --yos-font-mono: "Geist Mono", "IBM Plex Mono", ui-monospace, "SFMono-Regular",
+    Menlo, Consolas, monospace;
+
+  /* --- surface hierarchy (legacy names, re-pointed at the console palette) */
+  --yos-canvas: var(--yos-bg-1);
+  --yos-surface: var(--yos-panel-0);
+  --yos-surface-raised: var(--yos-panel-1);
+  --yos-surface-overlay: var(--yos-panel-2);
+  --yos-surface-hover: #12293a;
 
   /* --- line work -------------------------------------------------------- */
-  --yos-border: #1e242e;
-  --yos-border-strong: #2b3441;
-  --yos-border-faint: #161b23;
+  --yos-border: var(--yos-line);
+  --yos-border-strong: var(--yos-line-strong);
+  --yos-border-faint: var(--yos-line-faint);
 
   /* --- text hierarchy --------------------------------------------------- */
-  --yos-text: #e7ebf1;
-  --yos-text-secondary: #a3adbc;
-  --yos-text-muted: #75808f;
+  --yos-text: #eaf7ff;
+  --yos-text-secondary: #91aaba;
+  --yos-text-muted: #7d95a6;
 
   /* --- identity --------------------------------------------------------- */
-  --yos-accent: #6aa9e0;
-  --yos-accent-strong: #8cc2f0;
-  --yos-focus: #8cc2f0;
+  --yos-accent: var(--yos-cyan);
+  --yos-accent-strong: var(--yos-cyan-strong);
+  --yos-focus: var(--yos-cyan-bright);
 
   /*
    * Status semantics. `-graphic` is for dots, rings, strokes and fills;
-   * `-text` is the AA-contrast variant for text on --yos-surface. Nothing in
-   * the product picks a status colour ad hoc — every component resolves
-   * through these, via `statusSemantics.js`.
+   * `-text` is the AA-contrast variant for text on panels. Nothing in the
+   * product picks a status colour ad hoc — every component resolves through
+   * these, via `statusSemantics.js`.
    */
-  --yos-healthy-graphic: #35a878;
-  --yos-healthy-text: #5fd3a1;
-  --yos-active-graphic: #4a90d9;
-  --yos-active-text: #7db8ee;
-  --yos-waiting-graphic: #6f7c8f;
-  --yos-waiting-text: #a3adbc;
-  --yos-approval-graphic: #c98b28;
-  --yos-approval-text: #e9b657;
-  --yos-warning-graphic: #c98b28;
-  --yos-warning-text: #e9b657;
-  --yos-blocked-graphic: #b8574a;
-  --yos-blocked-text: #ef8f80;
-  --yos-error-graphic: #b8574a;
-  --yos-error-text: #ef8f80;
-  --yos-offline-graphic: #4a545f;
-  --yos-offline-text: #8b95a2;
-  --yos-unknown-graphic: #6b5f96;
-  --yos-unknown-text: #a99ad6;
+  --yos-healthy-graphic: #2fbf86;
+  --yos-healthy-text: var(--yos-green);
+  --yos-active-graphic: var(--yos-cyan);
+  --yos-active-text: var(--yos-cyan-strong);
+  --yos-waiting-graphic: #5f7788;
+  --yos-waiting-text: #a9bccb;
+  --yos-approval-graphic: #e29a2e;
+  --yos-approval-text: var(--yos-amber);
+  --yos-approval: var(--yos-amber);
+  --yos-warning-graphic: #e29a2e;
+  --yos-warning-text: var(--yos-amber);
+  --yos-blocked-graphic: #e04b59;
+  --yos-blocked-text: var(--yos-red);
+  --yos-error-graphic: #e04b59;
+  --yos-error-text: var(--yos-red);
+  --yos-danger-text: var(--yos-red);
+  --yos-offline-graphic: #3d4e5b;
+  --yos-offline-text: #8a9cab;
+  --yos-unknown-graphic: #56687a;
+  --yos-unknown-text: #9fb1c1;
+
+  /* Motion tokens (brief §24). */
+  --yos-dur-fast: 140ms;
+  --yos-dur-normal: 220ms;
+  --yos-dur-panel: 320ms;
+
+  font-family: var(--yos-font-sans);
 
   /* --- depth ------------------------------------------------------------
    * Layering is what separates an operations console from a flat admin page.
@@ -83,9 +122,9 @@
   --yos-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* --- spacing / radius / motion ---------------------------------------- */
-  --yos-radius-sm: 4px;
-  --yos-radius: 8px;
-  --yos-radius-lg: 14px;
+  --yos-radius-sm: 2px;
+  --yos-radius: 3px;
+  --yos-radius-lg: 4px;
   --yos-glow: 0 0 0 1px var(--yos-border-strong), 0 18px 48px -24px #000;
   --yos-motion-slow: 5200ms;
   --yos-motion-medium: 2400ms;
@@ -206,6 +245,470 @@
   box-shadow: var(--yos-depth-2);
 }
 
+/* ==========================================================================
+ * Jarvis console primitives
+ * ========================================================================== */
+
+.yos-root {
+  background-color: var(--yos-bg-1);
+  background-image:
+    linear-gradient(var(--yos-line-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--yos-line-faint) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: -1px -1px;
+}
+
+.yos-mono {
+  font-family: var(--yos-font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+/* Small uppercase engineering label. */
+.yos-label {
+  font-family: var(--yos-font-mono);
+  font-size: 10px;
+  line-height: 1.3;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--yos-text-muted);
+}
+.yos-title {
+  font-family: var(--yos-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--yos-text);
+}
+
+/*
+ * The console frame: one thin cyan hairline, a faint top-lit panel fill and
+ * two corner ticks. Low radius, restrained glow — engineering, not neon.
+ */
+.yos-frame {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgb(13 27 37 / 0.92), rgb(7 16 24 / 0.94));
+  border: 1px solid var(--yos-line);
+  border-radius: var(--yos-radius-lg);
+  box-shadow:
+    inset 0 1px 0 rgb(103 232 255 / 0.05),
+    0 0 0 1px rgb(2 7 11 / 0.6),
+    0 18px 40px -28px rgb(34 184 245 / 0.25);
+}
+.yos-frame::before,
+.yos-frame::after {
+  content: "";
+  position: absolute;
+  inline-size: 10px;
+  block-size: 10px;
+  border-color: var(--yos-cyan-strong);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.yos-frame::before {
+  inset-block-start: -1px;
+  inset-inline-start: -1px;
+  border-block-start: 1px solid;
+  border-inline-start: 1px solid;
+}
+.yos-frame::after {
+  inset-block-end: -1px;
+  inset-inline-end: -1px;
+  border-block-end: 1px solid;
+  border-inline-end: 1px solid;
+}
+.yos-frame-inset {
+  background: rgb(5 10 15 / 0.55);
+  border: 1px solid var(--yos-line-faint);
+  border-radius: var(--yos-radius);
+}
+
+.yos-divider {
+  border-color: var(--yos-line-faint);
+}
+
+/* Tabs: text tabs with a cyan underline for the selected one. */
+.yos-tab {
+  font-family: var(--yos-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--yos-text-muted);
+  border-block-end: 2px solid transparent;
+  transition:
+    color var(--yos-dur-fast) ease-out,
+    border-color var(--yos-dur-fast) ease-out,
+    background-color var(--yos-dur-fast) ease-out;
+}
+.yos-tab:hover {
+  color: var(--yos-text);
+}
+.yos-tab[aria-selected="true"],
+.yos-tab[aria-pressed="true"],
+.yos-tab[aria-current="page"] {
+  color: var(--yos-cyan-bright);
+  border-block-end-color: var(--yos-cyan);
+  background-color: rgb(34 184 245 / 0.08);
+}
+.yos-tab[aria-disabled="true"] {
+  color: var(--yos-text-dim);
+  cursor: not-allowed;
+}
+
+.yos-press {
+  transition:
+    transform var(--yos-dur-fast) ease-out,
+    border-color var(--yos-dur-fast) ease-out,
+    background-color var(--yos-dur-fast) ease-out;
+}
+.yos-press:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.yos-interactive {
+  transition:
+    border-color var(--yos-dur-fast) ease-out,
+    background-color var(--yos-dur-fast) ease-out,
+    box-shadow var(--yos-dur-fast) ease-out;
+}
+.yos-interactive:hover {
+  border-color: var(--yos-line-strong);
+  background-color: rgb(34 184 245 / 0.05);
+}
+.yos-interactive[data-selected="true"] {
+  border-color: var(--yos-cyan);
+  box-shadow:
+    inset 2px 0 0 0 var(--yos-cyan),
+    0 0 18px -10px var(--yos-cyan);
+  background-color: rgb(34 184 245 / 0.07);
+}
+[dir="rtl"] .yos-interactive[data-selected="true"] {
+  box-shadow:
+    inset -2px 0 0 0 var(--yos-cyan),
+    0 0 18px -10px var(--yos-cyan);
+}
+.yos-interactive[data-tone="approval"] {
+  border-color: rgb(255 184 77 / 0.45);
+}
+
+.yos-select {
+  background-color: var(--yos-bg-2);
+  border-color: var(--yos-line);
+  color: var(--yos-text);
+}
+
+.yos-input {
+  background-color: rgb(5 10 15 / 0.7);
+  border: 1px solid var(--yos-line);
+  color: var(--yos-text);
+  border-radius: var(--yos-radius);
+  transition: border-color var(--yos-dur-fast) ease-out;
+}
+.yos-input:focus-within {
+  border-color: var(--yos-cyan);
+}
+.yos-input textarea {
+  background: transparent;
+  color: var(--yos-text);
+  outline: none;
+  resize: none;
+}
+.yos-input textarea::placeholder {
+  color: var(--yos-text-muted);
+}
+
+.yos-status-dot {
+  display: inline-block;
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* ---- Command Center grid ------------------------------------------------ */
+.yos-console {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+.yos-console > [data-area="core"] {
+  order: 1;
+}
+.yos-console > [data-area="attention"] {
+  order: 2;
+}
+.yos-console > [data-area="comms"] {
+  order: 3;
+}
+.yos-console > [data-area="agents"] {
+  order: 4;
+}
+.yos-console > [data-area="context"] {
+  order: 5;
+}
+@media (min-width: 1024px) {
+  .yos-console {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-areas:
+      "attention core"
+      "agents core"
+      "comms comms"
+      "context context";
+  }
+}
+@media (min-width: 1280px) {
+  .yos-console {
+    block-size: 100%;
+    min-block-size: 0;
+    grid-template-columns: 280px minmax(0, 1fr) 340px;
+    grid-template-rows: auto minmax(0, 1.25fr) minmax(0, 1fr);
+    grid-template-areas:
+      "attention core comms"
+      "agents core comms"
+      "agents core context";
+  }
+}
+@media (min-width: 1600px) {
+  .yos-console {
+    grid-template-columns: 310px minmax(0, 1fr) 390px;
+    gap: 10px;
+    padding: 10px;
+  }
+}
+.yos-console > [data-area="attention"] {
+  grid-area: attention;
+}
+.yos-console > [data-area="agents"] {
+  grid-area: agents;
+}
+.yos-console > [data-area="core"] {
+  grid-area: core;
+}
+.yos-console > [data-area="comms"] {
+  grid-area: comms;
+}
+.yos-console > [data-area="context"] {
+  grid-area: context;
+}
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .yos-console > [data-area="comms"],
+  .yos-console > [data-area="context"] {
+    min-block-size: 420px;
+  }
+}
+
+/* ---- System Core -------------------------------------------------------- */
+.yos-core {
+  --yos-core-hue: var(--yos-cyan-strong);
+  --yos-core-hue-soft: rgb(57 213 255 / 0.35);
+  --yos-core-energy: 0;
+  --yos-core-scale: 1;
+  --yos-core-glow: 0.3;
+  --yos-core-offset: 0px;
+  --yos-core-spin: 60s;
+  position: relative;
+  aspect-ratio: 1 / 1;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  max-block-size: 100%;
+}
+.yos-core[data-hue="amber"] {
+  --yos-core-hue: var(--yos-amber);
+  --yos-core-hue-soft: rgb(255 184 77 / 0.35);
+}
+.yos-core[data-hue="critical"] {
+  --yos-core-hue: var(--yos-red);
+  --yos-core-hue-soft: rgb(255 94 108 / 0.3);
+}
+.yos-core[data-hue="neutral"] {
+  --yos-core-hue: #7d95a6;
+  --yos-core-hue-soft: rgb(125 149 166 / 0.22);
+}
+.yos-core svg {
+  overflow: visible;
+}
+.yos-core-spin {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: yos-working var(--yos-core-spin) linear infinite;
+}
+.yos-core-spin-rev {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: yos-working calc(var(--yos-core-spin) * 1.6) linear infinite
+    reverse;
+}
+.yos-core[data-spin="off"] .yos-core-spin,
+.yos-core[data-spin="off"] .yos-core-spin-rev,
+.yos-core[data-paused="true"] .yos-core-spin,
+.yos-core[data-paused="true"] .yos-core-spin-rev,
+.yos-core[data-paused="true"] .yos-core-pulse {
+  animation-play-state: paused;
+}
+.yos-core[data-spin="off"] .yos-core-spin,
+.yos-core[data-spin="off"] .yos-core-spin-rev {
+  animation: none;
+}
+/* Compositor layers for the Core's ambient motion. */
+.yos-core-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.yos-core-halo {
+  position: absolute;
+  inset: 11.7%;
+  border-radius: 999px;
+  opacity: var(--yos-core-glow);
+  pointer-events: none;
+}
+.yos-core-halo > .yos-core-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle,
+    var(--yos-core-hue-soft) 0%,
+    rgb(0 0 0 / 0) 70%
+  );
+  opacity: 0.6;
+}
+.yos-core-ring {
+  position: absolute;
+  border-radius: 999px;
+  border: 1.5px solid var(--yos-core-hue);
+  opacity: 0;
+  pointer-events: none;
+}
+.yos-core-ring[data-pulse-slot="outer"] {
+  inset: 10.7%;
+}
+.yos-core-ring[data-pulse-slot="inner"] {
+  inset: 32.7%;
+}
+/* Audio-driven transform: set per frame from real amplitude. */
+.yos-core-reactive {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  transform: scale(var(--yos-core-scale));
+}
+.yos-core-nucleus {
+  position: absolute;
+  inset: 31%;
+  border-radius: 999px;
+  transform: scale(var(--yos-core-scale));
+}
+.yos-core-nucleus canvas,
+.yos-core-nucleus svg {
+  inline-size: 100%;
+  block-size: 100%;
+  display: block;
+}
+
+@keyframes yos-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+@keyframes yos-pulse-ring {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+.yos-core-pulse {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+}
+.yos-core[data-pulse="breathe"] .yos-core-pulse[data-pulse-slot="halo"],
+.yos-core[data-pulse="voice"] .yos-core-pulse[data-pulse-slot="halo"] {
+  animation: yos-breathe 5.2s ease-in-out infinite;
+}
+.yos-core[data-pulse="inner"] .yos-core-pulse[data-pulse-slot="inner"] {
+  animation: yos-pulse-ring 1.6s ease-out infinite;
+}
+.yos-core[data-pulse="outer"] .yos-core-pulse[data-pulse-slot="outer"] {
+  animation: yos-pulse-ring 1.3s ease-out infinite;
+}
+.yos-core[data-pulse="amber"] .yos-core-pulse[data-pulse-slot="outer"] {
+  animation: yos-pulse-ring 2.4s ease-out infinite;
+}
+.yos-core[data-pulse="amber-slow"] .yos-core-pulse[data-pulse-slot="halo"] {
+  animation: yos-breathe 7s ease-in-out infinite;
+}
+.yos-core[data-pulse="critical"] .yos-core-pulse[data-pulse-slot="outer"] {
+  animation: yos-pulse-ring 3.2s ease-out infinite;
+}
+
+/* Handoff: one traveling pulse along a real edge. */
+@keyframes yos-travel {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.yos-handoff-pulse {
+  stroke-dasharray: 0.08 0.92;
+  animation: yos-travel 2.2s linear infinite;
+}
+.yos-handoff-pulse[data-once="true"] {
+  animation-iteration-count: 2;
+}
+
+/* Brief trace pulse for a newly arrived event row. */
+@keyframes yos-trace {
+  from {
+    background-color: rgb(57 213 255 / 0.16);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.yos-trace-new {
+  animation: yos-trace 1.2s ease-out 1;
+}
+@keyframes yos-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.yos-verify-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.yos-verify-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(70 230 165 / 0.18), transparent);
+  animation: yos-sweep 0.9s ease-out 1;
+  pointer-events: none;
+}
+
+/* Scrollbars inside the console stay thin and on-palette. */
+.yos-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(75 202 255 / 0.25) transparent;
+}
+
 /* The constellation canvas sits deeper than the operator panels, so the eye
    reads it as the stage rather than another card. */
 .yos-canvas {
@@ -238,4 +741,88 @@
 /* Utility used by list rows so hit targets stay >= 44px on touch. */
 .yos-touch-target {
   min-block-size: 44px;
+}
+
+/* The Core cell sizes the Core to the largest square that fits. */
+.yos-core-stage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.yos-core-stage > .yos-core-cell {
+  grid-column: 1 / -1;
+}
+.yos-core-side {
+  display: contents;
+}
+@media (max-width: 767.98px) {
+  .yos-core-stage[data-panels="closed"] .yos-core-side {
+    display: none;
+  }
+}
+.yos-core-cell {
+  container-type: size;
+  inline-size: 100%;
+  block-size: min(92vw, 420px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.yos-core-cell > .yos-core {
+  inline-size: min(100cqw, 100cqh);
+  block-size: min(100cqw, 100cqh);
+}
+@media (min-width: 768px) {
+  .yos-core-stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(150px, 176px) minmax(0, 1fr) minmax(150px, 176px);
+    min-block-size: 540px;
+  }
+  .yos-core-stage > .yos-core-cell {
+    position: absolute;
+    inset: 0;
+    block-size: auto;
+  }
+  .yos-core-side {
+    position: relative;
+    z-index: var(--yos-z-raised);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+  }
+  .yos-core-side[data-side="start"] {
+    grid-column: 1;
+  }
+  .yos-core-side[data-side="end"] {
+    grid-column: 3;
+  }
+  .yos-core-side .yos-frame-inset {
+    background: rgb(5 12 18 / 0.88);
+  }
+}
+@media (min-width: 1280px) {
+  .yos-core-stage {
+    flex: 1 1 0;
+    min-block-size: 0;
+  }
+}
+
+/*
+ * Arabic is a connected script: tracking and forced uppercase break letter
+ * joining. Technical LTR values keep their mono treatment via `dir="ltr"`.
+ */
+[dir="rtl"] .yos-title,
+[dir="rtl"] .yos-label,
+[dir="rtl"] .yos-mono,
+[dir="rtl"] .yos-tab {
+  letter-spacing: 0;
+  /* Monospace fallbacks render Arabic in unjoined forms; use the sans stack. */
+  font-family: var(--yos-font-sans);
+}
+[dir="rtl"] [dir="ltr"].yos-mono,
+[dir="rtl"] .yos-mono [dir="ltr"] {
+  letter-spacing: 0.06em;
+  font-family: var(--yos-font-mono);
 }

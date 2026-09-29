@@ -17,6 +17,9 @@ export const SUPPORTED_SCHEMA_VERSION = 1;
 // Enough to absorb realistic duplicate bursts without growing unbounded in a
 // tab left open for days.
 const MAX_SEEN_IDS = 500;
+// Recent envelopes kept for the Command Center's safe stage/activity readout.
+// Only identifiers and types are kept — never event payload text.
+const MAX_RECENT_EVENTS = 30;
 
 export const CONNECTION = Object.freeze({
   IDLE: "IDLE",
@@ -44,6 +47,25 @@ export function initialRealtimeState(cursor = 0) {
     // Monotonic counter the provider uses to trigger effects without having to
     // diff the whole object.
     resyncNonce: 0,
+    // Newest first. Each entry is a safe summary of an applied envelope.
+    recent: [],
+  };
+}
+
+function summarize(envelope, receivedAt) {
+  return {
+    id: envelope.id,
+    sequence: Number(envelope.sequence),
+    type: typeof envelope.type === "string" ? envelope.type : "unknown",
+    aggregateType:
+      typeof envelope.aggregateType === "string"
+        ? envelope.aggregateType
+        : null,
+    aggregateId:
+      typeof envelope.aggregateId === "string" ? envelope.aggregateId : null,
+    occurredAt:
+      typeof envelope.occurredAt === "string" ? envelope.occurredAt : null,
+    receivedAt,
   };
 }
 
@@ -144,12 +166,17 @@ export function realtimeReducer(state, action) {
       // and reload the snapshot to recover whatever fell in the hole.
       const gapped = sequence > state.lastAppliedSequence + 1;
 
+      const receivedAt = action.at || new Date().toISOString();
       const next = {
         ...state,
         cursor: sequence,
         lastAppliedSequence: sequence,
         seenIds: remember(state.seenIds, envelope.id),
-        lastEventAt: action.at || new Date().toISOString(),
+        lastEventAt: receivedAt,
+        recent: [
+          summarize(envelope, receivedAt),
+          ...(state.recent || []),
+        ].slice(0, MAX_RECENT_EVENTS),
         touched: touch(state.touched, envelope),
         connection: CONNECTION.LIVE,
       };
