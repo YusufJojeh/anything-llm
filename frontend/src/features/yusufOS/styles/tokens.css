@@ -826,3 +826,13 @@
   letter-spacing: 0.06em;
   font-family: var(--yos-font-mono);
 }
+
+/* Touch devices: every control reaches the 44px minimum target. */
+@media (pointer: coarse) {
+  .yos-root .yos-tab,
+  .yos-root .yos-select,
+  .yos-root button,
+  .yos-root a[href] {
+    min-block-size: 44px;
+  }
+}
