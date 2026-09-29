@@ -1,5 +1,174 @@
 # Gate History
 
+## Text command front door [VERIFIED_BY_TEST, NOT LIVE_VALIDATED — 2026-09-06]
+
+Closed a real product gap surfaced by this same session's own investigation: a spoken voice command
+produced no task/run/approval, and Yusuf OS had no way to originate a command other than the
+microphone. Added a typed-text composer to `VoiceConsole.jsx` that calls the exact same
+`runCommand()`/`yusufApi.runVoiceCommand()`/`POST /voice/commands`/`VoiceService.command()` chain
+the mic already used — zero backend changes, zero duplicate command path. `taskId`/`runId`
+(already returned by `VoiceService.command()`, previously discarded by the frontend) now render as
+real links, gated on the server actually returning them.
+
+**No bug found in existing code this time** — unlike most prior entries in this log, the
+independent review's 10-point adversarial pass found all 10 claims CONFIRMED with 0 additional
+P0/P1. The only issues were self-caught before that review: a non-square 44×40 send button (Tailwind
+`size-10` overridden on the height axis only by `.yos-touch-target`'s `min-block-size: 44px`,
+fixed to `size-11`), and one test with a false-positive-prone assertion (`localStorage.setItem`
+never called at all — broke on i18next's own unrelated `i18nextLng` write; rewritten to assert no
+CSRF/session/command-shaped key specifically).
+
+**Deliberately deferred to Yusuf, not skipped:** the actual live command submission and the
+approval-proof commissioning test. The CAVEMAN prompt's own wording names Yusuf as the one who
+types these in the real UI; this session verified everything else live (rendering, typing, keyboard
+behavior, disabled states, 375px mobile, the button-size fix) but did not click Send on a real
+command, consistent with the session's own earlier-established pattern that Yusuf originates real
+consequential governed actions. `TEXT_COMMAND_FRONT_DOOR` is `VERIFIED_BY_TEST`, not yet
+`LIVE_VALIDATED`. See `HUMAN_ACTION_REQUIRED.md`, `SESSION_HANDOFF.md`, `TEST_BASELINE.md`.
+
+Full frontend regression: 17 suites/220 tests (was 195); lint, production build, `git diff --check`
+all clean.
+
+## CAVEMAN AUDIT continuation — frontend coverage gap + realtime bug fix [VERIFIED_BY_TEST, 2026-09-06]
+
+Closed a real frontend test-coverage gap (7 of 11 `/os` route pages had zero direct render-level
+tests) and found a genuine production bug while doing it.
+
+1. **`ApprovalReview.jsx`'s realtime auto-refresh was silently disabled.** The shared
+   `useYusufResource(loader, {watch=null}={})` hook (`YusufOSProvider.jsx:361`, exactly 2 params)
+   was called with a stray 3rd positional array argument:
+   `useYusufResource(load, [approvalId, reloadKey], {watch: realtime.lastAppliedSequence})`. JS
+   destructured `{watch}` from the array (yielding `undefined`), and the real `{watch: ...}` object
+   landed in an ignored 3rd argument. Every sibling page (`Tasks.jsx`, `Runs.jsx`, `TaskDetail.jsx`,
+   `RunDetail.jsx`, `Approvals.jsx`, `Agents.jsx`, `AgentDetailPanel.jsx`) already used the correct
+   2-argument form. Net effect: the highest-stakes L3/L4 approval-decision screen never re-fetched
+   on live SSE updates, only on the operator's own `decide()` call — it could render stale
+   PENDING/decidable state for an approval already decided, invalidated, or expired elsewhere.
+   Fixed by removing the stray argument. Commit `83484ef6`.
+2. **Added 28 new tests** across `listAndDetailPages.test.jsx`, `commandCenterAndApprovals.test.jsx`,
+   and `approvalReview.test.jsx`, covering `Tasks`, `Runs`, `Projects`, `TaskDetail`, `RunDetail`,
+   `CommandCenter`, `Approvals`, and `ApprovalReview` across LOADING/EMPTY/POPULATED/ERROR states.
+   Every asserted translation string was checked against the real `en.js`. No other code defects
+   found in these pages — all already met the project's honesty/accessibility bar. Commit
+   `83484ef6` (same commit as the fix; the tests are what surfaced it).
+3. **Regression-test verification discipline applied twice over.** Used `git stash push -- <file>`
+   to revert just the fix and confirmed the resync test fails deterministically against the pre-fix
+   code (times out waiting for a 2nd `approvalReview` call). This also caught a bug in the test's
+   own first draft — a bare `.rerender(<ApprovalReview />)` dropped the MemoryRouter/I18nextProvider
+   context mid-test, producing an untrustworthy "1 passed" result with a hidden uncaught exception
+   from `react-router-dom`'s `LinkWithRef` — fixed by reconstructing the full wrapper tree
+   (`I18nextProvider` + `MemoryRouter`) on every render/rerender call.
+4. **Cold independent review**: 0 P0, 0 P1, verdict SAFE TO COMMIT. Two P2 notes both addressed —
+   confirmed the two stale-doc files described below weren't accidentally widened in scope, and
+   noted (correctly) that the two coverage-only test files broaden the diff slightly beyond the
+   strict bug fix, judged acceptable as regression coverage landing in the same commit.
+5. **Stale-doc corrections** (docs-only, commit `28035163`), from a separate background
+   release/reliability audit that re-verified every open `KNOWN_RISKS.md` item against current
+   code: `KNOWN_RISKS.md` #5 (browser-session security — the governed bridge contract is now built,
+   not "unresolved by design") and #12 (agent reasoning's production default is already the real
+   provider-routed client, not "not yet wired") were both stale framings superseded by Phases H/I
+   and R/T respectively; #10's local-ahead-of-remote commit count was stale ("four" → currently 48,
+   with a note to re-derive rather than trust a written number). Also corrected
+   `docs/yusuf-os/management/RISKS.md` R-006 (SQLite contention is a reproduced live issue this
+   session, not a hypothetical future-datastore concern — same KEEP_DEFERRED conclusion, corrected
+   description) and R-007 (notification-kind labeling was already resolved in commit `2c030aae`,
+   marked as still-open in error) and R-010 (same stale commit count as #10).
+6. **Live browser pass** against the pre-existing dev-only fixture harness at 1440/768/390px and in
+   Arabic/RTL found zero defects (see `TEST_BASELINE.md` for the detailed checklist). This is
+   fixture data through real components, not a substitute for Yusuf's own real-unlocked-session
+   pass.
+
+Full regression: backend 88 suites/1075 tests (one suite's parallel-only SQLite contention flake
+reproduced 2/2 green in isolation — `PARALLEL_WINDOWS_SQLITE_CONTENTION_FLAKE`, not a regression);
+frontend 17 suites/202 tests; production build clean. Local commits: `83484ef6`, `28035163`.
+
+## CAVEMAN AUDIT continuation — Post-V1 hardening pass [VERIFIED_BY_TEST, 2026-09-05]
+
+Four independent background-agent audits (security kernel, Browser Broker/voice, domain
+verticals/scheduler, agent runtime/reasoning loop) ran against the post-Agent-Workspace tree
+looking for orphans, races, TOCTOU, idempotency gaps, and security boundary violations. No P0s or
+unresolved P1s. Six real, locally-fixable issues were fixed, each with a regression test:
+
+1. **TOCTOU in `AgentRunCoordinator.startRun`** — the active-run count and the QUEUED→RUNNING
+   transition were two separate DB calls; wrapped both in one `$transaction`. Commit `2566344c`.
+2. **`ExecutionCoordinator` misclassified a `prepare()` failure as `FAILED_UNKNOWN`** — `prepare()`
+   runs strictly before `execute()` (the only method allowed to cause a real effect), so any
+   failure there must terminalize `FAILED`, never `FAILED_UNKNOWN`. Split the combined try/catch
+   so `prepare()`'s catch always finalizes `FAILED`. Commit `fbfd04b0`.
+3. **Unbounded recursion depth** in `canonicalJson.js`'s `normalize()` and `redaction.js`'s
+   `assertReferencesOnly()`/`redactForPersistence()` — added a 64-level depth cap; the validator
+   throws at the cap, the best-effort sanitizer degrades to a placeholder (different contracts,
+   deliberately different failure modes). Commit `5a3102c6`.
+4. **`CdpBrowserDriver.readPageState()` could hang forever** — `page.setDefaultTimeout()` only
+   bounds Puppeteer's navigation/wait helpers, not `evaluate()`. Wrapped `evaluate()` in a
+   `Promise.race` against the existing `NAVIGATION_TIMEOUT_MS`. Commit `022284ec`.
+5. **Raw `yusuf_notifications.kind` enum leaking into `/os` UI text** (e.g. `SCHEDULER_FAILURE`
+   shown verbatim, untranslated). Added an `attention.notificationKind` label map (English +
+   Arabic) with a safe fallback for a future kind the UI hasn't caught up with. Commit `2c030aae`.
+6. **`AgentReasoningLoop`'s COMPLETE-decision evidence check used a stale snapshot** —
+   `run.task.evidence` is loaded once by `#loadRun` before the reasoning loop starts, but evidence
+   can be recorded mid-run (`#projectGovernedEvidence`, after every `CALL_CAPABILITY`). A
+   legitimate self-cited completion could be wrongly rejected as unknown. Re-query
+   `yusuf_run_evidence` by `taskId` at validation time instead. Commit `c2b8a909`.
+
+Four further findings were confirmed real but deliberately left deferred (no live reproducible
+failure, or out of this session's stated scope per `CLAUDE.md`'s "never refactor stable
+security-critical code without necessity" / "do not automatically redesign schema") — see
+`KNOWN_RISKS.md` #20-24 for each with its reasoning, most notably that neither the production
+Prisma/SQLite client nor the test harness configures a `busy_timeout` PRAGMA, which is what
+produced this session's own SQLite-contention test flake (proven flake, not a regression, via
+isolated reruns — see `TEST_BASELINE.md`).
+
+Full regression (serial, to avoid the contention above): 57 suites, 771 passed, 1 optional Ollama
+skip, 0 failed. Frontend: 14 suites, 174 passed. Prisma schema valid; lint clean after one
+formatting auto-fix; `git diff --check` clean. Commits `2566344c`, `fbfd04b0`, `5a3102c6`,
+`022284ec`, `2c030aae`, `c2b8a909`, `cd9483c7`.
+
+**Fresh independent review** (an agent with no memory of the above, re-reading all six diffs cold
+against their surrounding non-diff code): **0 P0 / 0 P1**, all six fixes SOUND, all six regression
+tests confirmed genuine (fail before the fix for the right reason, pass after it for the right
+reason — not accidental passes). Two P2 notes recorded in `KNOWN_RISKS.md` #25-26 (a cosmetic
+missing-null-guard in the notification-kind label, and a design note that the new evidence
+re-query is task-scoped rather than run-scoped — confirmed to reproduce pre-existing scoping
+semantics, not a new hole). Gate: **PASS**.
+
+## Phase AE — Final Full-System E2E [VERIFIED_BY_TEST, 2026-08-24]
+
+The final V1 release sweep found a real stale integration fixture attempting to
+persist the removed `workerStatus` field. It now uses the current durable
+worker failure fields, matching the Dashboard projection. Command Center and
+core Engineering/Career/Reasoning E2E commands completed after the repair;
+frontend Yusuf OS tests and production build completed. Windows Jest fixture
+output suppressed its aggregate summary, so no count is claimed. Final
+independent review passed **P0=0/P1=0**. Inherited P2s: non-SQLite audit
+sequence contention, application-only scheduler/notification DB constraints,
+and raw notification labels.
+
+## Phase X — Real Browser Integration Readiness [VERIFIED_BY_TEST, 2026-08-24]
+
+Hardened the human-controlled CDP attachment path: numeric-loopback discovery, bounded streamed
+response, independently validated local browser websocket, no endpoint disclosure, and a
+cookie-only identity refusal. The PromptAssembler has explicit §16 injection coverage. Fresh
+review passed P0=0/P1=0/P2=0; no browser was attached and no external mutation occurred. Commit
+`90e52eda`.
+
+## Phase W — Agentic Career E2E [VERIFIED_BY_TEST, 2026-08-22]
+
+Proved the real model-driven Career path including cited evidence, exact L3 approval, zero
+pre-approval external effect, independently verified fixture submission, causal APPLIED status,
+hostile Inbox containment, linked INTERVIEWING, and Command Center visibility. A fresh review
+found and closed four P1s plus an internal-UUID disclosure introduced during hardening. Final gate:
+PASS, P0=0/P1=0/P2=2. Commits `270c2a6e`, `3876a449`.
+
+## Phase V — Agentic Engineering E2E [VERIFIED_BY_TEST, 2026-08-22]
+
+Proved the real model-driven engineering path with a disposable local git fixture: Chief handoff,
+Engineering’s governed branch/read/write/test/stage/commit operations, receipt-derived evidence,
+bounded independent review context, Reviewer read-only verdict, and server-owned task completion.
+Fresh review passed P0=0/P1=0/P2=1. Baseline excluding the unfinished Phase W fixture: 54 suites,
+729 passed plus one optional Ollama skip; lint and diff checks passed. Commits `614f6f48` and
+`d63e451c`.
+
 ## Phase U — Voice / Audio Plane [VERIFIED_BY_TEST, 2026-08-21]
 
 Added the privacy-governed Voice Plane: local-first STT/TTS with explicit browser/cloud opt-in,

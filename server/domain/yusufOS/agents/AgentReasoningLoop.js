@@ -247,7 +247,13 @@ class AgentReasoningLoop {
       this.db.yusuf_run_evidence.findMany({
         where: { taskId: run.taskId },
         orderBy: { id: "asc" },
-        select: { uuid: true, kind: true, status: true, summary: true, digest: true },
+        select: {
+          uuid: true,
+          kind: true,
+          status: true,
+          summary: true,
+          digest: true,
+        },
       }),
       this.db.yusuf_action_intents.findMany({
         where: { taskId: run.taskId, runId: inbound.fromRunId },
@@ -659,14 +665,16 @@ class AgentReasoningLoop {
               key: run.task.project.key,
               name: run.task.project.name,
               metadata: run.task.project.metadata,
-              repositories: run.task.project.gitRepositories.map((repository) => ({
-                uuid: repository.uuid,
-                key: repository.key,
-                defaultBranch: repository.defaultBranch,
-                protectedBranches: repository.protectedBranches,
-                allowLocalCommit: repository.allowLocalCommit,
-                allowFeaturePush: repository.allowFeaturePush,
-              })),
+              repositories: run.task.project.gitRepositories.map(
+                (repository) => ({
+                  uuid: repository.uuid,
+                  key: repository.key,
+                  defaultBranch: repository.defaultBranch,
+                  protectedBranches: repository.protectedBranches,
+                  allowLocalCommit: repository.allowLocalCommit,
+                  allowFeaturePush: repository.allowFeaturePush,
+                })
+              ),
               commands: run.task.project.commands
                 .filter((command) => command.enabled)
                 .map((command) => ({
@@ -975,8 +983,21 @@ class AgentReasoningLoop {
 
       // COMPLETE ends only this Agent's turn. It does not modify the Task,
       // create evidence, submit a review, or invoke CompletionPolicy.
+      //
+      // `run.task.evidence` was loaded once before this reasoning loop
+      // started and never refreshed, but evidence can be recorded mid-run
+      // (#projectGovernedEvidence, called after every CALL_CAPABILITY for
+      // Engineering). A run that itself cites evidence it just created in
+      // this same run would otherwise see that real, persisted evidence as
+      // unknown and be terminalized on a false VALIDATION_ERROR. This fails
+      // closed (no forged evidence gets through either way), but re-reading
+      // the current set directly avoids rejecting a legitimate completion.
+      const currentEvidence = await this.db.yusuf_run_evidence.findMany({
+        where: { taskId: run.taskId },
+        select: { uuid: true },
+      });
       const persistedEvidenceRefs = new Set(
-        run.task.evidence.map((item) => item.uuid)
+        currentEvidence.map((item) => item.uuid)
       );
       const unknownEvidenceRefs = decision.evidenceRefs.filter(
         (reference) => !persistedEvidenceRefs.has(reference)

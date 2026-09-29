@@ -1,7 +1,14 @@
 const { createHash } = require("crypto");
 const { YusufOSError, ErrorCodes } = require("../errors/YusufOSError");
 
-function normalize(value, seen = new WeakSet()) {
+// Bounds recursion depth so a maliciously or accidentally deeply-nested
+// payload fails closed with a clean, typed error instead of a raw
+// RangeError from stack exhaustion. No legitimate governed payload in this
+// system (ActionIntent payloads, evidence, policy metadata) nests anywhere
+// near this deep.
+const MAX_DEPTH = 64;
+
+function normalize(value, seen = new WeakSet(), depth = 0) {
   if (value === null) return null;
   if (typeof value === "string") return value.normalize("NFC");
   if (typeof value === "boolean") return value;
@@ -28,13 +35,20 @@ function normalize(value, seen = new WeakSet()) {
       "Canonical JSON cannot contain cyclic values.",
       { status: 422 }
     );
+  if (depth >= MAX_DEPTH)
+    throw new YusufOSError(
+      ErrorCodes.VALIDATION_ERROR,
+      `Canonical JSON exceeds the maximum nesting depth of ${MAX_DEPTH}.`,
+      { status: 422 }
+    );
   seen.add(value);
   let result;
-  if (Array.isArray(value)) result = value.map((item) => normalize(item, seen));
+  if (Array.isArray(value))
+    result = value.map((item) => normalize(item, seen, depth + 1));
   else {
     result = {};
     for (const key of Object.keys(value).sort())
-      result[key.normalize("NFC")] = normalize(value[key], seen);
+      result[key.normalize("NFC")] = normalize(value[key], seen, depth + 1);
   }
   seen.delete(value);
   return result;

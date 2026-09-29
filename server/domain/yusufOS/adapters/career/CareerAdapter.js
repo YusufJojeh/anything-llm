@@ -2,12 +2,14 @@ const prisma = require("../../../../utils/prisma");
 const { GovernedAdapter } = require("../../execution/AdapterContract");
 const { canonicalHash } = require("../../security/canonicalJson");
 const { isValidTransition } = require("../../career/transitions");
+const { verifiedSubmission } = require("./requestBuilders");
 
 const CAPABILITIES = Object.freeze([
   "career.read_opportunities",
   "career.record_opportunity",
   "career.update_status",
   "career.prepare_application",
+  "career.confirm_verified_application",
 ]);
 const RESOURCE_TYPE = "CAREER_OPPORTUNITY";
 const LIST_SCAN_LIMIT = 500;
@@ -170,6 +172,10 @@ class CareerAdapter extends GovernedAdapter {
             throw certainFailure(
               `Illegal transition: ${existing.status} -> ${target.status}.`
             );
+          if (target.status === "APPLIED")
+            throw certainFailure(
+              "APPLIED requires career.confirm_verified_application."
+            );
           // Only a real string replaces notes — omitting notes leaves the
           // existing value untouched. There is deliberately no way to clear
           // notes via update_status; recording a fresh opportunity is the
@@ -188,6 +194,41 @@ class CareerAdapter extends GovernedAdapter {
           const row = await this.db.yusuf_career_opportunities.update({
             where: { uuid: target.uuid },
             data: { status: target.status, notes, digest },
+          });
+          return {
+            outcome: "SUCCEEDED",
+            externalReference: `career:${row.uuid}`,
+            result: { uuid: row.uuid, status: row.status, digest: row.digest },
+          };
+        }
+        case "career.confirm_verified_application": {
+          const existing = await this.db.yusuf_career_opportunities.findUnique({
+            where: { uuid: target.uuid },
+          });
+          if (!existing)
+            throw certainFailure(`Unknown career opportunity: ${target.uuid}`);
+          if (!isValidTransition(existing.status, "APPLIED"))
+            throw certainFailure(
+              `Illegal transition: ${existing.status} -> APPLIED.`
+            );
+          const submission = await verifiedSubmission(
+            {
+              uuid: target.uuid,
+              submissionIntentUuid: payload.submissionIntentUuid,
+            },
+            this.db
+          );
+          if (submission.taskId !== prepared.intent.taskId)
+            throw certainFailure(
+              "The verified submission and Career confirmation must belong to the same task."
+            );
+          const notes =
+            existing.notes ||
+            "Application confirmed by verified browser submission.";
+          const digest = entryDigest({ ...existing, status: "APPLIED", notes });
+          const row = await this.db.yusuf_career_opportunities.update({
+            where: { uuid: target.uuid },
+            data: { status: "APPLIED", notes, digest },
           });
           return {
             outcome: "SUCCEEDED",

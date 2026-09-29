@@ -7,6 +7,9 @@ import {
   buildSummary,
   buildAttentionQueue,
   CORE_STATES,
+  deriveWorkspaceState,
+  buildWorkspaceGroups,
+  WORKSPACE_STATES,
 } from "../state/commandCenterModel";
 import { TONES } from "../state/statusSemantics";
 import { dashboardFixture, rosterFixture } from "./fixtures";
@@ -262,9 +265,163 @@ describe("attention queue", () => {
     expect(queue.map((item) => item.kind)).toContain("AUDIT_STALE");
   });
 
+  test("surfaces durable notification attention without inventing an approval", () => {
+    const queue = buildAttentionQueue(
+      dashboardFixture({
+        notificationAttentionQueue: [
+          {
+            notificationId: "notice-1",
+            kind: "SCHEDULER_FAILURE",
+            severity: "WARNING",
+            summary: "Retention retry is pending.",
+          },
+        ],
+      })
+    );
+    expect(queue).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "notification:notice-1",
+          kind: "NOTIFICATION",
+          tone: TONES.WARNING,
+          href: "/os/system",
+          values: expect.objectContaining({
+            notificationKind: "SCHEDULER_FAILURE",
+          }),
+        }),
+      ])
+    );
+  });
+
   test("UNCHECKED does not raise a false alarm and does not read as healthy", () => {
     // UNCHECKED is not an attention item (nothing is known to be wrong), but it
     // is also never rendered as VALID — that is asserted in the status tests.
     expect(buildAttentionQueue(dashboardFixture())).toEqual([]);
+  });
+});
+
+describe("Agent Workspace console state", () => {
+  test("no asserted agent status is idle", () => {
+    expect(
+      deriveWorkspaceState({ agentStatus: null, runStatus: null, intents: [] })
+    ).toBe(WORKSPACE_STATES.IDLE);
+  });
+
+  test("IDLE and DISABLED agent statuses are idle regardless of a stale run", () => {
+    expect(
+      deriveWorkspaceState({
+        agentStatus: "IDLE",
+        runStatus: "COMPLETED",
+        intents: [],
+      })
+    ).toBe(WORKSPACE_STATES.IDLE);
+    expect(
+      deriveWorkspaceState({
+        agentStatus: "DISABLED",
+        runStatus: "RUNNING",
+        intents: [],
+      })
+    ).toBe(WORKSPACE_STATES.IDLE);
+  });
+
+  test("a running run with no capability request yet is thinking, not working", () => {
+    expect(
+      deriveWorkspaceState({
+        agentStatus: "RUNNING",
+        runStatus: "RUNNING",
+        intents: [],
+      })
+    ).toBe(WORKSPACE_STATES.THINKING);
+  });
+
+  test("a running run with an executing intent is using a tool", () => {
+    expect(
+      deriveWorkspaceState({
+        agentStatus: "RUNNING",
+        runStatus: "RUNNING",
+        intents: [{ status: "AUTHORIZED" }, { status: "EXECUTING" }],
+      })
+    ).toBe(WORKSPACE_STATES.USING_TOOL);
+  });
+
+  test("a running run with a settled intent and nothing executing is working", () => {
+    expect(
+      deriveWorkspaceState({
+        agentStatus: "RUNNING",
+        runStatus: "RUNNING",
+        intents: [{ status: "VERIFIED" }],
+      })
+    ).toBe(WORKSPACE_STATES.WORKING);
+  });
+
+  test.each([
+    ["WAITING_APPROVAL", WORKSPACE_STATES.WAITING_APPROVAL],
+    ["WAITING_TOOL", WORKSPACE_STATES.USING_TOOL],
+    ["BLOCKED", WORKSPACE_STATES.BLOCKED],
+    ["COMPLETED", WORKSPACE_STATES.COMPLETE],
+    ["FAILED", WORKSPACE_STATES.ERROR],
+    ["FAILED_UNKNOWN", WORKSPACE_STATES.ERROR],
+    ["CANCELLED", WORKSPACE_STATES.ERROR],
+  ])("run status %s maps to %s", (runStatus, expected) => {
+    expect(
+      deriveWorkspaceState({ agentStatus: "WAITING", runStatus, intents: [] })
+    ).toBe(expected);
+  });
+});
+
+describe("Agent Workspace department grouping", () => {
+  test("falls back to a single ungrouped group when /runtime has not loaded", () => {
+    const agents = buildAgents(dashboardFixture(), rosterFixture());
+    const groups = buildWorkspaceGroups({ runtime: null, agents });
+    expect(groups).toEqual([{ departmentId: null, name: null, agents }]);
+  });
+
+  test("groups the live roster by real Department, keyed by agentId", () => {
+    const agents = buildAgents(dashboardFixture(), rosterFixture());
+    const runtime = {
+      departments: [
+        {
+          departmentId: "engineering",
+          name: "Engineering",
+          mission: "Build.",
+          agents: [{ agentId: "engineering" }, { agentId: "reviewer" }],
+        },
+        {
+          departmentId: "system_core",
+          name: "System Core",
+          mission: "Coordinate.",
+          agents: [{ agentId: "chief_of_staff" }],
+        },
+      ],
+    };
+    const groups = buildWorkspaceGroups({ runtime, agents });
+    expect(groups).toHaveLength(2);
+    expect(groups[0].agents.map((a) => a.agentId)).toEqual([
+      "engineering",
+      "reviewer",
+    ]);
+    expect(groups[1].agents.map((a) => a.agentId)).toEqual(["chief_of_staff"]);
+    // The grouped Agent carries the live view-model object, not a copy.
+    expect(groups[0].agents[0].status).toBe("RUNNING");
+  });
+
+  test("an agent reporting live status but belonging to no known Department still appears", () => {
+    const dashboard = dashboardFixture({
+      agentStatuses: [{ agentId: "ghost", status: "RUNNING" }],
+    });
+    const agents = buildAgents(dashboard, rosterFixture());
+    const runtime = {
+      departments: [
+        {
+          departmentId: "engineering",
+          name: "Engineering",
+          mission: "Build.",
+          agents: [{ agentId: "engineering" }],
+        },
+      ],
+    };
+    const groups = buildWorkspaceGroups({ runtime, agents });
+    const ungrouped = groups.find((group) => group.departmentId === null);
+    expect(ungrouped.agents.map((a) => a.agentId)).toContain("ghost");
   });
 });

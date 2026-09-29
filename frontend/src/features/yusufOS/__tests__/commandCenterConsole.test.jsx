@@ -162,7 +162,7 @@ describe("Jarvis Command Center", () => {
     renderWithI18n(<CommandCenter />);
     await flush();
     const box = screen.getByRole("textbox", {
-      name: "Send a command to the Chief of Staff…",
+      name: "Type a command",
     });
     fireEvent.change(box, { target: { value: "line one" } });
     fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
@@ -174,9 +174,7 @@ describe("Jarvis Command Center", () => {
     // While in flight the Core shows processing and the send button is disabled.
     await flush();
     expect(document.querySelector(".yos-core").dataset.mode).toBe("THINKING");
-    expect(
-      screen.getByRole("button", { name: "Command in progress" })
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Send command" })).toBeDisabled();
     await act(async () =>
       resolve({
         taskId: "t-1",
@@ -217,7 +215,7 @@ describe("Jarvis Command Center", () => {
     renderWithI18n(<CommandCenter />);
     await flush();
     const box = screen.getByRole("textbox", {
-      name: "Send a command to the Chief of Staff…",
+      name: "Type a command",
     });
     fireEvent.change(box, { target: { value: "retry me" } });
     fireEvent.keyDown(box, { key: "Enter" });

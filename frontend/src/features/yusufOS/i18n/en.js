@@ -49,6 +49,8 @@ export default {
     notInstalled: "Not installed",
     noModels: "No installed models were reported.",
     reachable: "Reachable",
+    viewFull: "View full runtime console",
+    unavailable: "Runtime status has not been loaded yet.",
     configured: "Configured",
     notConfigured: "Not configured",
     keySafe:
@@ -173,6 +175,7 @@ export default {
     emptyDetail:
       "No pending approvals, no blocked work, no unverified external effects.",
     open: "Open",
+    acknowledge: "Acknowledge",
     count_one: "{{count}} item needs you",
     count_other: "{{count}} items need you",
     kind: {
@@ -186,6 +189,21 @@ export default {
       RECONCILIATION_PENDING:
         "{{count}} external effect(s) awaiting verification",
       ADAPTER_OFFLINE: "Adapter {{adapterId}} is {{status}}",
+      NOTIFICATION: "{{notificationKind}}",
+    },
+    // Labels for the raw yusuf_notifications.kind enum (server/domain/yusufOS/notifications/NotificationService.js),
+    // substituted into attention.kind.NOTIFICATION above. Falls back to the
+    // raw kind string for a future kind this list has not caught up with.
+    notificationKind: {
+      APPROVAL_NEEDED: "Approval needed",
+      TASK_BLOCKED: "Task blocked",
+      EXECUTION_UNKNOWN: "Execution outcome unknown",
+      MONITORING_BREACH: "Monitoring breach",
+      ADAPTER_OFFLINE: "Adapter offline",
+      SCHEDULER_FAILURE: "Scheduler failure",
+      MODEL_UNAVAILABLE: "Model unavailable",
+      BROWSER_DISCONNECTED: "Browser disconnected",
+      INBOX_IMPORTANT: "Important inbox message",
     },
   },
   agent: {
@@ -326,6 +344,10 @@ export default {
     reconciliationPending_other:
       "{{count}} external effects may have occurred and are not yet proven.",
     adapters: "Execution adapters",
+    scheduler: "Scheduler",
+    schedulerNone: "No durable schedules are configured.",
+    schedulerNext: "Next run {{time}}",
+    schedulerFailure: "{{count}} recorded failure(s); latest: {{code}}",
     adapterCapabilities_one: "1 capability",
     adapterCapabilities_other: "{{count}} capabilities",
     realtime: "Realtime delivery",
@@ -398,6 +420,12 @@ export default {
       FAILED_UNKNOWN: "Outcome unknown — verifying",
       INVALIDATED: "Invalidated",
       CANCELLED: "Cancelled",
+    },
+    scheduler: {
+      ACTIVE: "Active",
+      PAUSED: "Paused",
+      DISABLED: "Disabled",
+      FAILED: "Failed",
     },
     audit: {
       VALID: "Valid",
@@ -709,6 +737,11 @@ export default {
     transcript: "Transcript",
     response: "Response",
     approvalRequired: "Review required approval",
+    viewTask: "View task",
+    viewRun: "View run",
+    commandInput: "Type a command",
+    commandPlaceholder: "Type a command…",
+    send: "Send command",
     failed: "The voice command failed.",
     unsupported: "Voice recording is not supported in this browser.",
     providerUnavailable:
@@ -742,5 +775,29 @@ export default {
       ERROR: "Voice unavailable",
       SPEAKING: "Speaking",
     },
+  },
+  workspace: {
+    selectPrompt: "Select an Agent to open its workspace.",
+    otherAgents: "Other Agents",
+    console: "Console",
+    state: {
+      IDLE: "Idle",
+      THINKING: "Thinking",
+      USING_TOOL: "Using a tool",
+      WORKING: "Working",
+      WAITING_APPROVAL: "Waiting on you",
+      BLOCKED: "Blocked",
+      COMPLETE: "Complete",
+      ERROR: "Error",
+    },
+    tabs: {
+      agent: "Agent",
+      task: "Task",
+      evidence: "Evidence",
+    },
+    noRun: "Not currently assigned to a run.",
+    noTask: "Not currently assigned to a task.",
+    openFullRun: "Open full run",
+    openFullTask: "Open full task",
   },
 };

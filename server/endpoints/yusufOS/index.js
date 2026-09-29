@@ -47,9 +47,13 @@ const {
 } = require("../../domain/yusufOS/projections/RuntimeProjection");
 const { VoiceService } = require("../../domain/yusufOS/voice/VoiceService");
 const {
+  NotificationService,
+} = require("../../domain/yusufOS/notifications/NotificationService");
+const {
   handleYusufAudioUpload,
 } = require("../../utils/SpeechToText/audioUpload");
 const { getAudioFileInfo } = require("../../utils/TextToSpeech/audioFormat");
+const { isUiSessionActive } = require("../../domain/yusufOS/api/uiSession");
 
 function asyncRoute(handler) {
   return async (request, response) => {
@@ -105,6 +109,23 @@ function yusufOSEndpoints(
         })),
         hardForbiddenCapabilities: Object.keys(HARD_FORBIDDEN_DEFINITIONS),
       });
+    })
+  );
+
+  app.post(
+    path("/notifications/:notificationUuid/acknowledge"),
+    guard,
+    asyncRoute(async (request, response) => {
+      const acknowledged = await new NotificationService(db).acknowledge(
+        request.params.notificationUuid
+      );
+      if (!acknowledged)
+        throw new YusufOSError(
+          ErrorCodes.NOT_FOUND,
+          "Open notification was not found.",
+          { status: 404 }
+        );
+      response.status(200).json({ acknowledged: true });
     })
   );
 
@@ -616,6 +637,7 @@ function yusufOSEndpoints(
       let poll = null;
       let heartbeat = null;
       let pumping = false;
+      const uiSessionId = response.locals?.yusufOS?.uiSession?.id || null;
 
       const shutdown = () => {
         if (closed) return;
@@ -640,9 +662,17 @@ function yusufOSEndpoints(
         if (event) response.write(`event: ${event}\n`);
         response.write(`data: ${JSON.stringify(payload)}\n\n`);
       };
+      const sessionStillValid = () =>
+        !uiSessionId || isUiSessionActive(uiSessionId);
+      const expireSession = () => {
+        if (closed) return;
+        write({ code: "SESSION_EXPIRED" }, { event: "session-expired" });
+        shutdown();
+      };
 
       const pump = async () => {
         if (closed) return;
+        if (!sessionStillValid()) return expireSession();
         try {
           const batch = await events.since(cursor, 100);
           if (batch.reset) {
@@ -680,7 +710,9 @@ function yusufOSEndpoints(
       // Comment frames keep intermediaries from closing an idle connection
       // without injecting anything a client would parse as an event.
       heartbeat = setInterval(() => {
-        if (!closed) response.write(": keep-alive\n\n");
+        if (closed) return;
+        if (!sessionStillValid()) return expireSession();
+        response.write(": keep-alive\n\n");
       }, 15000);
       // The socket may have dropped while the first pump was still querying.
       if (closed) shutdown();

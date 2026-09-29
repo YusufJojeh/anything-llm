@@ -19,6 +19,35 @@ const { evaluateOrigin, brokerEnabled } = require("../originPolicy");
 const ENV_ENDPOINT = "YUSUF_OS_BROWSER_CDP_ENDPOINT";
 const DEFAULT_ENDPOINT = "http://127.0.0.1:9222";
 const NAVIGATION_TIMEOUT_MS = 10000;
+const DISCOVERY_MAX_BYTES = 16 * 1024;
+const LOOPBACK_ENDPOINT_HOSTS = new Set(["127.0.0.1", "::1", "[::1]"]);
+
+function normalizeEndpoint(value) {
+  try {
+    const url = new URL(String(value));
+    if (url.protocol !== "http:" || !LOOPBACK_ENDPOINT_HOSTS.has(url.hostname))
+      return null;
+    if (url.username || url.password || url.search || url.hash) return null;
+    if (url.pathname !== "/" && url.pathname !== "") return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeWebSocketEndpoint(value) {
+  try {
+    const url = new URL(String(value));
+    if (url.protocol !== "ws:" || !LOOPBACK_ENDPOINT_HOSTS.has(url.hostname))
+      return null;
+    if (url.username || url.password || url.search || url.hash) return null;
+    if (!/^\/devtools\/browser\/[A-Za-z0-9._-]{1,200}$/.test(url.pathname))
+      return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
 
 function loadPuppeteer() {
   try {
@@ -33,19 +62,66 @@ function loadPuppeteer() {
 class CdpBrowserDriver {
   constructor({
     endpoint = process.env[ENV_ENDPOINT] || DEFAULT_ENDPOINT,
+    fetchImpl = global.fetch,
+    puppeteerLoader = loadPuppeteer,
   } = {}) {
     this.kind = "CDP";
-    this.endpoint = endpoint;
+    this.endpoint = normalizeEndpoint(endpoint);
     this.browser = null;
+    this.fetchImpl = fetchImpl;
+    this.puppeteerLoader = puppeteerLoader;
+  }
+
+  async #discoverWebSocketEndpoint() {
+    const response = await this.fetchImpl(`${this.endpoint}/json/version`, {
+      redirect: "error",
+      signal: AbortSignal.timeout(NAVIGATION_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error("browser discovery failed");
+    const declaredLength = Number(response.headers?.get?.("content-length"));
+    if (Number.isFinite(declaredLength) && declaredLength > DISCOVERY_MAX_BYTES)
+      throw new Error("browser discovery response is too large");
+    const reader = response.body?.getReader?.();
+    if (!reader) throw new Error("browser discovery response is unreadable");
+    const chunks = [];
+    let bytes = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > DISCOVERY_MAX_BYTES) {
+        await reader.cancel().catch(() => {});
+        throw new Error("browser discovery response is too large");
+      }
+      chunks.push(value);
+    }
+    const combined = new Uint8Array(bytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const raw = new TextDecoder().decode(combined);
+    let discovered;
+    try {
+      discovered = JSON.parse(raw).webSocketDebuggerUrl;
+    } catch {
+      throw new Error("browser discovery response is invalid");
+    }
+    const endpoint = normalizeWebSocketEndpoint(discovered);
+    if (!endpoint) throw new Error("browser websocket endpoint is not local");
+    return endpoint;
   }
 
   async #connect() {
     if (this.browser) return this.browser;
     if (!brokerEnabled()) throw new Error("browser broker is disabled");
-    const puppeteer = loadPuppeteer();
+    if (!this.endpoint) throw new Error("browser endpoint is not local");
+    const puppeteer = this.puppeteerLoader();
     if (!puppeteer) throw new Error("puppeteer-core is not installed");
+    const browserWSEndpoint = await this.#discoverWebSocketEndpoint();
     this.browser = await puppeteer.connect({
-      browserURL: this.endpoint,
+      browserWSEndpoint,
       defaultViewport: null,
     });
     return this.browser;
@@ -54,11 +130,13 @@ class CdpBrowserDriver {
   async availability() {
     if (!brokerEnabled())
       return { status: "UNAVAILABLE", detail: "broker disabled" };
-    if (!loadPuppeteer())
+    if (!this.endpoint)
+      return { status: "UNAVAILABLE", detail: "invalid local endpoint" };
+    if (!this.puppeteerLoader())
       return { status: "UNAVAILABLE", detail: "puppeteer-core not installed" };
     try {
       await this.#connect();
-      return { status: "AVAILABLE", detail: this.endpoint };
+      return { status: "AVAILABLE", detail: "local browser attached" };
     } catch {
       // Never surface the raw error: it can contain local paths and ports.
       return { status: "UNAVAILABLE", detail: "no attachable browser" };
@@ -101,7 +179,24 @@ class CdpBrowserDriver {
     if (!evaluateOrigin(url).allowed)
       throw new Error("tab navigated to a non-allowlisted origin");
     page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
-    return page.evaluate(extractPageState);
+    // setDefaultTimeout only bounds Puppeteer's own navigation/wait helpers
+    // -- page.evaluate() has no built-in timeout and can otherwise hang
+    // indefinitely if the page's JS execution context is frozen or
+    // unresponsive. Race it against the same bound explicitly.
+    let timer;
+    try {
+      return await Promise.race([
+        page.evaluate(extractPageState),
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("page.evaluate() timed out")),
+            NAVIGATION_TIMEOUT_MS
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /**
@@ -186,4 +281,10 @@ class CdpBrowserDriver {
   }
 }
 
-module.exports = { CdpBrowserDriver, ENV_ENDPOINT, DEFAULT_ENDPOINT };
+module.exports = {
+  CdpBrowserDriver,
+  ENV_ENDPOINT,
+  DEFAULT_ENDPOINT,
+  normalizeEndpoint,
+  normalizeWebSocketEndpoint,
+};

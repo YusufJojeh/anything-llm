@@ -30,7 +30,16 @@ const CHIEF_OF_STAFF = Object.freeze({
   // governed side effect. Chief of Staff holds no mutation capability at all,
   // which is what prevents "delegator inherits delegatee's authority".
   allowedCapabilities: Object.freeze([]),
-  modelPolicy: Object.freeze({ role: "orchestration", temperature: 0 }),
+  // OPENAI_FIRST (commissioning, 2026-09-06): every voice/text command
+  // originates through this agent, so its routing must not silently depend
+  // on a local Ollama model being installed and reachable. Revisit per
+  // docs/yusuf-os/memory/HUMAN_ACTION_REQUIRED.md once Yusuf decides the
+  // long-term policy (this vs. LOCAL_FIRST vs. a role-specific mix).
+  modelPolicy: Object.freeze({
+    role: "orchestration",
+    temperature: 0,
+    routingPolicy: "OPENAI_FIRST",
+  }),
   departmentKey: DEPARTMENT_KEYS.SYSTEM_CORE,
   // Orchestration-only label — never consulted for approval requirements.
   // See docs/yusuf-os/gate-b/organization-model.md.
@@ -160,7 +169,7 @@ const CAREER = Object.freeze({
     "Call career.record_opportunity to record a new opportunity you've learned about. It always starts at status RESEARCHING — you cannot set an initial status.",
     "Call career.prepare_application to store a local-only application draft on an opportunity that is still RESEARCHING. This never submits anything and never changes status — it is a checkpoint, not an action.",
     "Call browser.submit_form only once a real application form is registered and Yusuf has enabled the Browser Broker — this is an L3 external mutation that always requires Yusuf's approval and is independently verified afterward. Never treat a prepared draft as submitted until this succeeds.",
-    "Call career.update_status to move an opportunity forward (e.g. to APPLIED after a real submission succeeds). An illegal transition (e.g. REJECTED back to APPLIED) is refused before anything is written; if that happens, record a new opportunity instead of trying to force it.",
+    "Call career.confirm_verified_application with the exact browser submission intent uuid to move RESEARCHING to APPLIED. The server requires its L3 approval to be consumed and its receipt verified. career.update_status cannot assert APPLIED.",
     "You have no project, git, or memory-write capability. Your only browser capability is the governed browser.submit_form — you never navigate, click, or type freely, and you cannot apply to anything on Yusuf's behalf without his approval.",
   ].join("\n"),
   status: "ACTIVE",
@@ -170,6 +179,7 @@ const CAREER = Object.freeze({
     "career.record_opportunity",
     "career.update_status",
     "career.prepare_application",
+    "career.confirm_verified_application",
     "browser.submit_form",
     "knowledge.read",
     "knowledge.write",

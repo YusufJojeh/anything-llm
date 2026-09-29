@@ -9,11 +9,176 @@ const {
   sanitizeAccountIdentity,
   countInjectionMarkers,
 } = require("../../../domain/yusufOS/adapters/browser/pageSanitizer");
+const {
+  CdpBrowserDriver,
+  normalizeEndpoint,
+  normalizeWebSocketEndpoint,
+} = require("../../../domain/yusufOS/adapters/browser/drivers/CdpBrowserDriver");
+const {
+  ENV_ENABLED,
+  ENV_ALLOWLIST,
+} = require("../../../domain/yusufOS/adapters/browser/originPolicy");
 
 const allowlist = () =>
   configuredOrigins("https://github.com https://mail.google.com http://localhost:7788");
 
 describe("Browser Broker origin policy", () => {
+  test("CDP attachment accepts only credential-free loopback HTTP endpoints", () => {
+    expect(normalizeEndpoint("http://127.0.0.1:9222")).toBe(
+      "http://127.0.0.1:9222"
+    );
+    for (const endpoint of [
+      "http://localhost:9222",
+      "https://127.0.0.1:9222",
+      "http://192.168.1.5:9222",
+      "http://attacker.example:9222",
+      "http://user:pass@127.0.0.1:9222",
+      "http://127.0.0.1:9222/json?token=secret",
+      "not-a-url",
+    ])
+      expect(normalizeEndpoint(endpoint)).toBeNull();
+  });
+
+  test("CDP discovery refuses a remote or credential-bearing websocket target", async () => {
+    const previous = process.env[ENV_ENABLED];
+    process.env[ENV_ENABLED] = "true";
+    const connect = jest.fn();
+    try {
+      for (const webSocketDebuggerUrl of [
+        "ws://attacker.example/devtools/browser/id",
+        "wss://127.0.0.1/devtools/browser/id",
+        "ws://user:pass@127.0.0.1:9222/devtools/browser/id",
+        "ws://127.0.0.1:9222/not-devtools/id",
+        "ws://127.0.0.1:9222/devtools/browser/",
+        "ws://127.0.0.1:9222/devtools/browser/id/extra",
+        "ws://127.0.0.1:9222/devtools/browser/%2F",
+      ]) {
+        const driver = new CdpBrowserDriver({
+          fetchImpl: async () =>
+            new Response(JSON.stringify({ webSocketDebuggerUrl })),
+          puppeteerLoader: () => ({ connect }),
+        });
+        expect(await driver.availability()).toEqual({
+          status: "UNAVAILABLE",
+          detail: "no attachable browser",
+        });
+      }
+      expect(connect).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env[ENV_ENABLED];
+      else process.env[ENV_ENABLED] = previous;
+    }
+  });
+
+  test("CDP discovery stops reading a chunked response at the byte limit", async () => {
+    const previous = process.env[ENV_ENABLED];
+    process.env[ENV_ENABLED] = "true";
+    const cancel = jest.fn(async () => {});
+    const read = jest
+      .fn()
+      .mockResolvedValueOnce({ done: false, value: new Uint8Array(10000) })
+      .mockResolvedValueOnce({ done: false, value: new Uint8Array(10000) })
+      .mockResolvedValue({ done: false, value: new Uint8Array(10000) });
+    const connect = jest.fn();
+    const driver = new CdpBrowserDriver({
+      fetchImpl: async () => ({
+        ok: true,
+        headers: { get: () => null },
+        body: { getReader: () => ({ read, cancel }) },
+      }),
+      puppeteerLoader: () => ({ connect }),
+    });
+    try {
+      expect(await driver.availability()).toEqual({
+        status: "UNAVAILABLE",
+        detail: "no attachable browser",
+      });
+      expect(read).toHaveBeenCalledTimes(2);
+      expect(cancel).toHaveBeenCalledTimes(1);
+      expect(connect).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) delete process.env[ENV_ENABLED];
+      else process.env[ENV_ENABLED] = previous;
+    }
+  });
+
+  test("CDP discovery connects only to the validated local websocket and reports generic detail", async () => {
+    const previous = process.env[ENV_ENABLED];
+    process.env[ENV_ENABLED] = "true";
+    const disconnect = jest.fn(async () => {});
+    const connect = jest.fn(async () => ({ disconnect }));
+    const localWs = "ws://127.0.0.1:9222/devtools/browser/fixture-id";
+    const fetchImpl = jest.fn(async () =>
+      new Response(JSON.stringify({ webSocketDebuggerUrl: localWs }))
+    );
+    const driver = new CdpBrowserDriver({
+      fetchImpl,
+      puppeteerLoader: () => ({ connect }),
+    });
+    try {
+      expect(normalizeWebSocketEndpoint(localWs)).toBe(localWs);
+      expect(await driver.availability()).toEqual({
+        status: "AVAILABLE",
+        detail: "local browser attached",
+      });
+      expect(connect).toHaveBeenCalledWith({
+        browserWSEndpoint: localWs,
+        defaultViewport: null,
+      });
+      expect(fetchImpl).toHaveBeenCalledWith(
+        "http://127.0.0.1:9222/json/version",
+        expect.objectContaining({ redirect: "error" })
+      );
+    } finally {
+      await driver.close();
+      if (previous === undefined) delete process.env[ENV_ENABLED];
+      else process.env[ENV_ENABLED] = previous;
+    }
+  });
+  test("readPageState never hangs forever when page.evaluate() stalls", async () => {
+    jest.useFakeTimers();
+    const previousEnabled = process.env[ENV_ENABLED];
+    const previousAllowlist = process.env[ENV_ALLOWLIST];
+    process.env[ENV_ENABLED] = "true";
+    process.env[ENV_ALLOWLIST] = "https://github.com";
+    try {
+      const fakePage = {
+        url: () => "https://github.com/some/repo",
+        target: () => ({ _targetId: "tab-1" }),
+        setDefaultTimeout: jest.fn(),
+        // Simulates a frozen/unresponsive page: the CDP evaluate call never
+        // settles on its own. page.evaluate() has no built-in timeout, so
+        // without an explicit race, this would hang the caller forever.
+        evaluate: jest.fn(() => new Promise(() => {})),
+      };
+      const disconnect = jest.fn(async () => {});
+      const connect = jest.fn(async () => ({
+        disconnect,
+        pages: async () => [fakePage],
+      }));
+      const localWs = "ws://127.0.0.1:9222/devtools/browser/fixture-id";
+      const driver = new CdpBrowserDriver({
+        fetchImpl: async () =>
+          new Response(JSON.stringify({ webSocketDebuggerUrl: localWs })),
+        puppeteerLoader: () => ({ connect }),
+      });
+      try {
+        const pending = driver.readPageState("tab-1");
+        const assertion = expect(pending).rejects.toThrow(/timed out/);
+        await jest.advanceTimersByTimeAsync(10000);
+        await assertion;
+      } finally {
+        await driver.close();
+      }
+    } finally {
+      jest.useRealTimers();
+      if (previousEnabled === undefined) delete process.env[ENV_ENABLED];
+      else process.env[ENV_ENABLED] = previousEnabled;
+      if (previousAllowlist === undefined) delete process.env[ENV_ALLOWLIST];
+      else process.env[ENV_ALLOWLIST] = previousAllowlist;
+    }
+  });
+
   test("allows an exactly matching allowlisted origin", () => {
     expect(evaluateOrigin("https://github.com/YusufJojeh", { allowlist: allowlist() }))
       .toMatchObject({ allowed: true, origin: "https://github.com" });

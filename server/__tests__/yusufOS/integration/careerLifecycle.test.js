@@ -89,7 +89,7 @@ describe("Phase L — Career governed lifecycle", () => {
     expect(row.status).toBe("RESEARCHING");
   });
 
-  test("a valid transition (RESEARCHING -> APPLIED) succeeds and updates notes", async () => {
+  test("the generic status capability cannot assert APPLIED without verified submission proof", async () => {
     const task = await makeTask(fixture.career);
     const toolset = buildAgentToolset({ agentKey: AGENT_KEYS.CAREER, db });
     const { context: createContext } = await seedRun(fixture.career, task);
@@ -102,18 +102,15 @@ describe("Phase L — Career governed lifecycle", () => {
     const { uuid } = JSON.parse(created.sanitizedResult);
 
     const { context: updateContext } = await seedRun(fixture.career, task);
-    const updated = await invokeCapability({
-      toolset,
-      capabilityKey: "career.update_status",
-      args: { uuid, status: "APPLIED", notes: "Applied via referral" },
-      runtimeContext: updateContext,
-    });
-    expect(updated.verificationStatus).toBe("VERIFIED");
+    await expect(invokeCapability({
+      toolset, capabilityKey: "career.update_status",
+      args: { uuid, status: "APPLIED", notes: "Applied via referral" }, runtimeContext: updateContext,
+    })).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     const row = await db.yusuf_career_opportunities.findUnique({
       where: { uuid },
     });
-    expect(row.status).toBe("APPLIED");
-    expect(row.notes).toBe("Applied via referral");
+    expect(row.status).toBe("RESEARCHING");
+    expect(row.notes).toBeNull();
   });
 
   test("an illegal transition (RESEARCHING -> OFFER) is rejected before any write", async () => {
@@ -157,13 +154,7 @@ describe("Phase L — Career governed lifecycle", () => {
     });
     const { uuid } = JSON.parse(created.sanitizedResult);
 
-    const { context: c2 } = await seedRun(fixture.career, task);
-    await invokeCapability({
-      toolset,
-      capabilityKey: "career.update_status",
-      args: { uuid, status: "APPLIED" },
-      runtimeContext: c2,
-    });
+    await db.yusuf_career_opportunities.update({ where: { uuid }, data: { status: "APPLIED" } });
     const { context: c3 } = await seedRun(fixture.career, task);
     await invokeCapability({
       toolset,
@@ -304,13 +295,7 @@ describe("Phase L — Career governed lifecycle", () => {
     });
     const { uuid } = JSON.parse(created.sanitizedResult);
 
-    const { context: c2 } = await seedRun(fixture.career, task);
-    await invokeCapability({
-      toolset,
-      capabilityKey: "career.update_status",
-      args: { uuid, status: "APPLIED" },
-      runtimeContext: c2,
-    });
+    await db.yusuf_career_opportunities.update({ where: { uuid }, data: { status: "APPLIED" } });
 
     const { context: c3 } = await seedRun(fixture.career, task);
     await expect(

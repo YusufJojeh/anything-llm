@@ -8,6 +8,7 @@ import UnlockScreen from "./UnlockScreen";
 import { CommandNav, TelemetryStrip, sectionFor } from "./console/ShellChrome";
 import { ErrorBlock, LoadingBlock } from "./primitives";
 import "../styles/tokens.css";
+import "../styles/depth.css";
 
 /**
  * The `/os` application shell.

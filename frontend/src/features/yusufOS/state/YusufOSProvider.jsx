@@ -395,19 +395,25 @@ export function useYusufResource(loader, { watch = null } = {}) {
     phase: PHASES.LOADING,
     data: null,
     error: null,
+    loader,
   });
 
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    setState((previous) => ({ ...previous, phase: PHASES.LOADING }));
+    setState((previous) =>
+      previous.loader === loader
+        ? { ...previous, phase: PHASES.LOADING, loader }
+        : { phase: PHASES.LOADING, data: null, error: null, loader }
+    );
     loader({ signal: controller.signal })
       .then((data) => {
-        if (!cancelled) setState({ phase: PHASES.READY, data, error: null });
+        if (!cancelled)
+          setState({ phase: PHASES.READY, data, error: null, loader });
       })
       .catch((cause) => {
         if (cancelled || cause?.name === "AbortError") return;
-        setState({ phase: PHASES.ERROR, data: null, error: cause });
+        setState({ phase: PHASES.ERROR, data: null, error: cause, loader });
       });
     return () => {
       cancelled = true;
@@ -418,5 +424,14 @@ export function useYusufResource(loader, { watch = null } = {}) {
     // layer says server state moved.
   }, [loader, watch]);
 
+  // A `loader` identity change means a genuinely different resource (e.g. the
+  // selected Agent/Task/Run changed) — never let the previous resource's data
+  // paint under the new resource's identity, even for the one frame before
+  // the effect above fires. A `watch`-only change re-reads the *same*
+  // resource, so the last-known `state` (and its `data`) is left as-is here
+  // and only flips to LOADING once the effect runs, avoiding a refresh flicker.
+  if (state.loader !== loader) {
+    return { phase: PHASES.LOADING, data: null, error: null };
+  }
   return state;
 }

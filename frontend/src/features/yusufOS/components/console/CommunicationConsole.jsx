@@ -1,16 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  PaperPlaneRight,
-  Paperclip,
-  ShieldWarning,
-} from "@phosphor-icons/react";
+import { ShieldWarning } from "@phosphor-icons/react";
 import { yusufApi } from "../../api/client";
 import { useCommandSession } from "../../state/CommandSession";
 import { toneFor, toneStyle } from "../../state/statusSemantics";
 import { UntrustedText, formatDateTime } from "../primitives";
 import VoiceConsole from "../VoiceConsole";
+import Composer from "./Composer";
 import Tabs from "./Tabs";
 
 function timeOf(language, iso) {
@@ -290,95 +287,6 @@ function Message({ message }) {
         <ApprovalBlock approvalId={message.approvalId} at={message.at} />
       ) : null}
     </li>
-  );
-}
-
-export function Composer() {
-  const { t } = useTranslation();
-  const session = useCommandSession();
-  const [draft, setDraft] = useState("");
-  const textareaRef = useRef(null);
-  const busy = session.busy;
-
-  const submit = async () => {
-    const value = draft.trim();
-    if (!value || busy) return;
-    setDraft("");
-    const result = await session.runCommand(value, {
-      via: "text",
-      failedMessage: t("yusufOS:voice.failed"),
-    });
-    // A failed command keeps the text so Yusuf can retry without retyping.
-    if (!result) setDraft((current) => (current ? current : value));
-    textareaRef.current?.focus();
-  };
-
-  return (
-    <form
-      className="yos-input flex items-end gap-1 p-1"
-      onSubmit={(event) => {
-        event.preventDefault();
-        submit();
-      }}
-      aria-label={t("yusufOS:comms.composerLabel")}
-    >
-      <button
-        type="button"
-        disabled
-        aria-disabled="true"
-        className="flex size-11 shrink-0 items-center justify-center rounded-sm opacity-40"
-        aria-label={t("yusufOS:comms.attachUnavailable")}
-        title={t("yusufOS:comms.attachUnavailable")}
-      >
-        <Paperclip size={17} aria-hidden="true" />
-      </button>
-      <label className="sr-only" htmlFor="yos-composer">
-        {t("yusufOS:comms.placeholder")}
-      </label>
-      <textarea
-        id="yos-composer"
-        ref={textareaRef}
-        rows={2}
-        value={draft}
-        maxLength={10000}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          if (
-            event.key === "Enter" &&
-            !event.shiftKey &&
-            !event.nativeEvent.isComposing
-          ) {
-            event.preventDefault();
-            submit();
-          }
-        }}
-        placeholder={t("yusufOS:comms.placeholder")}
-        aria-describedby="yos-composer-hint"
-        className="min-h-[44px] flex-1 px-2 py-2 text-[13px] leading-snug"
-        dir="auto"
-      />
-      <span id="yos-composer-hint" className="sr-only">
-        {t("yusufOS:comms.hint")}
-      </span>
-      <button
-        type="submit"
-        disabled={busy || !draft.trim()}
-        className="yos-press flex size-11 shrink-0 items-center justify-center rounded-sm border disabled:opacity-40"
-        style={{
-          borderColor: "var(--yos-cyan)",
-          background: "rgb(34 184 245 / 0.18)",
-          color: "var(--yos-cyan-bright)",
-        }}
-        aria-label={busy ? t("yusufOS:comms.sending") : t("yusufOS:comms.send")}
-      >
-        <PaperPlaneRight
-          size={17}
-          weight="fill"
-          aria-hidden="true"
-          className="rtl:-scale-x-100"
-        />
-      </button>
-    </form>
   );
 }
 

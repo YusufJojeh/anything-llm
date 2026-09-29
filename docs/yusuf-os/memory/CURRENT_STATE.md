@@ -1,10 +1,117 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-09-29, `/os` Jarvis Command Center redesign (frontend only)._
+_Last verified: 2026-09-29, Jarvis Command Center redesign merged with local work._
 
 **2026-09-29:** `/os` rebuilt as an integrated mission console with an audio-reactive System
-Core, shared text/voice command session, and honest telemetry (see SESSION_HANDOFF). Frontend
-13 suites / 190 tests green; build and lint pass. Phase V is still the next backend phase.
+Core, shared text/voice command session, and honest telemetry (see SESSION_HANDOFF). Merged with
+Yusuf's local branch (Phases V–AC, Agent Workspace, text front door): the typed composer now
+lives in `components/console/Composer.jsx` and is shared by the console and the VoiceConsole
+panel/dock; both call the same `runCommand` → `yusufApi.runVoiceCommand`. Frontend 20 suites /
+271 tests green after the merge.
+
+The entries below this one predate the merge and are kept verbatim.
+
+_Last verified: 2026-09-06, text command front door._
+
+**Text command front door (2026-09-06):** a spoken voice command earlier this session produced no
+task/run/approval — root cause is on the browser mic/transcription side, outside this session's
+sandbox visibility. Rather than leave microphone capture as the *only* way to originate any Yusuf
+OS work, added a typed-text composer to the existing persistent voice/command dock
+(`VoiceConsole.jsx`, both `dock` and `panel` variants). It is not a second command path: the
+composer's `submitDraft` calls the exact same `runCommand` function the mic already called, which
+calls the exact same `yusufApi.runVoiceCommand` → `POST /voice/commands` → `VoiceService.command()`
+→ Chief of Staff → `AgentReasoningLoop` → Policy → Approval → Execution → Verification → Audit
+pipeline — zero backend changes. `taskId`/`runId` (already returned by `VoiceService.command()`,
+previously discarded by the frontend) now render as real "View task"/"View run" links, only when
+the server actually returns them. No agent-targeting UI was added (the route has no per-agent
+parameter to target). No auto-approval: an `APPROVAL_REQUIRED` result only renders a link to
+`/os/approvals/:id`. Frontend-only change: `VoiceConsole.jsx`, `en.js`, `ar.js`,
+`voiceConsole.test.jsx` (+25 tests, 220/220 frontend suite green). Independent cold review (fresh
+agent, no session context): **0 P0/P1** across all 10 required boundary checks. **Status:
+`TEXT_COMMAND_FRONT_DOOR = IMPLEMENTED` + `VERIFIED_BY_TEST`. NOT YET `LIVE_VALIDATED`** — per this
+session's own judgment call, the actual real-command-submission proof (typing a harmless command
+into the live UI, and separately triggering a real approval-required command) was left for Yusuf to
+perform himself in the real UI, consistent with the standing pattern that Yusuf originates real
+consequential governed actions rather than this agent doing so unilaterally; see
+`HUMAN_ACTION_REQUIRED.md`. Voice's own live/mic-capture validation status is unchanged by this
+session and must not be read as improved. Full detail: `CURRENT_GATE.md`, `SESSION_HANDOFF.md`,
+`TEST_BASELINE.md`.
+
+**OpenAI live commissioning (2026-09-06):** Yusuf set a real `OPENAI_API_KEY` in
+`server/.env.development`; `OpenAIProvider.hasApiKey()` and `ModelRouter.describe().openaiConfigured`
+both confirmed `true`, and a single bounded live completion run directly through
+`OpenAIProvider` → `ModelRouter` succeeded (provider `OPENAI`, model `gpt-4o-mini-2024-07-18`,
+16/1/17 tokens, ~3 micros estimated cost, no fallback, zero secret-fragment leakage found by
+structural check). OpenAI is now **LIVE-VALIDATED** (see `CURRENT_GATE.md` Phase AC update,
+`HUMAN_ACTION_REQUIRED.md` item N). This was a module-level provider/router smoke test only — no
+live Agent run, no HTTP-level `/api/yusuf-os/runtime` confirmation, no `/os/runtime` UI
+confirmation (session still locked), no routing-policy change, and the Ollama half of item N
+remains open. Per explicit instruction, no further commissioning steps (voice, Browser Broker,
+daily-use pilot) were attempted this session.
+
+**CAVEMAN AUDIT continuation (2026-09-06):** closed a real frontend test-coverage gap (7 of 11
+`/os` route pages had zero direct render-level tests — 28 new tests added, no code defects found in
+them) and, while doing it, found and fixed a genuine bug: `ApprovalReview.jsx`'s realtime
+auto-refresh was silently disabled by a stray 3-argument call into the 2-argument
+`useYusufResource` hook, so the highest-stakes L3/L4 decision screen never re-fetched on live SSE
+updates. Cold independent review: 0 P0/P1, SAFE TO COMMIT. Also corrected three stale
+`KNOWN_RISKS.md` entries and three stale `docs/yusuf-os/management/RISKS.md` entries surfaced by a
+fresh release/reliability audit (SQLite `busy_timeout` KEEP_DEFERRED reaffirmed; browser-session
+security and agent-reasoning-provider entries were stale framings predating later phases; a stale
+commit-count entry). A live browser pass against the dev-only fixture harness at 1440/768/390px and
+in Arabic/RTL found zero defects. Full detail: `GATE_HISTORY.md`, `TEST_BASELINE.md`,
+`SESSION_HANDOFF.md`.
+
+**CAVEMAN AUDIT continuation added (2026-09-05):** a post-V1 hardening pass, not a new gate — four
+independent background-agent audits across the security kernel, Browser Broker/voice, domain
+verticals/scheduler, and agent runtime found and fixed six real issues (a concurrency TOCTOU in
+`AgentRunCoordinator.startRun`, a `FAILED`/`FAILED_UNKNOWN` misclassification on `prepare()`
+failure, unbounded recursion depth in two security primitives, an unbounded browser-evaluate hang,
+a raw enum leaking into `/os` UI text, and a stale evidence snapshot that could reject a legitimate
+agent completion), each with a regression test. Four further findings were confirmed real but
+deliberately left deferred — see `KNOWN_RISKS.md` #20-24, most notably that neither the production
+nor test SQLite client configures a `busy_timeout`. Full detail: `GATE_HISTORY.md`,
+`TEST_BASELINE.md`. No gate H is defined; do not start one without Yusuf's explicit instruction.
+
+**Post-V1 (2026-09-04): the Agent Workspace was added** (`/os/agents`) — per-agent detail beyond
+the constellation click-through: capability grants, task history, run history, and a voice
+console, reusing already-reviewed projection data. Review-only from here forward per the
+governing session's instruction — **do not rebuild it**. Commits `776102cc`, `48913e32`.
+
+**Phase AE added:** final V1 regression caught and repaired the stale Command
+Center scheduler fixture (`workerStatus` was no longer a persisted Prisma
+field; worker failure/tick timestamps are). Backend E2E completion, frontend
+Yusuf OS regression, production build, Prisma validation, targeted lint, and
+diff check were rerun. Windows Jest fixture output suppresses its normal
+aggregate summary, so this record intentionally does not invent a final count.
+Final independent review passed P0=0/P1=0. The S→AE critical path is complete.
+
+**Current state:** V1 release gate complete; no feature work remains on the
+S→AE critical path.
+
+**Phase X added:** safe human-assisted browser-readiness hardening. CDP discovery/attachment is
+strictly numeric-loopback-only and streamed/bounded; a generic cookie cannot satisfy mutation
+identity; full hostile external-content corpus is kept out of trusted prompt content. Fresh
+review: P0=0/P1=0/P2=0. Commit `90e52eda`.
+
+**Current next phase:** Y, Scheduler + Notifications.
+
+**Phase W added:** a deterministic real-loop Career vertical: cited Research evidence, evidence
+read-back, opportunity and local draft, exact L3 browser approval, independent fixture-browser
+verification, server-proof-bound APPLIED, hostile Inbox classification, linked INTERVIEWING, and
+task-scoped Command Center work products/actions. Fresh review: P0=0/P1=0/P2=2. Commits
+`270c2a6e`, `3876a449`.
+
+**Current next phase:** X, Real Browser Integration Readiness.
+
+**Phase V added:** a deterministic, disposable-git Agentic Engineering E2E. A scripted routed
+model now decides the actual Chief handoff, Engineering’s governed branch/read/write/test/stage/
+local-commit sequence, and the Reviewer’s independent read-only review. The loop projects
+completion evidence from governed receipts and supplies the Reviewer bounded, redacted task
+context. Fresh review: P0=0/P1=0/P2=1. Baseline excluding the in-progress Phase W test: 54 suites,
+729 passed plus one optional Ollama skip. Commits `614f6f48`, `d63e451c`.
+
+**Current next phase:** W, Agentic Career E2E Fixture.
 
 **Phase U added:** privacy-gated, local-first STT/TTS; push-to-talk with cancellation and explicit
 playback controls; English/Arabic and RTL-safe rendering; and a voice-command path through the

@@ -7,6 +7,83 @@ Do not add ordinary engineering questions to this file.
 
 ---
 
+## O. `OPEN_MANUAL_VALIDATION` — text command front door live proof [OPEN since 2026-09-06]
+
+**Why it is human-only:** submitting a real command through the live `/os` UI creates a real Task
+and Run and may make a real, billed model call — this session's own standing pattern (established
+earlier the same session, "you speak the command yourself") is that Yusuf originates real
+consequential governed actions himself rather than this agent doing so unilaterally. The
+implementing session verified everything else about the new typed-text composer live (rendering,
+typing, keyboard shortcuts, enable/disable states, 375px mobile layout, a live button-size fix) but
+deliberately stopped short of clicking Send on a real command.
+
+**What is already proven without it:** the composer reuses the exact existing governed voice
+pipeline with zero backend changes (confirmed by direct code reading and by a fresh independent
+cold review finding 0 P0/P1 across all 10 required boundary checks — same runtime, no CSRF bypass,
+no fabricated agent-targeting, no auto-approval, honest task/run links, duplicate-submission
+handling, input bounds matching the server, accessibility, RTL/i18n, non-tautological tests). Full
+frontend regression (220/220), lint, production build, and `git diff --check` all pass. See
+`CURRENT_GATE.md`'s "Text Command Front Door" entry for full detail.
+
+**What is NOT proven:** that a real typed command, submitted through the real live UI, actually
+produces a new Task with a current timestamp, a new Run, and a real model response visible in the
+Command Center / Agent Workspace. **This has not passed and must not be recorded as passing.**
+
+**To close it, in the real running `/os` UI (composer at the bottom of the Command Center or Agent
+Workspace):**
+
+1. Type a harmless command, e.g. `What is my current system status?`, and press Enter or click
+   Send.
+2. Confirm a "View task" and "View run" link appear, and that following them shows a real,
+   current-timestamped Task/Run with an actual model response (not an error).
+3. Optionally, separately, type an approval-triggering command such as: *"Ask Engineering to
+   prepare a safe test action that requires my approval. Do not execute anything until I approve
+   it."* Confirm a real pending approval appears and can be opened for review. **Do not click
+   Approve** — the point is only to prove the approval-required path renders correctly end-to-end,
+   not to execute anything.
+
+Once done, report the Task ID / Run ID / model response (and Approval ID if attempted), and this
+item closes: `TEXT_COMMAND_FRONT_DOOR` flips from `VERIFIED_BY_TEST` to `LIVE_VALIDATED` in
+`CURRENT_STATE.md` and `CURRENT_GATE.md`. This is unrelated to and does not change voice's own
+live/mic-capture validation status, which remains whatever it was before this session.
+
+**Updated 2026-09-06 (same session, real UI, Yusuf said "try it"):** the implementing session typed
+`What is my current system status?` into the real live composer and clicked Send for real (a
+synthetic Enter keypress did not register as a submit — a known CDP/automation limitation, not a
+product bug; clicking the actual Send button worked). Result, all verified against the real,
+unlocked `/os` UI:
+
+- **Task created for real**: `91233435-789c-4694-965a-27d74bffb3f2`, title "What is my current
+  system status?", timestamp `2026-09-06T18:07:23.156Z`, owner `chief_of_staff` — appears at the
+  top of the real `/os/tasks` list, above every prior (Aug 23/24) entry.
+- **Run created for real**: `204d6f31-3f61-4102-bc32-5f576095b8b5`, `chief_of_staff · ORCHESTRATION`.
+- **Run status: Failed** — `POST /voice/commands` returned `503`, and the composer honestly
+  surfaced "No eligible model provider could serve this completion" with a Retry button (no
+  fabricated success, no silent swallow, no fake response).
+- **Root cause identified, and it is not a text-composer defect**: `/os/runtime` shows OpenAI
+  **Configured** (the real key from item N is present and intact) but `chief_of_staff`'s routing
+  policy itself shows **UNAVAILABLE**, while `engineering`/`reviewer` show `FALLBACK_CHAIN`. Reading
+  `server/domain/yusufOS/agents/definitions.js:33`, `CHIEF_OF_STAFF.modelPolicy` is
+  `{role: "orchestration", temperature: 0}` — **no `routingPolicy` field at all**, unlike
+  Engineering's `{..., routingPolicy: "FALLBACK_CHAIN"}` (Phase R). Every voice/text command routes
+  through `chief_of_staff` (`VoiceService.command()`), so with Ollama `UNREACHABLE` and
+  `chief_of_staff` never configured to fall through to OpenAI, no command — voice or text — can
+  currently reach a real model in this environment. This is a **pre-existing gap predating this
+  session**, not introduced by the text composer; the composer's own job (create the real governed
+  Task/Run and honestly surface the outcome) worked exactly as designed.
+
+**Status: `TEXT_COMMAND_FRONT_DOOR` mechanism is `LIVE_VALIDATED`** — a real typed command, through
+the real UI, produced a real Task and Run via the exact governed pipeline, with an honest (not
+fabricated) outcome. **The full happy-path proof (an actual model response) remains blocked**, not
+by this feature, but by `chief_of_staff` having no `routingPolicy`. **Decision needed from Yusuf,
+not made unilaterally here:** whether to give `chief_of_staff` a `routingPolicy` (e.g.
+`FALLBACK_CHAIN`, matching Engineering/Reviewer) — this has cost implications, since every
+orchestration turn would then be eligible to call paid OpenAI, which may be why it was left
+unset. Once decided and applied, re-run this same command to get a real model response and close
+this item fully.
+
+---
+
 ## N. `OPEN_MANUAL_VALIDATION` — live Ollama / OpenAI model runtime [OPEN since 2026-08-21]
 
 **Why it is human-only:** proving `ModelRouter` against a real provider requires either a local
@@ -26,6 +103,34 @@ cases.
 **To close this:** either run Ollama locally (`ollama serve`, with at least one model pulled) or
 set a real `OPENAI_API_KEY` in the environment, then re-run
 `npx jest server/__tests__/yusufOS/modelRouting`.
+
+**Updated 2026-09-06:** the OpenAI half is now closed. Yusuf set a real `OPENAI_API_KEY` in
+`server/.env.development` and a single bounded live completion was run directly through
+`OpenAIProvider` → `ModelRouter` (module-level; not a full Agent run). Real result: provider
+`OPENAI`, served model `gpt-4o-mini-2024-07-18`, latency `3916ms`, usage 16/1/17 tokens
+(`KNOWN`), cost `~3 micros` (`ESTIMATED`), no fallback, zero secret-fragment matches in the
+result or backend log. See `CURRENT_GATE.md`'s Phase AC update for full detail. **Still open:**
+the Ollama half (no local daemon check performed this session — out of scope per explicit
+instruction to stop after the OpenAI validation).
+
+**Updated 2026-09-06 (later same session, real UI):** Yusuf unlocked the `/os` session himself
+(the implementing session never touched the control token) and asked for `/os/runtime` to be
+checked. Real page, live data: `OpenAI` shows **Configured** (label: "Configuration presence
+only. Credential values never enter this projection."), `Ollama` shows **UNREACHABLE** (no local
+daemon, as expected), and "Recent model completions" correctly shows none recorded — expected,
+since the live smoke test above called `OpenAIProvider`/`ModelRouter` directly via a standalone
+script, not through `AgentRunCoordinator`. This closes the previously-blocked HTTP/UI-level
+confirmation gap for OpenAI specifically. Incidentally, the connection indicator read **LIVE**
+(green) — relevant to item 1's SSE-reaches-LIVE question below — but item 1 is not being closed
+by this alone; no task/run/approval drilldown was opened this pass.
+
+**Updated 2026-09-06 (later same session):** `server/__tests__/yusufOS/modelRouting` was re-run
+with the env file loaded (a plain `npx jest ...` does not load `.env.development` — dotenv had to
+be preloaded explicitly). Result: **7 suites, 57 passed, 0 skipped** — the suite's own conditional
+`OpenAIProvider` live-smoke test (previously always skipped, `test.skip` when `OPENAI_API_KEY` is
+unset) executed for real this time and passed. The Ollama live-smoke test in the same run still
+gracefully skips internally (no local daemon reachable), which is expected and separate from the
+`test.skip` mechanism.
 
 ---
 
@@ -55,7 +160,37 @@ Open `http://localhost:3000/os`, unlock, and confirm three things:
 2. the connection indicator reaches `LIVE` — the least-proven path, since tests stub `EventSource`;
 3. a task, a run and an approval each open from the Command Center.
 
+**Updated 2026-09-06:** Yusuf unlocked the session himself (the implementing session never
+touched the control token). All three points checked against the real, unlocked session:
+
+1. **Real projections render** — dashboard, `/os/runtime`, `/os/tasks`, `/os/runs`, and
+   `/os/approvals` all showed genuine data (real agent roster, real Arabic voice-command task
+   history from Aug 24 2026, a real `Failed`/`MODEL_UNAVAILABLE` run predating today's OpenAI
+   configuration, real capability lists) — not fixture data.
+2. **Connection indicator reached `LIVE`** (green) — confirmed by screenshot.
+3. **Task and run both opened successfully** with real drilldown detail (completion gates,
+   blockers, handoffs, linked run for the task; agent/kind/status/model/failure-kind/cost for the
+   run). **Approval could not be opened** — the real database currently has zero pending and zero
+   decided approvals (matches the dashboard's `APPROVALS 0` tile), so there is nothing to click
+   into. The approvals list itself renders this correctly as an honest empty state, not fixture
+   data standing in for something real. Whether an empty-but-correctly-rendering approvals list
+   satisfies point 3, or whether a real approval needs to be produced and opened before this item
+   can be marked fully closed, is Yusuf's call, not the implementing session's to decide.
+
+One incidental, unrelated observation from this pass: the browser console showed three
+`401 Unauthorized` resource-load errors originating from AnythingLLM's own upstream `Sidebar`/
+`ActiveWorkspaces` components (not from any Yusuf OS code or the control-plane guard) — likely a
+pre-existing upstream single-user-mode auth quirk unrelated to this task. Not investigated further
+here; flagging only for awareness, not treating it as a Yusuf OS regression.
+
 Then say so, and the evidence gets recorded in `GATE_HISTORY.md` and Gate G closes.
+
+**Updated 2026-09-04:** the new Agent Workspace at `/os/agents` (see `CURRENT_GATE.md`'s
+"Post-V1" entry) falls under this same open item — its live module graph was confirmed
+to load cleanly against a real dev server, but nobody has yet unlocked the session and
+exercised it (Department grouping, a real running Agent's console state, tab switching)
+against real data. When doing the unlock pass above, also open `/os/agents` and confirm
+those specifically.
 
 ---
 

@@ -277,22 +277,60 @@ class ChiefOfStaff {
    */
   async taskState(taskId) {
     const numericTaskId = Number(taskId);
-    const [task, runs, handoffs, verdicts, approvals, completion] =
-      await Promise.all([
-        this.db.yusuf_tasks.findUnique({
-          where: { id: numericTaskId },
-          include: { assignedAgent: true },
-        }),
-        this.db.yusuf_agent_runs.findMany({
-          where: { taskId: numericTaskId },
-          include: { agent: true },
-          orderBy: { createdAt: "asc" },
-        }),
-        this.handoffs.listForTask(numericTaskId),
-        this.reviews.history(numericTaskId),
-        this.pendingApprovals(numericTaskId),
-        this.completion.evaluate(numericTaskId),
-      ]);
+    const actions = await this.db.yusuf_action_intents.findMany({
+      where: { taskId: numericTaskId },
+      include: { receipt: true, approval: true },
+      orderBy: { createdAt: "asc" },
+    });
+    const resourceIds = (type) =>
+      actions
+        .filter((intent) => intent.resourceType === type)
+        .map((intent) => intent.resourceId);
+    const [
+      task,
+      runs,
+      handoffs,
+      verdicts,
+      approvals,
+      completion,
+      research,
+      career,
+      inbox,
+    ] = await Promise.all([
+      this.db.yusuf_tasks.findUnique({
+        where: { id: numericTaskId },
+        include: { assignedAgent: true },
+      }),
+      this.db.yusuf_agent_runs.findMany({
+        where: { taskId: numericTaskId },
+        include: { agent: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      this.handoffs.listForTask(numericTaskId),
+      this.reviews.history(numericTaskId),
+      this.pendingApprovals(numericTaskId),
+      this.completion.evaluate(numericTaskId),
+      this.db.yusuf_research_items.findMany({
+        where: { uuid: { in: resourceIds("RESEARCH_ITEM") } },
+        select: { uuid: true, status: true, category: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      this.db.yusuf_career_opportunities.findMany({
+        where: { uuid: { in: resourceIds("CAREER_OPPORTUNITY") } },
+        select: { uuid: true, status: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      this.db.yusuf_inbox_messages.findMany({
+        where: { uuid: { in: resourceIds("INBOX_MESSAGE") } },
+        select: {
+          uuid: true,
+          status: true,
+          classification: true,
+          linkedCareerOpportunityUuid: true,
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
     return {
       task: task
         ? {
@@ -323,6 +361,28 @@ class ChiefOfStaff {
         createdAt: v.createdAt,
       })),
       waitingApprovals: approvals.length,
+      workProducts: {
+        research: research.map((row) => ({
+          uuid: row.uuid,
+          status: row.status,
+          category: row.category,
+        })),
+        career: career.map((row) => ({ uuid: row.uuid, status: row.status })),
+        inbox: inbox.map((row) => ({
+          uuid: row.uuid,
+          status: row.status,
+          classification: row.classification,
+          linked: row.linkedCareerOpportunityUuid !== null,
+        })),
+        actions: actions.map((intent) => ({
+          uuid: intent.uuid,
+          capability: intent.capabilityKey,
+          status: intent.status,
+          approvalStatus: intent.approval?.status || null,
+          receiptOutcome: intent.receipt?.outcome || null,
+          verificationStatus: intent.receipt?.verificationStatus || null,
+        })),
+      },
       completion,
     };
   }

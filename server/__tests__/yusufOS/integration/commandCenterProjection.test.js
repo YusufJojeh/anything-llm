@@ -53,6 +53,73 @@ describe("Gate F — Command Center projections", () => {
     if (testDatabase) await testDatabase.cleanup();
   });
 
+  test("projects durable scheduler health and open notifications without exposing internal records", async () => {
+    const now = new Date();
+    await db.yusuf_schedules.create({
+      data: {
+        uuid: randomUUID(),
+        scheduleKey: "EVIDENCE_RETENTION",
+        kind: "EVIDENCE_RETENTION",
+        intervalSeconds: 3600,
+        nextRunAt: now,
+        failureCount: 2,
+        lastErrorCode: "SCHEDULE_EXECUTION_FAILED",
+        workerLastFailureAt: now,
+        workerLastErrorCode: "SCHEDULER_WORKER_FAILED",
+      },
+    });
+    await db.yusuf_notifications.create({
+      data: {
+        uuid: randomUUID(),
+        kind: "SCHEDULER_FAILURE",
+        severity: "WARNING",
+        dedupeKey: "scheduler:EVIDENCE_RETENTION",
+        summary: "Retention retry pending; token=should-not-leak",
+      },
+    });
+    const dashboard = await new DashboardProjection(db).build();
+    expect(dashboard.scheduler).toEqual([
+      expect.objectContaining({
+        scheduleKey: "EVIDENCE_RETENTION",
+        failureCount: 2,
+        lastErrorCode: "SCHEDULE_EXECUTION_FAILED",
+      }),
+    ]);
+    expect(dashboard.notificationAttentionQueue).toEqual([
+      expect.objectContaining({ kind: "SCHEDULER_FAILURE", severity: "WARNING" }),
+    ]);
+    expect(JSON.stringify(dashboard)).not.toContain("should-not-leak");
+  });
+
+  test("marks a stale scheduler worker heartbeat degraded rather than operational", async () => {
+    await db.yusuf_schedules.create({
+      data: {
+        uuid: randomUUID(), scheduleKey: "EVIDENCE_RETENTION", kind: "EVIDENCE_RETENTION",
+        intervalSeconds: 3600, nextRunAt: new Date(),
+        workerLastTickAt: new Date(Date.now() - 91 * 1000),
+      },
+    });
+    const dashboard = await new DashboardProjection(db).build();
+    expect(dashboard.scheduler[0]).toMatchObject({ workerStatus: "DEGRADED" });
+  });
+
+  test("marks a newer scheduler worker failure degraded even with a fresh prior tick", async () => {
+    const now = Date.now();
+    await db.yusuf_schedules.create({
+      data: {
+        uuid: randomUUID(), scheduleKey: "EVIDENCE_RETENTION", kind: "EVIDENCE_RETENTION",
+        intervalSeconds: 3600, nextRunAt: new Date(now),
+        workerLastTickAt: new Date(now - 30 * 1000),
+        workerLastFailureAt: new Date(now - 1000),
+        workerLastErrorCode: "SCHEDULER_WORKER_FAILED",
+      },
+    });
+    const dashboard = await new DashboardProjection(db).build();
+    expect(dashboard.scheduler[0]).toMatchObject({
+      workerStatus: "DEGRADED", workerLastErrorCode: "SCHEDULER_WORKER_FAILED",
+    });
+  });
+
   beforeEach(async () => {
     await clearYusufTables(db);
     resetProjectionCaches();

@@ -1,9 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  CORE_MODES,
-  deriveCoreMode,
-  coreModeParams,
-} from "../state/coreVisualState";
+import { CORE_MODES, deriveCoreMode, coreModeParams } from "../state/coreMode";
 import { deriveStages, STAGE_STATUS } from "../state/operationStages";
 import {
   HOST_METRICS,

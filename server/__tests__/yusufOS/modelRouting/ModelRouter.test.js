@@ -120,6 +120,28 @@ describe("Phase R — ModelRouter attack matrix", () => {
     expect(ollamaAttempts).toBe(1);
   });
 
+  test("LOCAL_FIRST falls back to OpenAI when Ollama fails, same as FALLBACK_CHAIN", async () => {
+    // LOCAL_FIRST and FALLBACK_CHAIN share an implementation today, but their
+    // names imply distinct intent (prefer local vs. a generic ordered
+    // chain). This is a regression tripwire: it fails loudly the day someone
+    // gives LOCAL_FIRST its own branch without preserving this behavior.
+    let ollamaAttempts = 0;
+    const router = new ModelRouter({
+      ollama: fakeOllama({
+        health: { available: true, models: [{ fullName: "llama3:latest", name: "llama3" }] },
+        completeImpl: async () => {
+          ollamaAttempts += 1;
+          throw new Error("ollama down");
+        },
+      }),
+      openai: fakeOpenAI(),
+    });
+    const result = await router.route({ policy: ROUTING_POLICIES.LOCAL_FIRST, messages });
+    expect(result.provider).toBe(PROVIDER_KINDS.OPENAI);
+    expect(result.fallbackOccurred).toBe(true);
+    expect(ollamaAttempts).toBe(1);
+  });
+
   test("FALLBACK_CHAIN with both providers failing exhausts cleanly", async () => {
     const router = new ModelRouter({
       ollama: fakeOllama({
@@ -233,6 +255,61 @@ describe("Phase R — ModelRouter attack matrix", () => {
     const result = await router.route({ policy: ROUTING_POLICIES.LOCAL_ONLY, messages });
     expect(typeof result.content).toBe("string");
     expect(result.content).toContain("require(");
+  });
+
+  test("OPENAI_FIRST attempts OpenAI before Ollama even when Ollama is also healthy and would succeed", async () => {
+    const ollamaComplete = jest.fn(async ({ model }) => ({
+      content: "ok",
+      provider: PROVIDER_KINDS.OLLAMA,
+      model,
+      latencyMs: 5,
+      usage: { confidence: CONFIDENCE.KNOWN, promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+      cost: { confidence: CONFIDENCE.UNAVAILABLE, amountMicros: null },
+    }));
+    const router = new ModelRouter({
+      ollama: fakeOllama({
+        health: { available: true, models: [{ fullName: "llama3:latest", name: "llama3" }] },
+        completeImpl: ollamaComplete,
+      }),
+      openai: fakeOpenAI(),
+    });
+    const result = await router.route({ policy: ROUTING_POLICIES.OPENAI_FIRST, messages });
+    expect(result.provider).toBe(PROVIDER_KINDS.OPENAI);
+    expect(result.fallbackOccurred).toBe(false);
+    expect(ollamaComplete).not.toHaveBeenCalled();
+  });
+
+  test("OPENAI_FIRST honestly falls back to Ollama, and reports fallbackOccurred, when OpenAI's completion itself fails", async () => {
+    const router = new ModelRouter({
+      ollama: fakeOllama({ health: { available: true, models: [{ fullName: "llama3:latest", name: "llama3" }] } }),
+      openai: fakeOpenAI({
+        completeImpl: async () => {
+          throw new Error("simulated OpenAI outage");
+        },
+      }),
+    });
+    const result = await router.route({ policy: ROUTING_POLICIES.OPENAI_FIRST, messages });
+    expect(result.provider).toBe(PROVIDER_KINDS.OLLAMA);
+    expect(result.fallbackOccurred).toBe(true);
+  });
+
+  test("OPENAI_FIRST with both providers failing surfaces the honest MODEL_UNAVAILABLE error, not a fabricated success", async () => {
+    const router = new ModelRouter({
+      ollama: fakeOllama({
+        health: { available: true, models: [{ fullName: "llama3:latest", name: "llama3" }] },
+        completeImpl: async () => {
+          throw new Error("ollama down");
+        },
+      }),
+      openai: fakeOpenAI({
+        completeImpl: async () => {
+          throw new Error("openai down");
+        },
+      }),
+    });
+    await expect(
+      router.route({ policy: ROUTING_POLICIES.OPENAI_FIRST, messages })
+    ).rejects.toMatchObject({ code: ErrorCodes.MODEL_UNAVAILABLE });
   });
 
   test("rejects an unknown routing policy", async () => {

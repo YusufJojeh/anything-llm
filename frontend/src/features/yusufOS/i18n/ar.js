@@ -56,6 +56,8 @@ export default {
     notInstalled: "غير مثبّت",
     noModels: "لم يُبلَّغ عن أي نموذج مثبّت.",
     reachable: "متاح",
+    viewFull: "عرض وحدة التحكم الكاملة لبيئة التشغيل",
+    unavailable: "لم تُحمَّل حالة بيئة التشغيل بعد.",
     configured: "مُهيّأ",
     notConfigured: "غير مُهيّأ",
     keySafe:
@@ -188,6 +190,7 @@ export default {
     emptyDetail:
       "لا موافقات معلّقة، ولا عمل متوقّف، ولا آثار خارجية غير مُتحقَّق منها.",
     open: "فتح",
+    acknowledge: "إقرار",
     count_zero: "عناصر تحتاج إليك: {{count}}",
     count_one: "عناصر تحتاج إليك: {{count}}",
     count_two: "عناصر تحتاج إليك: {{count}}",
@@ -204,6 +207,20 @@ export default {
       TASK_FAILED: "مهمة فاشلة",
       RECONCILIATION_PENDING: "آثار خارجية بانتظار التحقّق. العدد: {{count}}",
       ADAPTER_OFFLINE: "المحوّل {{adapterId}} في حالة {{status}}",
+      NOTIFICATION: "{{notificationKind}}",
+    },
+    // تسميات القيمة الخام لـ yusuf_notifications.kind، تُستبدل داخل attention.kind.NOTIFICATION أعلاه.
+    // يعود إلى القيمة الخام لأي نوع مستقبلي لم تلحق به هذه القائمة بعد.
+    notificationKind: {
+      APPROVAL_NEEDED: "بحاجة إلى موافقة",
+      TASK_BLOCKED: "مهمة متوقّفة",
+      EXECUTION_UNKNOWN: "نتيجة التنفيذ غير معروفة",
+      MONITORING_BREACH: "خرق في المراقبة",
+      ADAPTER_OFFLINE: "المحوّل غير متصل",
+      SCHEDULER_FAILURE: "فشل الجدولة",
+      MODEL_UNAVAILABLE: "النموذج غير متاح",
+      BROWSER_DISCONNECTED: "المتصفح غير متصل",
+      INBOX_IMPORTANT: "رسالة هامة في صندوق الوارد",
     },
   },
   agent: {
@@ -355,6 +372,10 @@ export default {
     reconciliationPending_other:
       "آثار خارجية قد تكون وقعت ولم تُثبَت بعد. العدد: {{count}}",
     adapters: "محوّلات التنفيذ",
+    scheduler: "المجدول",
+    schedulerNone: "لا توجد جداول دائمة مهيأة.",
+    schedulerNext: "التشغيل التالي {{time}}",
+    schedulerFailure: "إخفاقات مسجلة: {{count}}؛ الأحدث: {{code}}",
     adapterCapabilities_zero: "صلاحيات: {{count}}",
     adapterCapabilities_one: "صلاحيات: {{count}}",
     adapterCapabilities_two: "صلاحيات: {{count}}",
@@ -431,6 +452,12 @@ export default {
       FAILED_UNKNOWN: "النتيجة غير معروفة — جارٍ التحقّق",
       INVALIDATED: "أُبطل",
       CANCELLED: "أُلغي",
+    },
+    scheduler: {
+      ACTIVE: "نشط",
+      PAUSED: "متوقف مؤقتًا",
+      DISABLED: "معطل",
+      FAILED: "فشل",
     },
     audit: {
       VALID: "سليمة",
@@ -746,6 +773,11 @@ export default {
     transcript: "النص المنسوخ",
     response: "الاستجابة",
     approvalRequired: "مراجعة الموافقة المطلوبة",
+    viewTask: "عرض المهمة",
+    viewRun: "عرض التشغيل",
+    commandInput: "اكتب أمرًا",
+    commandPlaceholder: "اكتب أمرًا…",
+    send: "إرسال الأمر",
     failed: "فشل الأمر الصوتي.",
     unsupported: "التسجيل الصوتي غير مدعوم في هذا المتصفح.",
     providerUnavailable:
@@ -778,5 +810,29 @@ export default {
       ERROR: "الصوت غير متاح",
       SPEAKING: "جارٍ النطق",
     },
+  },
+  workspace: {
+    selectPrompt: "اختر وكيلاً لفتح مساحة عمله.",
+    otherAgents: "وكلاء آخرون",
+    console: "وحدة التحكم",
+    state: {
+      IDLE: "خامل",
+      THINKING: "يفكر",
+      USING_TOOL: "يستخدم أداة",
+      WORKING: "يعمل",
+      WAITING_APPROVAL: "بانتظارك",
+      BLOCKED: "محظور",
+      COMPLETE: "مكتمل",
+      ERROR: "خطأ",
+    },
+    tabs: {
+      agent: "الوكيل",
+      task: "المهمة",
+      evidence: "الأدلة",
+    },
+    noRun: "غير مكلَّف حالياً بأي تشغيل.",
+    noTask: "غير مكلَّف حالياً بأي مهمة.",
+    openFullRun: "فتح التشغيل الكامل",
+    openFullTask: "فتح المهمة الكاملة",
   },
 };

@@ -3,11 +3,12 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { CaretDown } from "@phosphor-icons/react";
 import { useYusufOS, PHASES } from "@/features/yusufOS/state/YusufOSProvider";
+import { yusufApi } from "@/features/yusufOS/api/client";
 import {
   CommandSessionProvider,
   useCommandSession,
 } from "@/features/yusufOS/state/CommandSession";
-import { deriveCoreMode } from "@/features/yusufOS/state/coreVisualState";
+import { deriveCoreMode } from "@/features/yusufOS/state/coreMode";
 import {
   deriveStages,
   hasRecentStageEvent,
@@ -86,6 +87,7 @@ function Console() {
     realtime,
     runtime,
     runtimePhase,
+    refresh,
   } = useYusufOS();
   const session = useCommandSession();
   const [params, setParams] = useSearchParams();
@@ -125,6 +127,16 @@ function Console() {
     next.delete("focus");
     setParams(next, { replace: false });
   }, [params, setParams]);
+
+  // Acknowledging a durable notification is the existing governed endpoint;
+  // the snapshot is re-read so the queue reflects what the server recorded.
+  const acknowledgeNotification = useCallback(
+    async (notificationId) => {
+      await yusufApi.acknowledgeNotification(notificationId);
+      await refresh();
+    },
+    [refresh]
+  );
 
   const selectedAgent = useMemo(
     () =>
@@ -204,7 +216,11 @@ function Console() {
           ) : null}
         </div>
         <div className="yos-scroll mt-1 max-h-[260px] overflow-y-auto">
-          <AttentionQueue items={model.attention} loading={loading} />
+          <AttentionQueue
+            items={model.attention}
+            loading={loading}
+            onAcknowledge={acknowledgeNotification}
+          />
         </div>
       </section>
 

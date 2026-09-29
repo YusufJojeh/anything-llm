@@ -32,6 +32,14 @@ function forbidden(message, details = {}) {
 function accountIdentityDigest(identity) {
   if (!identity || identity.verifiedBySession !== true) return null;
   if (identity.state !== "authenticated") return null;
+  // Cookie existence alone proves only that *some* session exists. A mutation
+  // must bind a concrete, independently derived account label; the generic CDP
+  // driver intentionally cannot invent one from hostile page text.
+  if (
+    typeof identity.accountLabel !== "string" ||
+    identity.accountLabel.trim().length === 0
+  )
+    return null;
   return sha256(
     JSON.stringify({
       origin: String(identity.origin || ""),

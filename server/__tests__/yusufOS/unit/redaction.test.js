@@ -1,6 +1,7 @@
 const {
   REDACTED,
   redactForPersistence,
+  assertReferencesOnly,
 } = require("../../../domain/yusufOS/security/redaction");
 
 describe("Yusuf OS secret redaction", () => {
@@ -41,5 +42,30 @@ describe("Yusuf OS secret redaction", () => {
     );
     expect(value).not.toContain("unsafe");
     expect(value).toContain(REDACTED);
+  });
+
+  function nested(depth, leaf) {
+    let value = leaf;
+    for (let i = 0; i < depth; i += 1) value = { child: value };
+    return value;
+  }
+
+  test("a deeply nested value degrades to a safe placeholder instead of exhausting the stack", () => {
+    // redactForPersistence is a best-effort sanitizer called from
+    // error-handling paths, so it must never itself throw -- excess depth
+    // degrades to an opaque placeholder rather than raising.
+    const result = redactForPersistence(
+      nested(200, { Authorization: "Bearer deep-secret" })
+    );
+    expect(JSON.stringify(result)).not.toContain("deep-secret");
+    expect(JSON.stringify(result)).toContain("MAX_DEPTH_EXCEEDED");
+    expect(redactForPersistence(nested(5, { safe: "visible" }))).toBeTruthy();
+  });
+
+  test("assertReferencesOnly rejects a deeply nested value instead of exhausting the stack", () => {
+    expect(() => assertReferencesOnly(nested(200, "leaf"))).toThrow(
+      /maximum nesting depth/
+    );
+    expect(() => assertReferencesOnly(nested(5, "leaf"))).not.toThrow();
   });
 });

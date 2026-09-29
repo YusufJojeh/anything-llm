@@ -183,6 +183,10 @@ export const yusufApi = {
     }),
 
   checkAuditIntegrity: () => call("/audit-integrity/check", { method: "POST" }),
+  acknowledgeNotification: (notificationId) =>
+    call(`/notifications/${encodeURIComponent(notificationId)}/acknowledge`, {
+      method: "POST",
+    }),
 };
 
 /** SSE endpoint. `EventSource` sends the session cookie on a same-origin URL. */

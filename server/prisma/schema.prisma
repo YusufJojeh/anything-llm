@@ -1121,3 +1121,47 @@ model yusuf_security_settings {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 }
+
+// Phase Y: durable scheduler ownership. Leases make a tick safe across
+// concurrent workers and restart; schedule kinds are code-owned in Scheduler.
+model yusuf_schedules {
+  id             Int      @id @default(autoincrement())
+  uuid           String   @unique
+  scheduleKey    String   @unique
+  kind           String
+  status         String   @default("ACTIVE")
+  intervalSeconds Int
+  nextRunAt      DateTime
+  lastRunAt      DateTime?
+  failureCount   Int      @default(0)
+  lastErrorCode  String?
+  workerLastTickAt DateTime?
+  workerLastFailureAt DateTime?
+  workerLastErrorCode String?
+  leaseId        String?
+  leaseExpiresAt DateTime?
+  version        Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  @@index([status, nextRunAt])
+  @@index([leaseExpiresAt])
+}
+
+// Durable local-only operator attention. SSE/audit can notify clients, but
+// this table is the source of truth across reconnects and restarts.
+model yusuf_notifications {
+  id          Int      @id @default(autoincrement())
+  uuid        String   @unique
+  kind        String
+  severity    String
+  status      String   @default("OPEN")
+  dedupeKey   String   @unique
+  summary     String
+  taskId      Int?
+  runId       Int?
+  createdAt   DateTime @default(now())
+  acknowledgedAt DateTime?
+
+  @@index([status, severity, createdAt])
+}

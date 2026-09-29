@@ -1,5 +1,316 @@
 # Current Gate
 
+## Post-V1 — Text Command Front Door — status: IMPLEMENTED / VERIFIED_BY_TEST / NOT LIVE_VALIDATED
+
+**Trigger:** immediately after this session's own live investigation confirmed a spoken voice
+command had produced no task/run/approval, Yusuf issued a large explicit "TEXT COMMAND FRONT DOOR /
+FINAL DAILY-USE BLOCKER" prompt: microphone/browser capture being the *only* way to originate Yusuf
+OS work is a single point of failure that blocks daily use, and it must be closed by reusing the
+exact existing governed voice-command runtime — not a second/duplicate command path.
+
+**What changed (frontend-only, zero backend changes):** `VoiceConsole.jsx` gained a typed-command
+composer (`<textarea>` + send button) rendered above the mic control in both the `dock` variant
+(used in `CommandCenter.jsx` and `Agents.jsx`) and the `panel` variant. `submitDraft()` calls the
+same `runCommand()` the mic already called after transcription; `runCommand()` has exactly one call
+site into the backend, `yusufApi.runVoiceCommand()` → `POST /voice/commands` →
+`VoiceService.command()` — the same Task→Run→`AgentReasoningLoop`→Policy→Approval→Execution→
+Verification→Audit chain voice already used. `VoiceService.command()` already returned
+`{taskId, runId, state, response, approvalId}`; the frontend was discarding `taskId`/`runId` before
+this change. They now render as "View task"/"View run" links, gated purely on the server actually
+returning a truthy id — never client-constructed.
+
+**Deliberately not built, to avoid fabricating capability that doesn't exist:**
+- **No agent-targeting UI.** `/voice/commands` accepts only `{utterance}` — no agent id parameter —
+  and always routes through `chief_of_staff` regardless of any Agent Workspace selection context
+  (which `VoiceConsole` doesn't even receive as a prop). Adding a "Working with X" display would
+  either be disconnected from reality or imply a routing capability the runtime doesn't have.
+- **No attachment affordance.** A visible-but-disabled attach button would itself imply a future
+  capability; omitting it entirely makes no false claim.
+
+**Boundary guarantees (independently re-verified, see below):** the composer's max length
+(`MAX_COMMAND_CHARS = 10000`) is a client-side literal mirroring, never exceeding,
+`VoiceService.MAX_UTTERANCE_CHARS` — the server remains the sole source of truth and enforces its
+own limit regardless. Whitespace-only input is rejected before any request is sent. The whole
+composer (`composerDisabled = busy || listening`) is disabled for the duration of an in-flight
+command, using the same `busy`/`listening` phase state the mic already used — no new disabled-state
+mechanism, no path to two concurrent submissions from one piece of text. An `APPROVAL_REQUIRED`
+result only ever renders a `<Link>` to `/os/approvals/:id`; nothing in this file calls a decide/
+approve function. The textarea has `dir="auto"` for bidi-safe rendering and a real (sr-only but
+programmatically associated) `<label>`; the icon-only send button has a real `aria-label`.
+
+**Tests:** `voiceConsole.test.jsx` gained 25 new tests (Enter-to-send, Shift+Enter-newline,
+Send-button, whitespace rejection, max-length attribute, duplicate-submit prevention via a
+manually-controlled pending Promise, backend-error/network-error surfacing, malformed-response
+resilience, approval-required rendering without auto-approval, task/run link presence-only-when-
+returned, Arabic/RTL rendering, and a security-boundary block asserting no raw `fetch` and nothing
+CSRF/session/command-shaped written to `localStorage`). Full frontend suite: **17 suites, 220 tests,
+all passed** (was 195; +25). Targeted lint clean. Production build clean. `git diff --check` clean.
+
+**Independent cold review** (a fresh agent with no session context, per this project's own
+standing lesson that self-review is materially weaker than independent review): re-derived and
+verified, from the diff and the actual backend route/service code, all 10 required boundary claims
+— same runtime/no duplicate path, no CSRF bypass, no fabricated agent-targeting, no auto-approval,
+honest task/run links, duplicate-submission handling, input bounds matching the server exactly,
+accessibility, RTL/i18n, and non-tautological test coverage. **Verdict: all 10 CONFIRMED, 0
+additional P0/P1 found.**
+
+**Self-caught issues fixed before the independent review (not P0/P1, noted for completeness):** the
+send button initially used Tailwind's `size-10` (40px) with the shared `.yos-touch-target` utility
+(`min-block-size: 44px`), rendering a non-square 44×40 button because `min-block-size` only affects
+block-size — fixed to `size-11` (44px), confirmed via live `getBoundingClientRect()` against the
+running dev server. One test assertion (`localStorage.setItem` never called) was rewritten after a
+real failure revealed i18next itself writes `i18nextLng` — the test now asserts no CSRF/session/
+command-shaped *key* is written, which is what actually mattered.
+
+**What is genuinely NOT verified — the live proof, deliberately deferred to Yusuf:** this session
+verified the composer's rendering, typing, keyboard behavior, enable/disable states, and mobile
+layout live against the real running dev server (`yusuf-os-frontend`, port 3000) inside the
+sandboxed Browser pane, but **did not click Send to submit a real command**. The CAVEMAN prompt's
+own text names "Yusuf" (not "I") as the one who types the live verification command and the
+approval-proof commissioning command ("Ask Engineering to prepare a safe test action that requires
+my approval. Do not execute anything until I approve it.") — consistent with this session's
+standing pattern that Yusuf originates real consequential governed actions himself. Until Yusuf
+performs that live submission, `TEXT_COMMAND_FRONT_DOOR` stays `VERIFIED_BY_TEST`, not
+`LIVE_VALIDATED`. See `HUMAN_ACTION_REQUIRED.md`.
+
+**Local commit:** see `SESSION_HANDOFF.md` for the hash. No push, no PR, no deploy.
+
+## Post-V1 — Agent Workspace (Section 20) — status: IMPLEMENTED / PARTIALLY VERIFIED
+
+V1 (Phases B–AE) is COMPLETE and released, below. This entry is a later,
+out-of-band addition: a large follow-up audit/completion prompt from Yusuf
+named a dedicated "Agent Workspace" console as a specific, still-missing
+requirement (a JARVIS/APEX-style three-pane console per Agent — LEFT
+Department-grouped roster, CENTER a live per-Agent console with a strictly
+real, non-fabricated activity state, RIGHT Agent/Task/Evidence tabs, BOTTOM
+the existing voice dock). `/os/agents` was a thin roster+drawer page; it is
+now the full Workspace, built entirely against already-existing, already-
+tested backend projections (`DetailProjections.run()`/`.task()`/`.roster()`,
+`RuntimeProjection.departments()`) — **no new backend endpoint or capability
+surface was added**, so no new security boundary was introduced.
+
+The console state (`IDLE/THINKING/USING_TOOL/WORKING/WAITING_APPROVAL/
+BLOCKED/COMPLETE/ERROR`, `commandCenterModel.js`'s `deriveWorkspaceState`) is
+derived purely from real `run.status` and whether an intent is `EXECUTING` —
+never chain-of-thought, never fabricated — and the literal backend status is
+always shown alongside it. Department grouping degrades to an ungrouped list
+when the `/runtime` projection hasn't loaded yet rather than fabricating one.
+
+**Verified this session:** full frontend suite (13 suites / 171 tests,
+including 4 new `agentWorkspace.test.jsx` rendering tests and 9 new
+`commandCenterModel.test.js` unit cases for the two new pure functions),
+targeted ESLint clean, production build clean, and a live Vite dev-server
+check confirming the entire new module graph loads with zero console/network
+errors and the governed lock screen renders correctly.
+
+**Not verified this session — genuinely blocked, not skipped:** the actual
+unlocked `/os/agents` UI against a live control plane with real data. Reaching
+it requires entering `YUSUF_OS_CONTROL_TOKEN` into the browser's unlock field,
+which this agent will not do (credential entry is a hard stop regardless of
+local/dev context — see `HUMAN_ACTION_REQUIRED.md`). No independent adversarial
+review was run either, since this is a frontend-only change with no new
+capability/policy/execution surface for one to meaningfully attack — flagged
+here rather than silently skipped, per this project's own standing lesson that
+self-review is not sufficient once real security surface is at stake.
+
+**Local commit:** `776102cc`. No push, no PR, no deploy. `.claude/` remains
+untracked.
+
+**Next:** Yusuf manually unlocks `/os/agents` locally (paste
+`YUSUF_OS_CONTROL_TOKEN`) and confirms the Workspace renders correctly against
+live data — selection, tab switching, and the console state for a real running
+Agent. The rest of the originally-requested mega-audit (full backend domain
+audit, adversarial security review, browser-broker hostile-corpus tests, PM
+backlog review, etc.) was not attempted this session — it is a separately
+scoped, multi-session effort and none of it should be reported as done without
+having actually been performed.
+
+## Phase AE — Final Full-System E2E — status: COMPLETE
+
+The V1 critical path S→AE is locally complete. The final sweep caught and
+fixed a stale Command Center scheduler fixture so it now writes the current
+durable worker failure fields rather than a removed Prisma field. The governed
+Agent → capability → policy → approval → execution → verification → receipt →
+audit architecture remains covered by the real Engineering and Career E2E
+fixtures, while the Command Center, scheduler, voice, and provider boundaries
+retain their earlier focused coverage.
+
+Final regression evidence: focused Command Center projection and Engineering/
+Career/Reasoning E2E commands completed with no further failure after the
+fixture repair; the Windows Jest fixture runner suppressed its normal aggregate
+summary, so no fabricated count is recorded. Yusuf OS frontend tests completed
+successfully; frontend production build, Prisma validation, targeted ESLint,
+and `git diff --check` passed. Independent final review: **P0=0/P1=0**, PASS.
+Inherited P2s remain: non-SQLite audit-sequence contention, application-only
+scheduler/notification DB constraints, and raw notification kind labels.
+`.claude/` remains untracked. No push, deployment, or live external mutation
+occurred.
+
+**V1 gate:** COMPLETE.
+
+## Phase AD — Release / Ops / Backup — status: COMPLETE
+
+V1 now has a local-only operations runbook and a fail-closed startup readiness
+gate. The gate loads the standard environment file, validates audit/control
+secret presence without displaying values, scheduler syntax, safe Ollama/CDP
+configuration, and durable storage before the server serves traffic. The
+runbook records topology, migrations, health, shutdown, backup/restore,
+audit-key handling, update rollback, and incident recovery using the actual
+SQLite location and `STORAGE_DIR` behavior.
+
+Independent review: **P0=0/P1=0/P2=1**, PASS; its concrete restore-command
+clarity note was then addressed in the final runbook. Focused
+readiness/browser/control-plane regression: **3 suites, 37 passed**; Prisma
+validation, targeted ESLint, and `git diff --check` passed. `.claude/` remains
+untracked. No push, deployment, or live external mutation occurred.
+
+**Next:** Phase AE — final full-system E2E and gate.
+
+## Phase AC — Live Provider Validation — status: COMPLETE
+
+Read-only Ollama discovery found a healthy local daemon and installed models. A bounded local
+`gemma3:1b` completion was run without pulling a model or mutating external state; the daemon
+returned a bounded response plus token usage (`prompt_eval_count=24`, `eval_count=8`). Ollama and
+Gemma are therefore **LIVE-VALIDATED** locally. `OPENAI_API_KEY` is absent: OpenAI remains
+**IMPLEMENTED / NOT LIVE-VALIDATED**, and no paid/cloud request was sent.
+
+Evidence: [PHASE_AC_PROVIDER_VALIDATION.md](PHASE_AC_PROVIDER_VALIDATION.md). Independent review:
+**P0=0/P1=0/P2=0**, PASS; mocked provider regression is **25 passed, 1 conditional OpenAI skip**.
+`.claude/` remains untracked. No push, deployment, or live external mutation occurred.
+
+**Updated 2026-09-06:** `OPENAI_API_KEY` is now set in `server/.env.development`. A single bounded
+live completion was run directly through `OpenAIProvider` → `ModelRouter` (module-level, not via
+HTTP/Agent/browser) — `EXPLICIT_MODEL` policy, 5-token completion cap, 15s explicit timeout, no
+retries. Result: provider `OPENAI`, served model `gpt-4o-mini-2024-07-18` (requested
+`gpt-4o-mini`; the date-suffixed alias is expected/allowed), latency `3916ms`, usage
+`{promptTokens:16, completionTokens:1, totalTokens:17}` (confidence `KNOWN`), cost `~3 micros`
+(confidence `ESTIMATED`), `fallbackOccurred:false`. Structural secret-leakage check (result object
++ backend log, grepped for the key-shape prefix and for `Authorization`/`Bearer`) found zero
+matches. OpenAI is therefore **LIVE-VALIDATED** as of this date. This was a direct provider/router
+smoke test only — no live Agent run, no `/api/yusuf-os/runtime` HTTP-level confirmation (requires
+the control token, which the implementing session does not hold), and no `/os/runtime` UI
+confirmation (session still locked). Routing policy defaults are unchanged.
+
+**Next:** Phase AD — Release / Ops / Backup.
+
+## Phase AB — Reliability / Recovery — status: COMPLETE
+
+Scheduler recovery is now durable and truthful: long retention runs renew their lease; boot/tick
+failures retain a retrying worker and durable failure state; a returned failed job is degraded just
+like a thrown tick error; dashboard health distinguishes stale, failed, and healthy heartbeat
+ordering. The SSE/session recovery path closes an expired browser session rather than carrying a
+stale control-plane connection.
+
+Independent review: **P0=0/P1=0/P2=1**, PASS. Focused scheduler lifecycle: **14 passed**;
+reviewer also verified Command Center projection, provider tests, and the standalone Agent
+Reasoning Loop. Code commits: `7e5db270`, `f73abf50`.
+
+P2: scheduler/notification migration lacks database-level enum/FK constraints; current
+application validation covers them. `.claude/` remains untracked. No push, deployment, or live
+external mutation occurred.
+
+**Next:** Phase AC — live provider validation where safely available.
+
+## Phase AA — Security hardening review — status: COMPLETE
+
+A fresh security review exercised the integrated Agent/Policy/Approval/Execution/Audit, model,
+browser, inbox, voice, UI-session/SSE, and scheduler boundaries. It found and closed two P1s:
+an authenticated SSE stream now rechecks (without extending) UI-session validity and terminates on
+expiry; scheduler boot/tick health is durable and projection-backed, including failure ordering so
+a recent failure cannot inherit a prior healthy heartbeat.
+
+Independent review: **P0=0/P1=0/P2=2**, PASS. Focused scheduler regression: **12 passed**;
+Yusuf OS frontend regression: **10 files, 140 passed**; targeted syntax/lint/diff checks passed.
+Security code commits: `eda78d45`, `2cc33e87`.
+
+P2 follow-ups: audit append contention retry/serialization on non-SQLite engines; constrain remote
+provider error text to operator-safe summaries. `.claude/` remains untracked. No push,
+deployment, or live external mutation occurred.
+
+**Next:** Phase AB — Reliability / Recovery.
+
+## Phase Z — Command Center Operational UI — status: COMPLETE
+
+The `/os` Command Center now renders durable scheduler/notification operational state from the
+existing dashboard projection: attention includes durable incidents, acknowledgement is a
+separate non-approval action, and System Health shows persisted schedules, their next run, and
+their recorded failure state. Status mapping explicitly distinguishes enabled scheduler state from
+Agent activity or approval semantics. Existing responsive, RTL, accessible shell/routes remain
+unchanged and real-data-only.
+
+Independent review: **P0=0/P1=0/P2=1**, PASS. Yusuf OS frontend regression: **10 files, 140
+passed**; final focused review checks: **55 passed**; targeted lint, production build, and diff
+checks passed. Code commits: `701c2eb6`, `e3712719`, `05b1ec12`.
+
+P2 follow-up: present each durable notification kind with a localized human label rather than its
+stored enum. `.claude/` remains untracked. No push, deployment, or live external mutation
+occurred.
+
+**Next:** Phase AA — fresh security hardening review.
+
+## Phase Y — Scheduler + Notifications — status: COMPLETE
+
+Added a durable local scheduler with a single code-owned evidence-retention job, exclusive
+leases, coalesced missed runs, persisted jitter/backoff, failure evidence, and a boot worker.
+No scheduler path can auto-approve or execute an L3/L4 action. Operator attention is durable,
+audited, acknowledgement-aware, and derived from persisted approvals, tasks, intents, monitoring,
+model, inbox, and governed-adapter facts. Incidents resolve when their source clears and only
+reopen with fresh audit evidence on a later recurrence.
+
+Independent review: **P0=0/P1=0/P2=2**, PASS. Focused scheduler, Command Center, and migration
+checks: **3 suites, 39 passed**; lint and diff checks passed. Code commits: `9e1e82e3`,
+`7eac029e`, `8a0e3345`.
+
+P2 follow-ups: renew a long-running retention lease; surface worker boot/tick failures instead of
+relying on the next process restart. `.claude/` remains untracked. No push, deployment, or live
+external mutation occurred.
+
+**Next:** Phase Z — advance the next bounded V1 critical-path slice.
+
+## Phase X — Real Browser Integration Readiness — status: COMPLETE
+
+Prepared the Browser Broker for a human-controlled live validation while preserving its default
+disabled/empty-registry posture. CDP discovery and final websocket attachment are numeric-loopback
+only, credential-free, bounded, and redirect-free; cookie-only identity cannot authorize a
+mutation; the full external-content attack corpus stays in untrusted prompt data.
+
+Independent review: **P0=0/P1=0/P2=0**, PASS. Focused regression **5/5 suites, 101 passed**;
+server lint and `git diff --check` passed. Code commit: `90e52eda`.
+
+**Next:** Phase Y — Scheduler + Notifications.
+
+## Phase W — Agentic Career E2E Fixture — status: COMPLETE
+
+The real AgentReasoningLoop now proves Chief → Research/cited evidence → Career preparation → L3
+approval → fixture Browser verification → proof-bound APPLIED → hostile Inbox reply → linked
+INTERVIEWING, with task-scoped Command Center visibility. Internal opportunity correlation is
+approval-covered but never submitted to the external form.
+
+Independent review: **P0=0/P1=0/P2=2**, PASS. Yusuf OS regression: **55/55 suites, 730 passed,
+one optional Ollama smoke skipped**; final focused regression **3/3 suites, 26 passed**; lint and
+diff checks passed. Code/test commits: `270c2a6e`, `3876a449`.
+
+**Next:** Phase X — Real Browser Integration Readiness.
+
+## Phase V — Agentic Engineering E2E — status: COMPLETE
+
+Implemented the deterministic disposable-repository proof that a structured model drives the real
+Chief → Engineering → Reviewer chain: the model selects the bounded branch/read/write/test/stage/
+local-commit capabilities through `AgentReasoningLoop`; server-owned evidence is projected from
+verified governed receipts; the independent Reviewer receives bounded untrusted receipt, policy,
+and evidence context, reads the committed change, and returns the authoritative routed verdict.
+Completion remains server-owned and reads persisted evidence, receipts, and review state.
+
+Independent review: **P0=0/P1=0/P2=1**. The remaining P2 is a dedicated resume/re-entry evidence
+projection idempotence test; the full fixture already asserts exactly two projected records after
+repeated loop checkpoints.
+
+Evidence (`VERIFIED_BY_TEST`, 2026-08-22): Yusuf OS baseline excluding the unfinished Phase W
+fixture **54/54 suites, 729 passed, one optional Ollama smoke skipped**; focused Phase V E2E
+**2/2 passed**; server lint and `git diff --check` passed. Code commits: `614f6f48`, `d63e451c`.
+
+**Next:** Phase W — Agentic Career E2E Fixture.
+
 ## Phase U — Voice / Audio Plane — status: COMPLETE
 
 Implemented a privacy-governed push-to-talk interface in `/os`, bounded STT/TTS provider

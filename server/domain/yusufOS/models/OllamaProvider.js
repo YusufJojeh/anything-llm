@@ -10,6 +10,16 @@ const { readLimitedJson } = require("./limitedResponse");
 
 const MAX_METADATA_RESPONSE_BYTES = 2 * 1024 * 1024;
 const MAX_COMPLETION_RESPONSE_BYTES = 128 * 1024;
+const DEFAULT_MAX_COMPLETION_TOKENS = 1024;
+
+function configuredCompletionCap(value) {
+  if (value === undefined || value === null || value === "")
+    return DEFAULT_MAX_COMPLETION_TOKENS;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_MAX_COMPLETION_TOKENS;
+}
 
 /**
  * Provider-neutral adapter over a local Ollama daemon. Read-only HTTP only:
@@ -22,11 +32,15 @@ class OllamaProvider {
   constructor({
     baseUrl = process.env.YUSUF_OS_OLLAMA_BASE_URL || OLLAMA_DEFAULT_BASE_URL,
     timeoutMs = OLLAMA_DEFAULT_TIMEOUT_MS,
+    maxCompletionTokens = configuredCompletionCap(
+      process.env.YUSUF_OS_OLLAMA_MAX_COMPLETION_TOKENS
+    ),
     fetchImpl = globalThis.fetch,
   } = {}) {
     this.kind = PROVIDER_KINDS.OLLAMA;
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.timeoutMs = timeoutMs;
+    this.maxCompletionTokens = maxCompletionTokens;
     this.fetchImpl = fetchImpl;
   }
 
@@ -186,9 +200,17 @@ class OllamaProvider {
         format: structuredOutput ? "json" : undefined,
         options: {
           temperature,
-          num_predict: Number.isInteger(maxCompletionTokens)
-            ? maxCompletionTokens
-            : undefined,
+          // A run budget can span many steps; it must not become one enormous
+          // local inference allocation. Keep each Ollama request bounded. A
+          // non-positive value is not a smaller cap — in Ollama's own API it
+          // means "unbounded" (-1) or "fill context" (-2) — so it must never
+          // reach Math.min as if it were one.
+          num_predict: Math.min(
+            Number.isInteger(maxCompletionTokens) && maxCompletionTokens > 0
+              ? maxCompletionTokens
+              : this.maxCompletionTokens,
+            this.maxCompletionTokens
+          ),
         },
       },
       signal,
@@ -213,7 +235,10 @@ class OllamaProvider {
     return {
       content: typeof json.response === "string" ? json.response : "",
       provider: PROVIDER_KINDS.OLLAMA,
-      model,
+      // Ground truth for which model actually served the call: the daemon
+      // echoes this back on `json.model`; fall back to the requested id only
+      // if it omitted it, but never let a caller override this value.
+      model: typeof json?.model === "string" && json.model ? json.model : model,
       latencyMs,
       usage:
         promptTokens !== null && completionTokens !== null

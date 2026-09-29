@@ -69,13 +69,9 @@ export default function ApprovalReview() {
 
     [approvalId, reloadKey]
   );
-  const { phase, data, error } = useYusufResource(
-    load,
-    [approvalId, reloadKey],
-    {
-      watch: realtime.lastAppliedSequence,
-    }
-  );
+  const { phase, data, error } = useYusufResource(load, {
+    watch: realtime.lastAppliedSequence,
+  });
 
   const decide = async (verdict) => {
     if (!data || busy) return;

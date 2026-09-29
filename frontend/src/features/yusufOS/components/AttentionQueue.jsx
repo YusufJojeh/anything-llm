@@ -22,7 +22,7 @@ import {
  * When the queue is genuinely empty it says so plainly. That is a real,
  * verified answer about the system, not an absence of data.
  */
-export default function AttentionQueue({ items, loading }) {
+export default function AttentionQueue({ items, loading, onAcknowledge }) {
   const { t } = useTranslation();
 
   if (loading) return <LoadingBlock rows={3} />;
@@ -48,6 +48,21 @@ export default function AttentionQueue({ items, loading }) {
       <ul className="flex flex-col">
         {items.map((item) => {
           const style = toneStyle(item.tone);
+          // The raw yusuf_notifications.kind enum (e.g. "SCHEDULER_FAILURE")
+          // is a server-internal identifier, not user-facing copy — resolve
+          // it to a real label (falling back to the raw value for a kind
+          // this list has not caught up with) before it is substituted into
+          // the sentence below.
+          const values =
+            item.kind === "NOTIFICATION"
+              ? {
+                  ...item.values,
+                  notificationKind: t(
+                    `yusufOS:attention.notificationKind.${item.values.notificationKind}`,
+                    item.values.notificationKind
+                  ),
+                }
+              : item.values;
           return (
             <li key={item.id}>
               <Link
@@ -87,7 +102,7 @@ export default function AttentionQueue({ items, loading }) {
                     className="text-pretty text-sm font-medium leading-snug"
                     style={{ color: "var(--yos-text)" }}
                   >
-                    {t(`yusufOS:attention.kind.${item.kind}`, item.values)}
+                    {t(`yusufOS:attention.kind.${item.kind}`, values)}
                   </UntrustedText>
                   {item.values.targetSummary ? (
                     <UntrustedText
@@ -122,6 +137,19 @@ export default function AttentionQueue({ items, loading }) {
                   style={{ color: "var(--yos-text-muted)" }}
                 />
               </Link>
+              {item.values.notificationId && onAcknowledge ? (
+                <button
+                  type="button"
+                  onClick={() => onAcknowledge(item.values.notificationId)}
+                  className="yos-touch-target mx-4 mb-3 rounded px-3 text-xs font-semibold"
+                  style={{
+                    color: style.text,
+                    border: `1px solid color-mix(in srgb, ${style.graphic} 45%, transparent)`,
+                  }}
+                >
+                  {t("yusufOS:attention.acknowledge")}
+                </button>
+              ) : null}
             </li>
           );
         })}

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CORE_MODES, coreModeParams } from "../../state/coreVisualState";
+import { CORE_MODES, coreModeParams } from "../../state/coreMode";
 import {
   SIGNAL_SOURCES,
   energyFromLevel,
@@ -19,7 +19,7 @@ import { useReducedMotion } from "./useReducedMotion";
  * nucleus (raw WebGL sphere, SVG fallback).
  *
  * Every moving thing is explained by state:
- * - ring speed / hue / pulse come from `mode` (see `coreVisualState.js`);
+ * - ring speed / hue / pulse come from `mode` (see `coreMode.js`);
  * - scale, glow and the spectrum ring come from the voice signal store, which
  *   only ever holds measured microphone/TTS amplitude or speech-boundary
  *   timing — silence is exactly still;

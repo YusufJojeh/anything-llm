@@ -2,6 +2,19 @@ process.env.NODE_ENV === "development"
   ? require("dotenv").config({ path: `.env.${process.env.NODE_ENV}` })
   : require("dotenv").config();
 
+const fs = require("fs");
+const {
+  assessOperationalReadiness,
+} = require("./domain/yusufOS/operations/operationalReadiness");
+const yusufOsReadiness = assessOperationalReadiness(process.env, fs.existsSync);
+if (!yusufOsReadiness.ok) {
+  const failedChecks = yusufOsReadiness.checks
+    .filter((check) => !check.ok)
+    .map((check) => check.name)
+    .join(", ");
+  throw new Error(`Yusuf OS startup readiness failed: ${failedChecks}`);
+}
+
 require("./utils/logger")();
 require("./utils/boot/patchSdkTimeouts")();
 const express = require("express");
@@ -55,6 +68,9 @@ const {
   yusufUiSessionGuard,
   yusufUiSessionEndpoints,
 } = require("./domain/yusufOS/api/uiSession");
+const {
+  startSchedulerWorker,
+} = require("./domain/yusufOS/scheduling/SchedulerWorker");
 const { httpLogger } = require("./middleware/httpLogger");
 const app = express();
 const apiRouter = express.Router();
@@ -137,6 +153,11 @@ googleAgentSkillEndpoints(apiRouter);
 memoryEndpoints(apiRouter);
 yusufOSEndpoints(apiRouter, { preGuarded: true });
 yusufUiSessionEndpoints(apiRouter);
+startSchedulerWorker().catch((error) => {
+  // Do not hide a scheduler boot failure. SchedulerWorker normally retains
+  // its own retry loop; this is the final process-level safety net.
+  console.error("Yusuf OS scheduler failed to start", error?.message);
+});
 yusufOSEndpoints(apiRouter, {
   preGuarded: true,
   basePath: "/yusuf-os-ui",

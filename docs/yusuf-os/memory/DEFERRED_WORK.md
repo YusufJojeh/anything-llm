@@ -1,5 +1,37 @@
 # Deferred Work
 
+## Final V1 release gate — 2026-08-24
+
+- Live OpenAI validation remains unavailable without a user-provided API key;
+  Phase AC truthfully records it as implemented but not live-validated.
+- Real browser, Career form, Gmail, LinkedIn, WhatsApp, and Calendar actions
+  remain human-controlled and disabled/unconfigured unless Yusuf explicitly
+  supplies the integration, credentials, and approval. They are not V1 test
+  failures and must never be simulated as live work.
+
+## Human-controlled after Phase X (Browser readiness) — 2026-08-24
+
+- Concrete production form registration remains unstarted and requires Yusuf to choose an exact
+  origin, site, field mapping, account identity strategy, and confirmation signal.
+- Live browser attachment remains human-assisted; the broker is disabled by default and must not
+  be enabled or pointed at a browser without Yusuf's explicit operator action.
+
+## Deferred after Phase W (Agentic Career E2E) — 2026-08-22
+
+- Add a comprehensive rejection matrix for invalid `career.confirm_verified_application` proofs.
+- Replace legacy direct-database APPLIED setup with a digest-consistent governed fixture helper.
+- Phase X is readiness validation only; real submissions still require Yusuf's live browser,
+  explicit origin/form registration, enabled broker, and per-intent L3 approval.
+
+## Deferred after Phase V (Agentic Engineering E2E) — 2026-08-22
+
+- Phase V is complete. Phase W Agentic Career E2E is now the critical path.
+- Add a direct regression for receipt-evidence projection idempotence after process recovery or
+  loop re-entry; the E2E already verifies no duplicate evidence across normal repeated loop
+  checkpoints.
+- Live Ollama Agent-loop behavior remains environment-gated. The smoke runs automatically when a
+  compatible local daemon/model is available; this session had none.
+
 ## Deferred after Phase U (Voice / Audio Plane) — 2026-08-21
 
 - Phase U is complete. Phase V Agentic Engineering E2E is now the critical path.

@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Microphone,
@@ -33,6 +34,7 @@ import {
   setHapticsEnabled,
 } from "../state/haptics";
 import { Panel, SectionTitle, UntrustedText } from "./primitives";
+import Composer from "./console/Composer";
 
 const MIME_TYPES = [
   "audio/webm;codecs=opus",
@@ -77,7 +79,15 @@ function StandaloneVoiceConsole(props) {
   return <VoiceConsoleInner {...props} session={session} />;
 }
 
-function VoiceConsoleInner({ session, embedded = false }) {
+/**
+ * @param {object} props
+ * @param {boolean} [props.embedded] Rendered inside the Communication Console,
+ *   which supplies its own transcript and composer.
+ * @param {"panel"|"dock"} [props.variant] Standalone chrome: `panel` for a
+ *   page section, `dock` for the persistent command bar (e.g. Agents page).
+ *   Same controls, same accessible names, same command path either way.
+ */
+function VoiceConsoleInner({ session, embedded = false, variant = "panel" }) {
   const { t, i18n } = useTranslation();
   const {
     phase,
@@ -89,6 +99,7 @@ function VoiceConsoleInner({ session, embedded = false }) {
     error,
     setError,
     runCommand: runSessionCommand,
+    lastResult,
     signal,
   } = session;
   const [permission, setPermission] = useState("prompt");
@@ -656,16 +667,39 @@ function VoiceConsoleInner({ session, embedded = false }) {
         </div>
       ) : null}
       {!embedded && approvalId ? (
-        <a
-          href={`/os/approvals/${approvalId}`}
-          className="mt-3 inline-flex rounded border px-3 py-2 text-xs font-semibold"
+        <Link
+          to={`/os/approvals/${approvalId}`}
+          className="mt-3 inline-flex min-h-[44px] items-center rounded border px-3 text-xs font-semibold"
           style={{
             color: "var(--yos-approval-text)",
             borderColor: "var(--yos-approval)",
           }}
         >
           {t("yusufOS:voice.approvalRequired")}
-        </a>
+        </Link>
+      ) : null}
+      {/* Only ids the server actually returned — never a fabricated link. */}
+      {!embedded && (lastResult?.taskId || lastResult?.runId) ? (
+        <p className="mt-2 flex flex-wrap gap-3 text-xs">
+          {lastResult.taskId ? (
+            <Link
+              to={`/os/tasks/${encodeURIComponent(lastResult.taskId)}`}
+              className="underline decoration-dotted underline-offset-2"
+              style={{ color: "var(--yos-cyan-strong)" }}
+            >
+              {t("yusufOS:voice.viewTask")}
+            </Link>
+          ) : null}
+          {lastResult.runId ? (
+            <Link
+              to={`/os/runs/${encodeURIComponent(lastResult.runId)}`}
+              className="underline decoration-dotted underline-offset-2"
+              style={{ color: "var(--yos-cyan-strong)" }}
+            >
+              {t("yusufOS:voice.viewRun")}
+            </Link>
+          ) : null}
+        </p>
       ) : null}
       {!embedded && error ? (
         <p
@@ -785,12 +819,30 @@ function VoiceConsoleInner({ session, embedded = false }) {
       </section>
     );
 
+  if (variant === "dock")
+    return (
+      <section
+        aria-labelledby="yos-voice-title"
+        className="yos-frame flex flex-col gap-3 p-3"
+        data-voice-variant="dock"
+      >
+        <h2 id="yos-voice-title" className="yos-title">
+          {t("yusufOS:voice.title")}
+        </h2>
+        {body}
+        <Composer compact />
+      </section>
+    );
+
   return (
     <Panel className="p-4" aria-labelledby="yos-voice-title">
       <SectionTitle id="yos-voice-title">
         {t("yusufOS:voice.title")}
       </SectionTitle>
       <div className="mt-3">{body}</div>
+      <div className="mt-3">
+        <Composer compact />
+      </div>
     </Panel>
   );
 }

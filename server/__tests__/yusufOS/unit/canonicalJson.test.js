@@ -1,6 +1,7 @@
 const {
   canonicalize,
   canonicalHash,
+  normalize,
 } = require("../../../domain/yusufOS/security/canonicalJson");
 const {
   canonicalizeActionRequest,
@@ -118,5 +119,15 @@ describe("Yusuf OS canonicalization", () => {
         requestId: "req-1",
       })
     ).toThrow("never raw secret material");
+  });
+
+  test("a deeply nested value fails closed instead of exhausting the stack", () => {
+    function nested(depth) {
+      let value = { leaf: true };
+      for (let i = 0; i < depth; i += 1) value = { child: value };
+      return value;
+    }
+    expect(() => normalize(nested(64))).toThrow(/maximum nesting depth/);
+    expect(normalize(nested(10))).toBeTruthy();
   });
 });

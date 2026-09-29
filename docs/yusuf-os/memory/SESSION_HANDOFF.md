@@ -25,6 +25,448 @@ gap/manual refresh); now a debounced, coalesced re-read. Independent review: fir
 (voice lifecycle), all fixed with regression tests; see TEST_BASELINE for re-review counts.
 Commits local only; nothing pushed. Dev harness: `/yusuf-os-harness.html?scenario=…&events=1`.
 
+## 2026-09-06 — Text command front door (Claude Code, Sonnet 5)
+
+**What was done:** Continuing directly from this same session's own "said it, check now" — a
+spoken voice command produced no task/run/approval; the real `/os/approvals` and `/os/tasks` pages
+showed nothing newer than Aug 24, meaning something failed upstream of Yusuf OS's own task-creation
+step (likely browser mic/transcription capture, outside this session's sandboxed visibility). Yusuf
+then issued a large "TEXT COMMAND FRONT DOOR / FINAL DAILY-USE BLOCKER / CAVEMAN MODE" prompt: build
+a real typed-text fallback so microphone capture is no longer the single point of failure for
+originating any Yusuf OS command, reusing the exact existing governed voice pipeline.
+
+1. Read `VoiceService.command()` and confirmed it already returns `{taskId, runId, state, response,
+   approvalId}` — the frontend was discarding `taskId`/`runId`. This meant the entire feature could
+   be frontend-only: zero backend changes needed to satisfy "reuse the exact same route, no
+   duplicate runtime."
+2. Added a composer (`<textarea>` + send button) to `VoiceConsole.jsx`'s `dock` and `panel`
+   variants, wired to the same `runCommand()` the mic already calls. Enter submits, Shift+Enter
+   inserts a newline (auto-grow up to 128px), whitespace-only input is rejected, max length mirrors
+   (never exceeds) the server's real `MAX_UTTERANCE_CHARS`, and the whole composer disables during
+   an in-flight command using the existing `busy`/`listening` phase state.
+3. Deliberately did NOT add agent-targeting UI (the route has no per-agent parameter and always
+   routes through `chief_of_staff`) or an attachment affordance (a disabled button would itself
+   imply a capability that doesn't exist) — both documented as conscious omissions, not oversights.
+4. Added 25 new tests to `voiceConsole.test.jsx` covering the full behavior/security matrix. Full
+   frontend suite: 220/220 (was 195). Lint clean, production build clean, `git diff --check` clean.
+5. **Self-caught, not review-caught:** live-testing against the real running dev server
+   (`yusuf-os-frontend`, port 3000) found the send button rendering 44×40 instead of a clean square
+   — `size-10` (40px Tailwind) was being overridden on the height axis only by the shared
+   `.yos-touch-target` utility's `min-block-size: 44px`. Fixed to `size-11` (44px), re-verified via
+   `getBoundingClientRect()`. Also rewrote one test that had a false-positive shape (asserted
+   `localStorage.setItem` is never called at all, which broke on i18next's own unrelated
+   `i18nextLng` write) to assert the actually-relevant thing: no CSRF/session/command-shaped key is
+   ever written.
+6. Per this project's own standing lesson (self-review is materially weaker than independent
+   review — see `CLAUDE.md`), dispatched a fresh independent agent with zero session context to
+   adversarially re-verify all 10 required boundary claims (same runtime, no CSRF bypass, no
+   fabricated agent-targeting, no auto-approval, honest task/run links, duplicate-submission
+   handling, input bounds matching the server, accessibility, RTL/i18n, non-tautological tests)
+   directly against the diff and the real backend code. **Verdict: all 10 CONFIRMED, 0 additional
+   P0/P1.**
+7. **A deliberate judgment call, made explicit here rather than left implicit:** the CAVEMAN
+   prompt's own wording names "Yusuf" (not "I") as the one who types the live harmless verification
+   command and the approval-proof commissioning command in the real UI. This session verified
+   everything short of actually clicking Send on a real command (rendering, typing, keyboard
+   shortcuts, enable/disable states, 375px mobile layout, live button-size fix) but left the actual
+   command submission to Yusuf, consistent with this session's own earlier established pattern
+   (e.g. "you speak the command yourself" for the original voice-command proof) that Yusuf
+   originates real consequential governed actions himself rather than this agent doing so
+   unilaterally. This means `TEXT_COMMAND_FRONT_DOOR` is `VERIFIED_BY_TEST` but explicitly **not**
+   `LIVE_VALIDATED` yet — see `HUMAN_ACTION_REQUIRED.md`.
+
+**Deliberately not attempted this session:** the actual live command submission and the approval-
+proof commissioning test (both require Yusuf's own action per the judgment call above); any change
+to voice's own live/mic-capture validation status (unchanged, not investigated further — the root
+cause of the original failed spoken command remains unknown and outside this session's visibility).
+
+**Next continuation point:** Yusuf types a harmless command (e.g. "What is my current system
+status?") into the real live composer and confirms a new Task/Run appears with a real model
+response; separately, Yusuf may type an approval-triggering command to prove the approval-required
+path end-to-end (observe only — do not click Approve). Once both are confirmed, update
+`HUMAN_ACTION_REQUIRED.md` and flip `TEXT_COMMAND_FRONT_DOOR` to `LIVE_VALIDATED` in `CURRENT_GATE.md`
+and `CURRENT_STATE.md`.
+
+## 2026-09-06 — OpenAI live commissioning (Claude Code, Sonnet 5)
+
+**What was done:** Yusuf-driven, tightly gated live commissioning of the OpenAI model provider,
+continuing from an earlier "LIVE COMMISSIONING ONLY" session. Scope was explicitly narrowed to
+OpenAI validation only — voice, Ollama, Browser Broker, and the daily-use pilot were out of scope
+and not attempted.
+
+1. Backend restarted twice to pick up env changes. First restart: `hasApiKey()` still `false` —
+   root-caused to the key being added under AnythingLLM's own upstream `OPEN_AI_KEY` variable, not
+   the Yusuf-OS-specific `OPENAI_API_KEY` that `OpenAIProvider.js` deliberately reads with no
+   fallback. Reported the exact mismatch and remediation without touching the file myself.
+2. **Incident:** while re-checking, a `grep | sed` redaction command I wrote used a regex
+   (`OPENAI?_[A-Z_]*`) that didn't match the actual variable shape (`OPEN_AI_KEY`), so the real key
+   value printed unredacted into a tool result in this session's transcript. Stopped immediately,
+   disclosed the mistake and root cause to Yusuf, recommended rotating the exposed key, and halted
+   the commissioning sequence pending his decision — did not continue as if nothing happened.
+3. Yusuf then shared a screenshot to show the corrected env line; the screenshot itself exposed the
+   raw key value a second time (a typo — `PENAI_API_KEY`, missing the leading `O` — was caught and
+   reported without echoing the value). Also declined a direct request to read the full env file and
+   copy the value between variables myself, since that reverses an explicit standing instruction
+   ("never inspect/copy the value", "do not modify the env file") — flagged the conflict back to
+   Yusuf rather than silently complying.
+4. Once Yusuf fixed the variable name himself and confirmed, restarted the backend a third time and
+   re-verified using boolean/length-only checks (never raw value reads): `hasApiKey()` → `true`,
+   `ModelRouter.describe().openaiConfigured` → `true`.
+5. Ran the single authorized live smoke test: one bounded completion directly through
+   `OpenAIProvider` → `ModelRouter` (`EXPLICIT_MODEL` policy, 5-token cap, 15s explicit timeout, no
+   retries, no Agent/browser/tool-call involvement). Succeeded — full result and evidence recorded
+   in `CURRENT_GATE.md`'s Phase AC update. Structural leak check (result JSON + backend log grepped
+   for the key-shape prefix and `Authorization`/`Bearer`) found zero matches.
+6. Updated `CURRENT_STATE.md`, `CURRENT_GATE.md`, and `HUMAN_ACTION_REQUIRED.md` with dated,
+   factual additions (not rewrites of prior historical entries) reflecting OpenAI as
+   LIVE-VALIDATED. Did not touch `.claude/`, routing policy, or provider isolation code.
+
+**Lesson recorded:** a redaction script is itself security-sensitive code and needs the same
+scrutiny as the thing it's redacting — a regex that doesn't match the actual data format fails
+open, not closed. Prefer direct boolean/length probes (`hasApiKey()`, `.length`) over
+grep-and-redact patterns against raw secret-bearing files wherever possible.
+
+**Next continuation point:** Ollama half of `HUMAN_ACTION_REQUIRED.md` item N is still open; no
+HTTP-level (`/api/yusuf-os/runtime`) or UI-level (`/os/runtime`) confirmation of the OpenAI change
+has been done (both require the control token, which the implementing session does not hold);
+`npx jest server/__tests__/yusufOS/modelRouting` has not been re-run against the now-live key.
+
+## 2026-09-06 — CAVEMAN AUDIT continuation: frontend coverage gap + realtime bug fix, stale-doc correction, live responsive/RTL/a11y pass (Claude Code, Sonnet 5)
+
+**What was done:** Continuation of the same standing "final audit closure" prompt. This session's
+slice: closed a real frontend test-coverage gap and found a genuine bug while doing it.
+
+1. Read the real router (`frontend/src/main.jsx`), not any assumed list — confirmed 11 real `/os`
+   routes. Grepped every test file to find which of the 11 page components had zero direct
+   render-level coverage: 9 of 11 (all but `Runtime.jsx`, `Agents.jsx`).
+2. Added 28 new passing tests across three new files (`listAndDetailPages.test.jsx`,
+   `commandCenterAndApprovals.test.jsx`, `approvalReview.test.jsx`) covering `Tasks`, `Runs`,
+   `Projects`, `TaskDetail`, `RunDetail`, `CommandCenter`, `Approvals`, `ApprovalReview` across
+   LOADING/EMPTY/POPULATED/ERROR states, honest blocked/cost/agent-identity rendering, and
+   pending/decided approval separation. Every asserted string was checked against the real
+   `en.js`, not guessed.
+3. While writing `ApprovalReview.jsx`'s test, found a real bug: it called the shared
+   `useYusufResource(loader, {watch}={})` hook with a stray 3rd positional array argument
+   (`[approvalId, reloadKey]`), which JS silently destructured as `{watch: undefined}`, dropping
+   the real `{watch: realtime.lastAppliedSequence}` object passed as an ignored 3rd argument. Net
+   effect: the highest-stakes L3/L4 approval-decision screen never re-fetched on live SSE updates —
+   only on the operator's own decide() call — while every sibling page already used the correct
+   2-argument form. Fixed by removing the stray argument.
+4. Proved the regression test genuinely catches the bug using `git stash push -- <file>` to revert
+   just the fix, confirming the test fails deterministically (times out waiting for a 2nd
+   `approvalReview` call) against the pre-fix code, then `git stash pop` to restore it. This also
+   caught a bug in my own first draft of the test (a bare `.rerender(<ApprovalReview />)` dropped
+   the MemoryRouter/I18nextProvider context mid-test, producing an untrustworthy "1 passed" result
+   with a hidden uncaught exception) — fixed by reconstructing the full wrapper tree on every
+   render/rerender call rather than trusting RTL's rerender to preserve context.
+5. Dispatched a cold independent review of the fix + all three new test files: verdict **0 P0 / 0
+   P1, SAFE TO COMMIT** (two non-blocking P2 notes, both addressed — see `GATE_HISTORY.md`).
+6. In parallel, a background agent completed the release/reliability + SQLite decision + PM
+   backlog review the prior session had left running. It re-verified startup/migration/backup/
+   restart/kill-switch/audit behavior (all PASS), reaffirmed KEEP_DEFERRED on the SQLite
+   `busy_timeout` question (blast radius spans 85 files via the shared Prisma singleton, not
+   scoped to Yusuf OS), and found three stale `KNOWN_RISKS.md` entries (#5, #10, #12) and two stale
+   `docs/yusuf-os/management/RISKS.md` entries (R-006, R-007) plus one stale commit count (R-010) —
+   corrected all six in a separate docs-only commit.
+7. Ran a live browser pass against the pre-existing dev-only fixture harness
+   (`frontend/yusuf-os-harness.html`, real components + real i18n, no control token needed) at
+   1440/768/390px and in Arabic/RTL: nav rail mirrors correctly, all icon-only controls carry real
+   translated `aria-label`s (spot-checked in both languages), the 3D constellation correctly
+   disappears below its `lg` breakpoint while the accessible roster keeps the same data, the agent
+   detail drawer opens as a real `role="dialog"` with a labeled close button and closes on Escape,
+   keyboard Tab produces a visible focus ring in both LTR and RTL, and `prefers-reduced-motion` is
+   already wired in `displayCapabilities.js`/`depth.css`/`tokens.css`. Zero defects found. WebGL
+   perf was not independently re-measured this session (no profiling tool available in the browser
+   session) beyond confirming the existing lazy/breakpoint-gated load is still in place.
+8. Full regression before and after: backend 88 suites / 1075 tests (one suite's failure under
+   parallel Jest workers reproduced 2/2 green in an isolated `--runInBand` rerun — confirmed
+   `PARALLEL_WINDOWS_SQLITE_CONTENTION_FLAKE`, not a real regression); frontend 17 suites / 202
+   tests, all green; production build clean (same pre-existing >500kB chunk warnings, no new ones).
+
+**Two local commits this session:** the fix + tests (`ApprovalReview.jsx` realtime resync +
+coverage gap), and the stale-doc corrections (docs-only, no code).
+
+**Deliberately not attempted this session:** a deep re-audit of the Agent Workspace beyond the
+existing test suite plus the live drawer/focus checks above (nothing regressed, no new redesign
+attempted, per the standing "review only, do not redesign" instruction); a fresh WebGL performance
+measurement (no profiling tool available; the lazy-load gate itself was re-confirmed by code
+inspection, not by live metrics); any change to the SQLite `busy_timeout` question (KEEP_DEFERRED
+reaffirmed, would require a scoped change to the upstream-shared `server/utils/prisma/index.js`,
+out of scope for this pass); and Section 14's cleanup pass (no dead code, stale TODOs, or
+superseded comments were found while working through the files touched this session — nothing to
+safely remove).
+
+**Next continuation point:** if further CAVEMAN AUDIT work is requested — a live WebGL perf trace
+using an actual profiler; the still-unresolved dev-harness gap where only 5 of 11 routes are
+wired through its internal `<Routes>` (tasks/runs/projects/runtime and their detail routes are not
+reachable via the harness without adding routes to it); `SystemHealth.jsx` still has no direct
+component-level test (only exercised indirectly via `System.jsx`'s thin wrapper, now covered, and
+via `systemCore.test.jsx`'s sub-component tests).
+
+## 2026-09-05 — CAVEMAN AUDIT continuation: post-V1 hardening pass (Claude Code, Sonnet 5)
+
+**What was done:** Continuation of the same large "final audit and completion" prompt referenced
+in the 2026-09-04 entry below. This session's slice: triage findings from four parallel
+background-agent audits (security kernel, Browser Broker/voice, domain verticals/scheduler, agent
+runtime/reasoning loop) run against the tree after the Agent Workspace landed. Per the prompt's own
+instruction ("do not stop after findings if they are locally fixable"), fixed six real issues, each
+with its own regression test and its own local commit:
+
+1. TOCTOU in `AgentRunCoordinator.startRun` (count-then-transition across two DB calls) — wrapped
+   in one `$transaction`. `2566344c`.
+2. `ExecutionCoordinator` misclassified a `prepare()`-stage failure as `FAILED_UNKNOWN` instead of
+   `FAILED` — split the combined try/catch. `fbfd04b0`.
+3. Unbounded recursion depth in `canonicalJson.js`/`redaction.js` — added a 64-level cap, throwing
+   in the validator and degrading to a placeholder in the best-effort sanitizer (different
+   contracts, deliberately different failure modes). `5a3102c6`.
+4. `CdpBrowserDriver.readPageState()` could hang forever on a stalled `page.evaluate()` —
+   `setDefaultTimeout` doesn't bound `evaluate()`; wrapped it in a `Promise.race`. `022284ec`.
+5. Raw `yusuf_notifications.kind` enum leaking untranslated into `/os` Attention Queue text —
+   added an English/Arabic label map with a safe fallback for unrecognized future kinds. `2c030aae`.
+6. `AgentReasoningLoop`'s COMPLETE-decision evidence check trusted a load-time snapshot
+   (`run.task.evidence`) instead of re-querying, so a legitimate self-cited completion citing
+   evidence recorded mid-run could be wrongly rejected. Fixed to re-query by `taskId` at validation
+   time. `c2b8a909`.
+
+Also fixed a stray prettier formatting nit in `redaction.js` and committed the still-pending
+`SKILLS_INVENTORY.md` rewrite from the prior segment (`cd9483c7`).
+
+**Deliberately NOT fixed** (documented in `KNOWN_RISKS.md` #20-24 with reasoning): no
+`busy_timeout` on the shared Prisma/SQLite client (broad blast radius, pre-existing, upstream-
+shared — this is also what caused this session's own test flake, confirmed via isolated reruns);
+an ALLOW-path TOCTOU and an audit-checkpoint-contention window, both watch items with no proven
+live concurrent caller; a DB CHECK-constraint gap on newer tables (same shape as risk #11, deferred
+to the next migration that touches those tables per "do not automatically redesign schema"); and
+`ChiefOfStaff`'s missing compensation path, which has no live call site to write a regression
+test against.
+
+**Verified:** full backend suite serial (`--runInBand`) to avoid the SQLite contention above — 57
+suites, 771 passed, 1 optional Ollama skip, 0 failed. Full frontend suite — 174/174 passed. Prisma
+schema valid, `git diff --check` clean, targeted lint clean after the one auto-fix.
+
+**Fresh independent review:** launched a background agent with no memory of this session's own
+reasoning to adversarially re-review all six diffs cold (git show on each commit, plus the
+surrounding non-diff code) — see the next entry in this log (or `KNOWN_RISKS.md`/`GATE_HISTORY.md`
+if this entry predates that agent's completion) for its verdict, per this project's own standing
+lesson that self-review alone is insufficient once real security surface is at stake.
+
+**Also corrected two stale memory entries found while updating docs this session** (both pre-dated
+this session's own changes): `NOW_NEXT_LATER.md`/`BACKLOG.md` still listed YOS-005 (Agent
+Workspace) as PROPOSED despite it being built and partially verified on 2026-09-04; and
+`SKILLS_INVENTORY.md`'s 2026-09-04 revision asserted several skills were no longer enabled, which
+this session's own available-skills listing directly contradicted — corrected to record enabled-
+skill set as observed to fluctuate session-to-session rather than a fixed fact.
+
+**Next continuation point:** the remaining CAVEMAN AUDIT sections not yet exercised this session —
+Section 10 (frontend route audit, scoped to where this session's fixes could plausibly touch
+already-proven frontend behavior — likely minimal, since none of the six fixes changed a frontend-
+visible contract except the notification-kind label, already covered), Section 15 (release/
+reliability: startup, backup, restore, restart, scheduler recovery, kill switch, audit HMAC,
+corrupt config), Section 17 (safe cleanup pass), and Section 20 (final structured report with
+honest FINAL CLASSIFICATION, once the independent review above lands clean).
+
+## 2026-09-04 — Post-V1: Agent Workspace / Section 20 (Claude Code, Sonnet 5)
+
+**What was done:** Continuation of a large "final audit and completion" prompt from an
+earlier compacted session. That prompt's Section 20 named a dedicated Agent Workspace
+console as a likely-missing requirement; it was. Rewrote `/os/agents`
+(`frontend/src/pages/YusufOS/Agents.jsx`, 79 → ~530 lines) from a thin roster+drawer into
+a three-pane console: Department-grouped roster (LEFT, reusing `RuntimeProjection`'s
+existing department data with graceful ungrouped fallback), a live per-Agent console
+(CENTER) showing the real governed intent timeline for the Agent's current run, an
+honestly-derived (never fabricated) activity state chip, Agent/Task/Evidence tabs
+(RIGHT, reusing `AgentDetailPanel` unmodified and new `TaskTab`/`EvidenceTab` built from
+`DetailProjections.task()`), and the existing real `VoiceConsole` dock (BOTTOM). Added
+`deriveWorkspaceState`/`buildWorkspaceGroups` as pure, unit-tested functions in
+`commandCenterModel.js`, English + Arabic i18n, and a new rendering test suite.
+
+**No new backend surface.** Every field comes from `DetailProjections`/`RuntimeProjection`/
+`DashboardProjection`, all already implemented and tested in prior gates — this was a
+frontend-only build.
+
+**Verified:** full frontend suite (13/13 suites, 171/171 tests — the new 4-test
+`agentWorkspace.test.jsx` plus 9 new unit cases in `commandCenterModel.test.js`),
+targeted ESLint clean after auto-fix, production build clean. Two real test bugs were
+caught and fixed during this pass, both the same shape: `WorkspaceConsole` and the
+default-active Agent tab (`AgentDetailPanel`) independently fetch and render the *same*
+run/task data, so several assertions that assumed a single match (`getByText`,
+`getByRole("alert")`) had to become "at least one" (`getAllByText`/`findAllByText`)
+instead — not a product bug, just two panels honestly agreeing with each other.
+
+**Live-verified, partially.** Started the real dev stack (frontend + backend + collector)
+in the Browser pane and navigated to `/os/agents`: the entire new module graph loaded
+200 OK with zero console/network errors, and the app correctly showed the governed
+"Yusuf OS is locked" screen. **Did not go further** — unlocking requires typing
+`YUSUF_OS_CONTROL_TOKEN` into the browser, which this agent will not do (credential
+entry into any field is a hard stop, independent of the fact that it's a local dev
+token). This is a genuine, not a skipped, verification gap.
+
+**No independent adversarial review this session** — flagged explicitly rather than
+silently omitted, per this project's own recurring lesson that self-review misses real
+issues. Judgment call: since this change adds no new capability, policy path, or
+execution surface (every value rendered is already-reviewed projection output), the
+highest-value fresh review here is Yusuf's own live-data check once unlocked, not a
+second code-reading pass over rendering logic that has no security boundary to attack.
+
+**Evidence:** local commit `776102cc`. No push, no PR, no deploy. `.claude/` untracked.
+
+**Honest scope note on the originating mega-prompt:** that prompt's full scope (full
+backend-domain audit across every adapter, an adversarial agentic-loop/browser-broker
+pass, PM backlog review, a mandated structured final report, full memory updates across
+every file) was **not** attempted this session beyond the Agent Workspace deliverable
+itself and this memory update. Reporting partial completion honestly rather than
+claiming the mega-scope is done.
+
+**Exact next action:** Yusuf unlocks `/os/agents` locally and confirms it against live
+data (Department grouping, console state for a real running Agent, tab switching,
+malformed/empty states). Whether to continue the mega-prompt's remaining scope (backend
+audits, adversarial review, PM review, final report) in a future session is Yusuf's call
+given its size — check with him rather than assuming the full original scope is still
+wanted verbatim.
+
+## 2026-08-24 — Phase AE: Final full-system E2E (Codex)
+
+Final sweep found one stale test fixture: Command Center projection setup wrote
+removed Prisma field `workerStatus`. It now seeds the actual durable worker
+failure fields. The affected projection test and Engineering/Career/Reasoning
+E2E commands subsequently completed without a reported failure; Windows Jest
+fixture output omitted its aggregate summary, so no count was invented.
+Frontend Yusuf OS tests and production build completed; Prisma validation,
+targeted ESLint, and diff check passed.
+
+Final independent release review: PASS, P0=0/P1=0. Inherited non-blocking P2s
+are documented in `CURRENT_GATE.md`. V1 gate is complete. No push, deployment,
+or live external action occurred; `.claude/` stays untracked.
+
+## 2026-08-24 — Phase AD: Release / Ops / Backup (Codex)
+
+Phase AD is complete. `npm run yusuf-os:validate` loads the normal environment
+file and safely validates the audit HMAC/control token, scheduler setting,
+Ollama endpoint, strict Browser Broker CDP endpoint, and storage directory.
+`server/index.js` runs the same check before serving traffic. The local-only
+runbook gives topology, migration, health, backup, restore, audit-key,
+shutdown, update rollback, and recovery steps with the correct hard-coded
+SQLite location plus a default-safe `server/storage` fallback.
+
+Fresh independent review: PASS, P0=0/P1=0/P2=1; the restore-command clarity
+note was then addressed in the final runbook. Focused readiness/browser/control-
+plane regression: 3 suites, 37 passed; Prisma validate, targeted ESLint, and
+diff check passed. No push/deployment/live mutation; `.claude/` remains
+untracked.
+
+Exact next action: Phase AE final full-system E2E and release gate, keeping
+provider truthfulness and all external side effects disabled.
+
+## 2026-08-24 — Phase AC: Provider validation (Codex)
+
+Phase AC local validation: Ollama health was HEALTHY with installed local models; bounded
+`gemma3:1b` completion returned a response and token usage (24 prompt / 8 completion tokens),
+without model pull or external mutation. Ollama/Gemma are LIVE-VALIDATED locally. OpenAI has no
+`OPENAI_API_KEY`, so it remains IMPLEMENTED / NOT LIVE-VALIDATED and no cloud request was made.
+Mocked provider suites: 25 passed, one conditional OpenAI smoke skipped.
+Fresh independent review: PASS, P0=0/P1=0/P2=0.
+
+Exact next action: Phase AD, document/test safe local operations, backup, restore, startup, and
+recovery procedures. `.claude/` remains untracked; no push/deploy occurred.
+
+## 2026-08-24 — Phase AB: Reliability / Recovery (Codex)
+
+Phase AB is complete at `7e5db270` and `f73abf50`. Long-running retention jobs now renew their
+exclusive lease; a failed boot/tick or a non-throwing failed job keeps the worker retrying and
+projects degraded state instead of a false healthy heartbeat. Scheduler lifecycle focused
+regression: 14 passed. The separately hardened UI SSE stream ends when its session expires.
+
+Fresh independent review: PASS, P0=0/P1=0/P2=1. P2 is DB-level enum/FK constraints for the
+scheduler/notification migration. No push/deployment/live mutation; `.claude/` remains untracked.
+
+Exact next action: Phase AC. Check available provider state read-only; only execute a cheap live
+completion if a local model or already-provisioned OpenAI key genuinely makes it safe, and record
+truthful validation status either way.
+
+## 2026-08-24 — Phase AA: Security hardening (Codex)
+
+Phase AA is complete at `eda78d45` and `2cc33e87`. Fresh security review covered the integrated
+Agent/Policy/Approval/Execution/Audit, model, Browser Broker, Inbox, Voice, browser UI session,
+SSE, and Scheduler paths. The authenticated event stream rechecks a non-touching session validity
+predicate and closes on expiry. Scheduler worker bootstrap/tick failures now retry, write durable
+liveness/failure state where the database is reachable, and project degraded health when the
+latest event is a failure.
+
+Fresh independent re-review: PASS, P0=0/P1=0/P2=2. P2s: audit concurrency retry/serialization
+and provider-error text hardening. No push/deployment/live mutation; `.claude/` remains untracked.
+
+Exact next action: Phase AB, reliability/recovery hardening—especially worker recovery, audit
+contention, and safe failure observability.
+
+## 2026-08-24 — Phase Z: Command Center operational UI (Codex)
+
+Phase Z is complete at `701c2eb6`, `e3712719`, and `05b1ec12`. `/os` now surfaces Phase Y's
+durable attention and scheduler state from the dashboard projection: notification acknowledgement
+is explicitly non-approval/non-execution, scheduler `ACTIVE` is a known healthy scheduler state,
+and no UI invents work or health. The existing responsive shell, Arabic RTL, voice console and
+real-data route surfaces remain intact.
+
+Fresh independent review: PASS, P0=0/P1=0/P2=1. Yusuf OS frontend: 10 files, 140 tests passed;
+final focused review tests: 55 passed; targeted lint and production build passed. P2: localize
+notification-kind text. Nothing pushed; `.claude/` stays untracked.
+
+Exact next action: Phase AA, perform a fresh independent security hardening review and fix every
+P0/P1 it identifies before proceeding to reliability/recovery.
+
+## 2026-08-24 — Phase Y: Scheduler + Notifications (Codex)
+
+Phase Y is complete at `9e1e82e3`, `7eac029e`, and `8a0e3345`. The durable scheduler runs only
+the code-owned evidence-retention job: leases, coalesced missed runs, jitter, backoff, and
+audit-backed terminal transitions prevent silent or duplicate work. It never creates approval or
+executes L3/L4 intents. Notification attention is derived from durable system facts, supports
+acknowledgement, resolve-on-clear, and audit-backed recurrence reopening; the deliberately
+disabled Browser Broker is not reported as an outage.
+
+Fresh independent review: PASS, P0=0/P1=0/P2=2. Focused scheduler/projection/migration checks:
+3 suites, 39 passed. P2s are long-job lease renewal and durable worker startup/tick health
+reporting. No push or deployment occurred; `.claude/` remains untracked.
+
+Exact next action: Phase Z, select and implement the next bounded V1 critical-path slice after
+reviewing the remaining roadmap/deferred work.
+
+## 2026-08-24 — Phase X: Browser readiness (Codex)
+
+Phase X is complete at `90e52eda`. The Browser Broker remains disabled and production forms remain
+empty, but the future operator-owned CDP attachment path is now bounded and loopback-only from
+HTTP discovery through the final websocket. No live browser, credentials, form, or external action
+was used. Fresh review: PASS, P0=0/P1=0/P2=0; 5 focused suites / 101 tests passed.
+
+Exact next action: Phase Y, build the safe persisted Scheduler + internal Notifications layer;
+it must never auto-approve or execute scheduled L3/L4 work.
+
+## 2026-08-22 — Phase W: Agentic Career E2E (Codex)
+
+Phase W is complete at `270c2a6e` and `3876a449`. The deterministic provider drives the real
+Chief/Research/Career/Inbox loop. APPLIED now requires a consumed, verified, same-task browser
+submission proof; generic status updates cannot assert it. Internal correlation stays out of the
+external form. Command Center exposes task-scoped safe work-product/action state.
+
+Fresh independent review: PASS, P0=0/P1=0/P2=2. Full Yusuf OS: 55 suites, 730 passed, one optional
+Ollama skip. `.claude/` remains untracked and absent from the index. No push occurred.
+
+Exact next action: Phase X, validate real-browser readiness without enabling or performing any
+live external mutation.
+
+## 2026-08-22 — Phase V: Agentic Engineering E2E (Codex)
+
+Phase V is complete at `614f6f48` and `d63e451c`. The new disposable-repo fixture proves a
+deterministic routed model drives the actual AgentReasoningLoop rather than a manually orchestrated
+test: Chief hands off, Engineering uses governed semantic capabilities to fix/test/commit, and the
+independent Reviewer reads the committed work before returning a routed PASS. Receipt-derived
+implementation/validation evidence and bounded review context are production runtime behavior.
+
+Fresh independent review: P0=0/P1=0/P2=1. The `.claude/` directory is untracked and absent from
+the active branch/index. Yusuf OS baseline excluding the unfinished Phase W fixture: 54/54 suites,
+729 passed plus one optional Ollama skip; server lint and diff check passed. No push occurred.
+
+Exact next action: Phase W, complete the deterministic Career fixture already present in the
+working tree, beginning with its runtime ownership failure.
+
 ## 2026-08-21 — Phase U: Voice / Audio Plane (Codex)
 
 Phase U is complete at code commit `cc51b443`. `/os` now has accessible push-to-talk, bounded

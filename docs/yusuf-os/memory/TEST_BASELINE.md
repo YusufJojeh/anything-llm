@@ -13,6 +13,181 @@
   holding the Core amber) → fixed; final pass **P0=0/P1=0/P2=1** (voice transcription may
   still submit after leaving `/os`; accepted: Stop means submit).
 
+## Text command front door — 2026-09-06 [VERIFIED_BY_TEST, NOT LIVE_VALIDATED]
+
+- Frontend: `cd frontend && npx vitest run --config vitest.config.js` → **17 suites, 220 tests, all
+  passed** (was 195 — `voiceConsole.test.jsx` gained 25 new tests covering the composer behavior/
+  security matrix: Enter-submit, Shift+Enter no-submit, Send-button submit, whitespace rejection,
+  max-length attribute, in-flight duplicate-submit guard, backend/network error surfacing,
+  malformed-response resilience, approval-required rendering without auto-approval, real vs.
+  fabricated task/run links, Arabic/RTL rendering, and a security-boundary block: no raw `fetch`,
+  no CSRF/session/command-shaped `localStorage` key). Re-run again after a mid-session button-size
+  fix (`size-10`→`size-11`) — still 220/220, confirming no regression from that change.
+- Targeted ESLint on the 4 changed files (`VoiceConsole.jsx`, `en.js`, `ar.js`,
+  `voiceConsole.test.jsx`): clean, exit 0.
+- Production build (`npm run build` in `frontend/`): clean, re-run after the button-size fix. Same
+  pre-existing >500kB chunk warnings, no new ones.
+- `git diff --check` on the 4 changed files: clean.
+- Live verification against the real running dev server (`yusuf-os-frontend`, port 3000, inside the
+  sandboxed Browser pane): composer renders correctly in both dock/panel variants, textarea is
+  keyboard-focusable and typeable, Send correctly enables/disables on content, composer correctly
+  disables during an in-flight command, no horizontal overflow at 375px mobile width, send button
+  measured at exactly 44×44px after the fix (`getBoundingClientRect()`). **Not performed live: an
+  actual command submission** — deliberately left to Yusuf per this session's judgment call (see
+  `SESSION_HANDOFF.md` and `HUMAN_ACTION_REQUIRED.md`).
+- **Independent cold review** (fresh agent, zero session context): verified all 10 required
+  boundary claims directly against the diff and the real backend route/service code — same
+  runtime/no duplicate path (CONFIRMED), no CSRF bypass (CONFIRMED), no fabricated agent-targeting
+  (CONFIRMED — the route has no agent-id parameter), no auto-approval (CONFIRMED — only a `<Link>`
+  is rendered), honest task/run links (CONFIRMED — gated on server-returned ids only),
+  duplicate-submission handling (CONFIRMED — synchronous phase update before the first `await`),
+  input bounds matching the server exactly (CONFIRMED — 10000 on both sides), accessibility
+  (CONFIRMED — real label + aria-label), RTL/i18n (CONFIRMED — real translations both languages,
+  `dir="auto"`), non-tautological test coverage (CONFIRMED). **Verdict: 0 P0, 0 P1, 0 additional
+  concerns.**
+
+## OpenAI live commissioning — 2026-09-06 (later same day) [VERIFIED_BY_TEST]
+
+- `server/__tests__/yusufOS/modelRouting` re-run with `OPENAI_API_KEY` now set in
+  `server/.env.development`. A plain `npx jest server/__tests__/yusufOS/modelRouting` from repo
+  root does **not** load `.env.development` (no dotenv preload in `jest.config.cjs`), so the
+  suite's conditional live-smoke test (`test.skip` unless `OPENAI_API_KEY` is set) initially still
+  skipped. Re-ran with dotenv explicitly preloaded
+  (`node -r dotenv/config node_modules/jest/bin/jest.js server/__tests__/yusufOS/modelRouting`,
+  `DOTENV_CONFIG_PATH` pointed at `server/.env.development`) → **7 suites passed, 57/57 tests
+  passed, 0 skipped**. The `OpenAIProvider` live-smoke test executed for real and passed; the
+  separate `OllamaProvider` live-smoke test still gracefully self-skips internally (no local
+  daemon reachable), which is expected and unrelated to `test.skip`. No secret value was printed
+  in any test output.
+- See `CURRENT_GATE.md` (Phase AC update) and `HUMAN_ACTION_REQUIRED.md` item N for the live
+  completion evidence (model, latency, tokens, cost) behind this.
+
+## CAVEMAN AUDIT continuation — 2026-09-06 [VERIFIED_BY_TEST]
+
+- Full Yusuf OS backend, default parallel workers: `npx jest server/__tests__/yusufOS server` (from
+  repo root) → **87 suites passed, 1 failed; 1072 passed, 2 failed, 1 skipped, 1075 total**. The one
+  failure (`engineeringAgenticE2E.test.js`) showed the same signature as the prior session's
+  documented flake: `ConnectorError("Timed out during query execution.")` on a `deleteMany` cleanup
+  call, plus a Windows `EPERM` temp-dir cleanup race. Reran in isolation
+  (`npx jest server/__tests__/yusufOS/integration/engineeringAgenticE2E.test.js --runInBand`) →
+  **2/2 passed cleanly**. Confirmed `PARALLEL_WINDOWS_SQLITE_CONTENTION_FLAKE`, not a regression —
+  same root cause as `KNOWN_RISKS.md` #20 (no `busy_timeout` on the shared SQLite connection),
+  KEEP_DEFERRED reaffirmed this session (see `GATE_HISTORY.md`).
+- Frontend: `cd frontend && npx vitest run --config vitest.config.js` → **17 suites, 202 tests, all
+  passed** (was 14 suites/174 tests; +3 new suites/+28 tests this session — `listAndDetailPages.
+  test.jsx`, `commandCenterAndApprovals.test.jsx`, `approvalReview.test.jsx`).
+- Production build (`npm run build` in `frontend/`): clean. Same pre-existing >500kB chunk warnings
+  (`CoreRingsWebGL`, `purify`, `index`), no new ones.
+- `npx eslint` on the 4 files touched this session: 4 prettier formatting nits in the new test
+  files, fixed with `--fix`; `ApprovalReview.jsx` itself was already clean. Re-ran the affected
+  tests after the autofix — still 20/20 green.
+- One real bug found and fixed: `ApprovalReview.jsx`'s realtime auto-refresh was silently disabled
+  by a 3-argument call into a 2-argument hook (see `GATE_HISTORY.md` for detail). Regression test
+  verified genuine via `git stash push -- <file>` → confirmed the test fails deterministically
+  against the pre-fix code (times out waiting for a 2nd `approvalReview` call, not a false
+  positive) → `git stash pop` to restore the fix.
+- Independent cold review of the fix + all 3 new test files: **0 P0, 0 P1, verdict SAFE TO
+  COMMIT**.
+- Live browser pass (dev-only fixture harness, `frontend/yusuf-os-harness.html`, no control token
+  needed) at 1440/768/390px and in Arabic/RTL: zero console errors, nav mirrors correctly, all
+  icon-only controls carry real translated `aria-label`s, 3D constellation correctly gated below
+  `lg` breakpoint with the accessible roster unaffected, agent detail drawer is a real
+  `role="dialog"` with a labeled close button and closes on Escape, keyboard focus ring visible in
+  both LTR and RTL. Not a substitute for Yusuf's own real-unlocked-session pass (see
+  `HUMAN_ACTION_REQUIRED.md`) — this is fixture data through real components, not live system
+  state.
+- Local commits this session: fix + tests commit, and a separate docs-only stale-entry-correction
+  commit (see `GATE_HISTORY.md` for hashes).
+
+## CAVEMAN AUDIT continuation — 2026-09-05 [VERIFIED_BY_TEST]
+
+- Full Yusuf OS backend, serial to avoid SQLite cross-file contention:
+  `npx jest --runInBand server/__tests__/yusufOS` → **57 suites passed; 771
+  passed, 1 skipped (optional live Ollama smoke), 0 failed**.
+- The same suite run with Jest's default parallel workers showed 3 spurious
+  failures (`agentReasoningLoop.test.js`, `careerAgenticE2E.test.js`,
+  `engineeringAgenticE2E.test.js`), all sharing one signature:
+  `ConnectorError("Timed out during query execution.")` or a Windows `EPERM`
+  temp-dir cleanup race. Reran all three in isolation per the established
+  flake protocol — all passed cleanly (24/24). Confirmed flake from SQLite
+  single-connection contention under parallel file workers (see
+  `KNOWN_RISKS.md` #20 for the underlying `busy_timeout` gap), not a
+  regression from this session's changes.
+- Frontend: `cd frontend && npx vitest run --config vitest.config.js` →
+  **14 suites, 174 tests, all passed** (unchanged suite count; the 2
+  notification-i18n tests added this session were already included).
+  Pre-existing `act(...)` console warnings are unrelated noise, not failures.
+- `npx prisma validate` (from `server/`): valid.
+- `git diff --check`: clean.
+- Targeted ESLint on the 15 files touched this session: one prettier
+  formatting nit in `redaction.js`, fixed with `--fix`; otherwise clean.
+- Six fixes landed this session, each with its own regression test — see
+  `GATE_HISTORY.md` for the full list and commit hashes.
+- Local commits: `2566344c`, `fbfd04b0`, `5a3102c6`, `022284ec`, `2c030aae`,
+  `c2b8a909`, `cd9483c7`.
+
+## Post-V1: Agent Workspace (Section 20) — 2026-09-04 [VERIFIED_BY_TEST]
+
+- Frontend: `npx vitest run --config vitest.config.js` → **13 suites, 171 tests, all
+  passed** (was 12 suites; +1 new suite `agentWorkspace.test.jsx`, +4 tests; the
+  `commandCenterModel.test.js` suite gained 9 more cases for
+  `deriveWorkspaceState`/`buildWorkspaceGroups`). Pre-existing `act(...)` console
+  warnings from `AgentRoster`/`StatusChip` are unrelated noise, not failures.
+- Targeted ESLint on the 7 changed files: clean after `--fix` (9 auto-fixable
+  formatting nits, no logic issues).
+- Production build (`npx vite build`): clean. Chunk-size warning is pre-existing
+  and unrelated to this change.
+- Live module-graph check (Vite dev server + Browser pane, `/os/agents`): every
+  new/changed module (`Agents.jsx`, `commandCenterModel.js`, `AgentDetailPanel`,
+  `VoiceConsole`, `primitives`, `statusSemantics`, `agentRoles`) loaded 200 OK
+  with zero console/network errors; the governed session lock screen rendered
+  correctly. **Not verified further** — going past the lock screen requires
+  entering `YUSUF_OS_CONTROL_TOKEN`, which is a credential entry this agent will
+  not perform; see `HUMAN_ACTION_REQUIRED.md`.
+- No independent adversarial security review performed this session (frontend-
+  only, no new backend endpoint or capability surface — every field rendered is
+  sourced from already-reviewed `DetailProjections`/`RuntimeProjection`/
+  `DashboardProjection` output).
+- Local commit: `776102cc`.
+
+## Phase AE final gate — 2026-08-24 [VERIFIED_BY_TEST]
+
+- Initial full-server sweep found one real fixture regression:
+  `commandCenterProjection.test.js` still used the removed Prisma
+  `workerStatus` field. The fixture was repaired to use durable
+  `workerLastFailureAt` / `workerLastErrorCode` values.
+- Focused Command Center and Engineering/Career/Reasoning E2E commands then
+  completed without a reported failure. The Windows fixture runner omitted its
+  usual Jest aggregate summary; no pass count is inferred from that omission.
+- Frontend Yusuf OS test command completed successfully; production build,
+  Prisma validate, targeted server ESLint, and `git diff --check` passed.
+- Final independent release review: **P0=0/P1=0**, PASS. Aggregate Jest count
+  remains deliberately unrecorded because the Windows fixture runner omitted it.
+
+## Phase X baseline — 2026-08-24 [VERIFIED_BY_TEST]
+
+- Browser/security/prompt focused regression: **5 suites passed; 101 passed, 0 failed**.
+- Server lint and `git diff --check`: passed.
+- Fresh independent review: **P0=0/P1=0/P2=0**, gate PASS.
+
+## Phase W baseline — 2026-08-22 [VERIFIED_BY_TEST]
+
+- Full Yusuf OS: `npx jest --runInBand __tests__/yusufOS` → **55 suites passed; 730 passed,
+  one optional live Ollama smoke skipped, 0 failed**.
+- Final focused Career/Browser regression: **3 suites, 26 passed, 0 failed**; fixture alone passed.
+- Server lint and `git diff --check`: passed.
+- Fresh independent review: **P0=0/P1=0/P2=2**, gate PASS.
+
+## Phase V baseline — 2026-08-22 [VERIFIED_BY_TEST]
+
+- Yusuf OS baseline excluding the unfinished Phase W fixture:
+  `npx jest --runInBand __tests__/yusufOS --testPathIgnorePatterns=careerAgenticE2E` →
+  **54 suites passed; 729 passed, one optional live Ollama smoke skipped, 0 failed**.
+- Phase V fixture: `engineeringAgenticE2E.test.js` → **2 passed** (the optional live Ollama
+  Agent-loop smoke skipped because no local daemon/model was reachable).
+- Server lint and `git diff --check`: passed.
+- Fresh independent review: **P0=0/P1=0/P2=1**, gate PASS.
+
 ## Phase U baseline — 2026-08-21 [VERIFIED_BY_TEST]
 
 - Full server: `npx jest --runInBand` → **84 suites passed; 1,030 passed, one optional live

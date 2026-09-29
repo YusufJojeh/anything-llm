@@ -131,6 +131,16 @@ describe("formRegistry", () => {
 });
 
 describe("mutationGuards", () => {
+  test("cookie existence without a concrete account label cannot bind a mutation", () => {
+    expect(
+      accountIdentityDigest({
+        origin: ORIGIN,
+        state: "authenticated",
+        accountLabel: null,
+        verifiedBySession: true,
+      })
+    ).toBeNull();
+  });
   test("accountIdentityDigest returns null for an identity the page merely claims", () => {
     expect(
       accountIdentityDigest({ state: "authenticated", accountLabel: "yusuf", verifiedBySession: false })

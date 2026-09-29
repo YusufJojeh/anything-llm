@@ -483,6 +483,19 @@ const CAPABILITIES = Object.freeze({
     idempotency: "SERVER_KEY",
     hardFlags: [],
   }),
+  "career.confirm_verified_application": definition({
+    key: "career.confirm_verified_application",
+    domain: "career",
+    description:
+      "Mark an opportunity APPLIED only from an exact consumed and verified browser submission intent.",
+    operationClass: "LOCAL_WRITE",
+    defaultRisk: RISK_LEVELS.L1,
+    defaultOutcome: POLICY_OUTCOMES.ALLOW,
+    mutation: true,
+    verificationRequired: true,
+    idempotency: "SERVER_KEY",
+    hardFlags: [],
+  }),
 
   // --- Phase M: Marketing --------------------------------------------------
   // Durable tracking of marketing content Yusuf is producing. Internal-effect
