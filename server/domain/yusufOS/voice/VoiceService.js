@@ -370,11 +370,25 @@ class VoiceService {
       requestId,
     });
     for (let turn = 1; turn <= MAX_AGENT_TURNS; turn += 1) {
-      const result = await this.reasoning.execute({
-        runId: run.id,
-        requestId,
-        signal,
-      });
+      let result;
+      try {
+        result = await this.reasoning.execute({
+          runId: run.id,
+          requestId,
+          signal,
+        });
+      } catch (diagError) {
+        // TEMPORARY DIAGNOSTIC (2026-09-06 OpenAI commissioning test) — remove after use.
+        console.error(
+          "[YUSUF_OS_DIAG] reasoning.execute failed:",
+          JSON.stringify(
+            { code: diagError?.code, message: diagError?.message, details: diagError?.details },
+            null,
+            2
+          )
+        );
+        throw diagError;
+      }
       if (result.outcome === "WAITING_HANDOFF" && result.nextRunId) {
         run = await this.db.yusuf_agent_runs.findUnique({
           where: { uuid: result.nextRunId },

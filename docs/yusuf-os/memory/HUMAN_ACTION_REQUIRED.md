@@ -47,6 +47,41 @@ item closes: `TEXT_COMMAND_FRONT_DOOR` flips from `VERIFIED_BY_TEST` to `LIVE_VA
 `CURRENT_STATE.md` and `CURRENT_GATE.md`. This is unrelated to and does not change voice's own
 live/mic-capture validation status, which remains whatever it was before this session.
 
+**Updated 2026-09-06 (same session, real UI, Yusuf said "try it"):** the implementing session typed
+`What is my current system status?` into the real live composer and clicked Send for real (a
+synthetic Enter keypress did not register as a submit — a known CDP/automation limitation, not a
+product bug; clicking the actual Send button worked). Result, all verified against the real,
+unlocked `/os` UI:
+
+- **Task created for real**: `91233435-789c-4694-965a-27d74bffb3f2`, title "What is my current
+  system status?", timestamp `2026-09-06T18:07:23.156Z`, owner `chief_of_staff` — appears at the
+  top of the real `/os/tasks` list, above every prior (Aug 23/24) entry.
+- **Run created for real**: `204d6f31-3f61-4102-bc32-5f576095b8b5`, `chief_of_staff · ORCHESTRATION`.
+- **Run status: Failed** — `POST /voice/commands` returned `503`, and the composer honestly
+  surfaced "No eligible model provider could serve this completion" with a Retry button (no
+  fabricated success, no silent swallow, no fake response).
+- **Root cause identified, and it is not a text-composer defect**: `/os/runtime` shows OpenAI
+  **Configured** (the real key from item N is present and intact) but `chief_of_staff`'s routing
+  policy itself shows **UNAVAILABLE**, while `engineering`/`reviewer` show `FALLBACK_CHAIN`. Reading
+  `server/domain/yusufOS/agents/definitions.js:33`, `CHIEF_OF_STAFF.modelPolicy` is
+  `{role: "orchestration", temperature: 0}` — **no `routingPolicy` field at all**, unlike
+  Engineering's `{..., routingPolicy: "FALLBACK_CHAIN"}` (Phase R). Every voice/text command routes
+  through `chief_of_staff` (`VoiceService.command()`), so with Ollama `UNREACHABLE` and
+  `chief_of_staff` never configured to fall through to OpenAI, no command — voice or text — can
+  currently reach a real model in this environment. This is a **pre-existing gap predating this
+  session**, not introduced by the text composer; the composer's own job (create the real governed
+  Task/Run and honestly surface the outcome) worked exactly as designed.
+
+**Status: `TEXT_COMMAND_FRONT_DOOR` mechanism is `LIVE_VALIDATED`** — a real typed command, through
+the real UI, produced a real Task and Run via the exact governed pipeline, with an honest (not
+fabricated) outcome. **The full happy-path proof (an actual model response) remains blocked**, not
+by this feature, but by `chief_of_staff` having no `routingPolicy`. **Decision needed from Yusuf,
+not made unilaterally here:** whether to give `chief_of_staff` a `routingPolicy` (e.g.
+`FALLBACK_CHAIN`, matching Engineering/Reviewer) — this has cost implications, since every
+orchestration turn would then be eligible to call paid OpenAI, which may be why it was left
+unset. Once decided and applied, re-run this same command to get a real model response and close
+this item fully.
+
 ---
 
 ## N. `OPEN_MANUAL_VALIDATION` — live Ollama / OpenAI model runtime [OPEN since 2026-08-21]

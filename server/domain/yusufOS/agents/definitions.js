@@ -30,7 +30,16 @@ const CHIEF_OF_STAFF = Object.freeze({
   // governed side effect. Chief of Staff holds no mutation capability at all,
   // which is what prevents "delegator inherits delegatee's authority".
   allowedCapabilities: Object.freeze([]),
-  modelPolicy: Object.freeze({ role: "orchestration", temperature: 0 }),
+  // OPENAI_FIRST (commissioning, 2026-09-06): every voice/text command
+  // originates through this agent, so its routing must not silently depend
+  // on a local Ollama model being installed and reachable. Revisit per
+  // docs/yusuf-os/memory/HUMAN_ACTION_REQUIRED.md once Yusuf decides the
+  // long-term policy (this vs. LOCAL_FIRST vs. a role-specific mix).
+  modelPolicy: Object.freeze({
+    role: "orchestration",
+    temperature: 0,
+    routingPolicy: "OPENAI_FIRST",
+  }),
   departmentKey: DEPARTMENT_KEYS.SYSTEM_CORE,
   // Orchestration-only label — never consulted for approval requirements.
   // See docs/yusuf-os/gate-b/organization-model.md.

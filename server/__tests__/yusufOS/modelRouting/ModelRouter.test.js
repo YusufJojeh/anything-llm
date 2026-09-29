@@ -257,6 +257,61 @@ describe("Phase R — ModelRouter attack matrix", () => {
     expect(result.content).toContain("require(");
   });
 
+  test("OPENAI_FIRST attempts OpenAI before Ollama even when Ollama is also healthy and would succeed", async () => {
+    const ollamaComplete = jest.fn(async ({ model }) => ({
+      content: "ok",
+      provider: PROVIDER_KINDS.OLLAMA,
+      model,
+      latencyMs: 5,
+      usage: { confidence: CONFIDENCE.KNOWN, promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+      cost: { confidence: CONFIDENCE.UNAVAILABLE, amountMicros: null },
+    }));
+    const router = new ModelRouter({
+      ollama: fakeOllama({
+        health: { available: true, models: [{ fullName: "llama3:latest", name: "llama3" }] },
+        completeImpl: ollamaComplete,
+      }),
+      openai: fakeOpenAI(),
+    });
+    const result = await router.route({ policy: ROUTING_POLICIES.OPENAI_FIRST, messages });
+    expect(result.provider).toBe(PROVIDER_KINDS.OPENAI);
+    expect(result.fallbackOccurred).toBe(false);
+    expect(ollamaComplete).not.toHaveBeenCalled();
+  });
+
+  test("OPENAI_FIRST honestly falls back to Ollama, and reports fallbackOccurred, when OpenAI's completion itself fails", async () => {
+    const router = new ModelRouter({
+      ollama: fakeOllama({ health: { available: true, models: [{ fullName: "llama3:latest", name: "llama3" }] } }),
+      openai: fakeOpenAI({
+        completeImpl: async () => {
+          throw new Error("simulated OpenAI outage");
+        },
+      }),
+    });
+    const result = await router.route({ policy: ROUTING_POLICIES.OPENAI_FIRST, messages });
+    expect(result.provider).toBe(PROVIDER_KINDS.OLLAMA);
+    expect(result.fallbackOccurred).toBe(true);
+  });
+
+  test("OPENAI_FIRST with both providers failing surfaces the honest MODEL_UNAVAILABLE error, not a fabricated success", async () => {
+    const router = new ModelRouter({
+      ollama: fakeOllama({
+        health: { available: true, models: [{ fullName: "llama3:latest", name: "llama3" }] },
+        completeImpl: async () => {
+          throw new Error("ollama down");
+        },
+      }),
+      openai: fakeOpenAI({
+        completeImpl: async () => {
+          throw new Error("openai down");
+        },
+      }),
+    });
+    await expect(
+      router.route({ policy: ROUTING_POLICIES.OPENAI_FIRST, messages })
+    ).rejects.toMatchObject({ code: ErrorCodes.MODEL_UNAVAILABLE });
+  });
+
   test("rejects an unknown routing policy", async () => {
     const router = new ModelRouter({ ollama: fakeOllama(), openai: fakeOpenAI() });
     await expect(router.route({ policy: "NOT_A_POLICY", messages })).rejects.toBeInstanceOf(YusufOSError);
