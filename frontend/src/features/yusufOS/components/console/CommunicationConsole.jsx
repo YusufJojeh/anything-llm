@@ -456,6 +456,25 @@ export default function CommunicationConsole({
         selected={tab}
         onSelect={setTab}
         className="mt-1 flex-1 px-1"
+        actions={
+          // A recording keeps running off the CHAT tab; never let it be
+          // invisible — offer the way back to its controls.
+          tab !== "CHAT" && session.phase === "LISTENING" ? (
+            <button
+              type="button"
+              onClick={() => setTab("CHAT")}
+              className="yos-press yos-mono me-1 flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-sm border px-2 text-[10px] font-semibold uppercase"
+              style={{
+                borderColor: "var(--yos-cyan)",
+                color: "var(--yos-cyan-bright)",
+              }}
+              data-listening-indicator
+            >
+              <span className="yos-status-dot" aria-hidden="true" />
+              {t("yusufOS:comms.listeningReturn")}
+            </button>
+          ) : null
+        }
       >
         {/* The chat and voice surface stays mounted across tab switches so a
             live recording or in-flight playback is never orphaned. */}

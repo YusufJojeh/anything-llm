@@ -187,8 +187,12 @@ function VoiceConsoleInner({ session, embedded = false }) {
   }, [availableVoices]);
 
   // Semantic haptics: only on a real approval result, opt-in, never repeating.
+  const hapticPhaseRef = useRef(phase);
   useEffect(() => {
-    if (phase === "APPROVAL_REQUIRED") pulseHaptic("APPROVAL_NEEDED");
+    // Only on a real transition into APPROVAL_REQUIRED, never on remount.
+    if (phase === "APPROVAL_REQUIRED" && hapticPhaseRef.current !== phase)
+      pulseHaptic("APPROVAL_NEEDED");
+    hapticPhaseRef.current = phase;
   }, [phase]);
 
   const stopMedia = useCallback(() => {

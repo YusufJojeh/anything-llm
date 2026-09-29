@@ -204,9 +204,9 @@ describe("Jarvis Command Center", () => {
         within(block).getByText("git.push_feature_branch")
       ).toBeInTheDocument()
     );
-    expect(document.querySelector(".yos-core").dataset.mode).toBe(
-      "WAITING_APPROVAL"
-    );
+    // Amber comes only from the backend snapshot (still WORKING here), never
+    // from the local command result, which goes stale once decided.
+    expect(document.querySelector(".yos-core").dataset.mode).toBe("WORKING");
   });
 
   test("a failed command keeps the draft and shows the error in place", async () => {

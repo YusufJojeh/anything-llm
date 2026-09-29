@@ -615,6 +615,7 @@ export default {
     jobs_other: "{{count}} jobs",
   },
   comms: {
+    listeningReturn: "Listening · show controls",
     title: "Communication console",
     tabsLabel: "Communication views",
     logLabel: "Command transcript and operational events",

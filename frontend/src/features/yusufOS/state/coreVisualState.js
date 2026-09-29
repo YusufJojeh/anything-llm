@@ -117,10 +117,9 @@ export function deriveCoreMode({
   if (connection === "OFFLINE") return CORE_MODES.OFFLINE;
   if (voicePhase === "LISTENING") return CORE_MODES.LISTENING;
   if (voicePhase === "SPEAKING") return CORE_MODES.SPEAKING;
-  if (
-    coreState === CORE_STATES.WAITING_APPROVAL ||
-    voicePhase === "APPROVAL_REQUIRED"
-  )
+  // Approval state comes only from the backend projection: a local
+  // "APPROVAL_REQUIRED" command result goes stale the moment Yusuf decides it.
+  if (coreState === CORE_STATES.WAITING_APPROVAL)
     return CORE_MODES.WAITING_APPROVAL;
   if (
     coreState === CORE_STATES.RECONCILING ||

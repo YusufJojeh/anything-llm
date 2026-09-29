@@ -52,9 +52,10 @@ describe("System Core mode", () => {
     expect(deriveCoreMode({ coreState: "WAITING_APPROVAL" })).toBe(
       CORE_MODES.WAITING_APPROVAL
     );
+    // A stale local command result never holds the Core amber.
     expect(
       deriveCoreMode({ coreState: "HEALTHY", voicePhase: "APPROVAL_REQUIRED" })
-    ).toBe(CORE_MODES.WAITING_APPROVAL);
+    ).toBe(CORE_MODES.HEALTHY);
     expect(coreModeParams(CORE_MODES.WAITING_APPROVAL).hue).toBe("amber");
     expect(deriveCoreMode({ coreState: "RECONCILING" })).toBe(
       CORE_MODES.WARNING

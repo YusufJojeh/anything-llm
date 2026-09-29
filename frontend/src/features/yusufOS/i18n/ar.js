@@ -655,6 +655,7 @@ export default {
     jobs_other: "{{count}} مهمة",
   },
   comms: {
+    listeningReturn: "يستمع · إظهار الأدوات",
     title: "وحدة الاتصال",
     tabsLabel: "عروض الاتصال",
     logLabel: "سجل الأوامر والأحداث التشغيلية",

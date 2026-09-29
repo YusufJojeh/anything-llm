@@ -124,7 +124,7 @@ function Nucleus({ rendererRef, onRenderer }) {
     if (renderer !== "webgl") return undefined;
     const canvas = canvasRef.current;
     const onLost = () => {
-      rendererRef.current?.dispose();
+      // The context is already gone; unmount cleanup disposes the instance.
       rendererRef.current = null;
       setRenderer("svg");
     };
