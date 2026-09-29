@@ -1,5 +1,15 @@
 # Test Baseline
 
+## `/os` Jarvis redesign baseline — 2026-09-29 [VERIFIED_BY_TEST]
+
+- Frontend: `cd frontend && npx vitest run --config vitest.config.js` → **13 suites, 190 passed,
+  0 failed** (was 10/139).
+- `npx eslint src` (frontend) passed; `npx vite build` passed; `git diff --check` passed.
+- Backend not touched; server suites not re-run this session.
+- Browser QA (headless Chromium + Playwright against the dev harness): 1440/1920/1024/768/390,
+  Arabic RTL, keyboard order, WebGL on (SwiftShader) and off (SVG fallback), reduced motion,
+  mic amplitude via fake-device WAV fixture, server-TTS amplitude via WAV fixture.
+
 ## Phase U baseline — 2026-08-21 [VERIFIED_BY_TEST]
 
 - Full server: `npx jest --runInBand` → **84 suites passed; 1,030 passed, one optional live

@@ -19,6 +19,12 @@
 > persisted reason, and the navigation rail was reduced to a 57px utility so the constellation is
 > unambiguously the product.
 >
+> **2026-09-29 redesign:** `/os` became a single "Jarvis" mission console (telemetry strip,
+> Agent rail, dominant System Core with support panels and stage rail, communication console,
+> bottom nav). The constellation component is retained in the tree but the Core now carries the
+> orbit (real roster only) and real handoff edges. All principles above still apply; host metrics
+> without a backend source are shown as NOT REPORTED.
+>
 > See `GATE_HISTORY.md` (Gates G and G.1) for the record and `KNOWN_RISKS.md` for what was not proven.
 
 Gate E deliberately implemented **no frontend**. This file exists so the approved product

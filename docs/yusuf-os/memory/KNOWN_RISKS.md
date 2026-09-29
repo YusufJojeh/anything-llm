@@ -1,5 +1,16 @@
 # Known Risks
 
+## `/os` Jarvis redesign risks — 2026-09-29
+
+- **[MEDIUM] Live microphone behaviour is unproven.** Amplitude mapping was validated only with a
+  Chromium fake capture device playing a WAV fixture (browser AGC was active). Real voices,
+  Safari/iOS AudioContext policies and Bluetooth mics still need Yusuf's hands-on check.
+- **[LOW] Performance was measured under software rendering.** Idle main-thread ≈2–4% in headless
+  Chromium/SwiftShader (0 layouts/s with WebGL on); real-GPU numbers not measured.
+- **[LOW] Mobile focus order follows DOM (needs → agents → core …) while phones show the Core
+  first via CSS `order`.** Deliberately left; revisit if keyboard use on phones matters.
+- **[INFO] Command transcript is tab-memory only** — there is no chat-history projection.
+
 ## Phase H (Browser Broker) risks — 2026-08-18
 
 - **[MEDIUM] The CDP driver is unproven against a real browser.** `puppeteer-core` is not installed

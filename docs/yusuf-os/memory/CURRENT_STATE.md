@@ -1,6 +1,10 @@
 # Current State — two-minute orientation
 
-_Last verified: 2026-08-21, Phase U pass._
+_Last verified: 2026-09-29, `/os` Jarvis Command Center redesign (frontend only)._
+
+**2026-09-29:** `/os` rebuilt as an integrated mission console with an audio-reactive System
+Core, shared text/voice command session, and honest telemetry (see SESSION_HANDOFF). Frontend
+13 suites / 190 tests green; build and lint pass. Phase V is still the next backend phase.
 
 **Phase U added:** privacy-gated, local-first STT/TTS; push-to-talk with cancellation and explicit
 playback controls; English/Arabic and RTL-safe rendering; and a voice-command path through the

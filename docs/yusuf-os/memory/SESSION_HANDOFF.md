@@ -1,5 +1,30 @@
 # Session Handoff (rolling log — trim superseded entries, don't let this become a transcript dump)
 
+## 2026-09-29 — `/os` Jarvis Command Center redesign (Claude Code)
+
+Rebuilt the `/os` Command Center visual system as an integrated mission console (frontend only;
+backend untouched). Telemetry strip + bottom mission nav replace the side rail; three columns:
+Needs Yusuf + Agent rail │ dominant System Core (SVG rings on compositor layers + lazily loaded
+raw-WebGL nucleus, SVG fallback) with six support panels, REASON/PLAN/EXECUTE/VERIFY/LEARN stage
+rail and current-operation strip │ communication console (chat/tasks/memory, text composer, voice)
++ context tabs. English + Arabic/RTL, reduced motion, responsive 390→1920.
+
+Truth rules kept: host CPU/GPU/MEM/NET are `NOT REPORTED`; progress only from run gates; LEARN is
+always NOT_REPORTED (no stream event); PLANS/FILES tabs say unavailable; approvals render as a
+read-only amber block linking to `/os/approvals/:id` (no approve/reject in chat). Typed and spoken
+commands share one `CommandSession` → `yusufApi.runVoiceCommand` (same Chief/reasoning/policy/
+approval/audit path). Note: no pre-existing text composer existed in this checkout; it was built on
+that single path.
+
+Audio: Core reacts to measured AnalyserNode amplitude (mic + server TTS audio); browser
+`speechSynthesis` uses a labelled word-boundary timing envelope (not amplitude). Validated in
+headless Chromium with a controlled WAV fixture (fake mic device) — NOT live-mic validated.
+
+Real bug fixed on the way: applied SSE events never re-read the snapshot (console only changed on a
+gap/manual refresh); now a debounced, coalesced re-read. Independent review: first pass P0=0/P1=4
+(voice lifecycle), all fixed with regression tests; see TEST_BASELINE for re-review counts.
+Commits local only; nothing pushed. Dev harness: `/yusuf-os-harness.html?scenario=…&events=1`.
+
 ## 2026-08-21 — Phase U: Voice / Audio Plane (Codex)
 
 Phase U is complete at code commit `cc51b443`. `/os` now has accessible push-to-talk, bounded
