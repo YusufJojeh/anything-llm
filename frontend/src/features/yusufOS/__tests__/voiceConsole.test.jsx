@@ -245,4 +245,51 @@ describe("Yusuf OS voice console", () => {
     await waitFor(() => expect(api.transcribeVoice).toHaveBeenCalled());
     expect(api.transcribeVoice.mock.calls[0][1]).toBe("voice.mp4");
   });
+
+  test("closes the AudioContext and releases the mic when listening stops", async () => {
+    const track = { stop: vi.fn() };
+    navigator.mediaDevices.getUserMedia.mockResolvedValue({
+      getTracks: () => [track],
+    });
+    const closes = [];
+    const Base = window.AudioContext;
+    window.AudioContext = class extends Base {
+      close() {
+        closes.push(true);
+        return Promise.resolve();
+      }
+    };
+    renderWithI18n(<VoiceConsole />);
+    const start = await screen.findByRole("button", {
+      name: "Start listening",
+    });
+    await waitFor(() => expect(start).toBeEnabled());
+    fireEvent.click(start);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Cancel recording" })
+    );
+    expect(track.stop).toHaveBeenCalled();
+    expect(closes).toHaveLength(1);
+    expect(window.cancelAnimationFrame).toHaveBeenCalled();
+  });
+
+  test("a browser without AudioContext fails honestly and never keeps the mic", async () => {
+    const track = { stop: vi.fn() };
+    navigator.mediaDevices.getUserMedia.mockResolvedValue({
+      getTracks: () => [track],
+    });
+    window.AudioContext = undefined;
+    window.webkitAudioContext = undefined;
+    renderWithI18n(<VoiceConsole />);
+    const start = await screen.findByRole("button", {
+      name: "Start listening",
+    });
+    await waitFor(() => expect(start).toBeEnabled());
+    fireEvent.click(start);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Voice recording is not supported in this browser."
+    );
+    expect(track.stop).toHaveBeenCalled();
+    expect(api.runVoiceCommand).not.toHaveBeenCalled();
+  });
 });

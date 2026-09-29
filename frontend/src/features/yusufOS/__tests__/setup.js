@@ -25,6 +25,10 @@ if (!window.EventSource)
     close() {}
   };
 
+// jsdom has no canvas; report "no WebGL" quietly so the SVG nucleus is used.
+if (typeof HTMLCanvasElement !== "undefined")
+  HTMLCanvasElement.prototype.getContext = () => null;
+
 // Nothing in this suite is allowed to reach the network. A test that tries to
 // is a test that is not testing what it claims to.
 globalThis.fetch = vi.fn(() =>

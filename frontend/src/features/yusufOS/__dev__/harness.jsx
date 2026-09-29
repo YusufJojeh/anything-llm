@@ -429,6 +429,112 @@ const APPROVAL_LIST = {
   page: {},
 };
 
+/** Runtime projection fixture (shape of Phase S `/runtime`). */
+const RUNTIME = {
+  asOf: "2026-08-18T09:00:00.000Z",
+  modelRuntime: {
+    ollama: {
+      endpoint: "http://localhost:11434/",
+      reachable: true,
+      status: "HEALTHY",
+      models: [{ fullName: "gemma3:4b" }, { fullName: "qwen2.5-coder:7b" }],
+      gemmaFamily: { present: true, matches: ["gemma3:4b"] },
+    },
+    openai: { configured: false },
+    agentModelPolicies: [
+      { agentId: "chief_of_staff", routingPolicy: "LOCAL_FIRST" },
+      { agentId: "engineering", routingPolicy: "FALLBACK_CHAIN" },
+    ],
+    recentCompletions: [180, 240, 210, 320, 260, 190, 400, 230].map(
+      (latencyMs, index) => ({
+        runId:
+          index === 0 ? "22222222-2222-4222-8222-222222222222" : `run-${index}`,
+        agentId: "engineering",
+        provider: "OLLAMA",
+        model: "gemma3:4b",
+        routingPolicy: "LOCAL_FIRST",
+        fallbackOccurred: false,
+        latencyMs,
+        usage: { confidence: "KNOWN", totalTokens: 900 + index * 40 },
+        costConfidence: "UNAVAILABLE",
+        estimatedCostMicros: null,
+        updatedAt: "2026-08-18T08:59:00.000Z",
+      })
+    ),
+  },
+  departments: [
+    {
+      departmentId: "operations",
+      name: "Operations",
+      agents: [{ agentId: "chief_of_staff", jobs: { total: 4 } }],
+    },
+    {
+      departmentId: "engineering",
+      name: "Engineering",
+      agents: [
+        { agentId: "engineering", jobs: { total: 7 } },
+        { agentId: "reviewer", jobs: { total: 3 } },
+      ],
+    },
+  ],
+  monitoring: {
+    available: true,
+    checks: [{ checkId: "c1", checkKey: "audit", status: "PASS" }],
+  },
+  knowledgeEvidenceMemory: {
+    knowledge: { total: 12, bySourceType: { AGENT_DERIVED: 9, USER: 3 } },
+    memory: { total: 5, byScope: { AGENT: 3, PROJECT: 2 } },
+    evidence: { byClass: { IMPLEMENTATION: 4, VALIDATION: 2 }, tombstoned: 0 },
+  },
+};
+
+/**
+ * A controlled speech-like audio fixture for TTS amplitude QA: 0.6s silence,
+ * then quiet, normal and loud syllable bursts (8 kHz mono WAV).
+ */
+function fixtureSpeechWav() {
+  const rate = 8000;
+  const segments = [
+    [0.6, 0],
+    [1.2, 0.08],
+    [1.2, 0.3],
+    [0.8, 0.85],
+    [0.6, 0],
+  ];
+  const total = Math.round(segments.reduce((a, [d]) => a + d, 0) * rate);
+  const buffer = new ArrayBuffer(44 + total * 2);
+  const view = new DataView(buffer);
+  const write = (offset, text) =>
+    [...text].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
+  write(0, "RIFF");
+  view.setUint32(4, 36 + total * 2, true);
+  write(8, "WAVEfmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  write(36, "data");
+  view.setUint32(40, total * 2, true);
+  let sample = 0;
+  for (const [duration, gain] of segments) {
+    const count = Math.round(duration * rate);
+    for (let i = 0; i < count; i += 1, sample += 1) {
+      const t = sample / rate;
+      const syllable = 0.5 + 0.5 * Math.sin(2 * Math.PI * 4 * t);
+      const value = gain * syllable * Math.sin(2 * Math.PI * 220 * t);
+      view.setInt16(
+        44 + sample * 2,
+        Math.max(-1, Math.min(1, value)) * 32767,
+        true
+      );
+    }
+  }
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
 /**
  * Intercept the network *before* the provider module is imported, so the real
  * snapshot-first flow runs unchanged against fixture responses. Nothing about
@@ -459,18 +565,91 @@ window.fetch = async (input, init) => {
   if (url.includes("/approvals/") && url.includes("/review"))
     return json(APPROVAL_REVIEW);
   if (url.includes("/yusuf-os-ui/approvals")) return json(APPROVAL_LIST);
+  if (url.includes("/yusuf-os-ui/runtime")) return json(RUNTIME);
+  if (url.includes("/yusuf-os-ui/voice/status"))
+    return json({
+      stt: { provider: "fixture", scope: "LOCAL", eligible: true },
+      tts: { provider: "fixture", eligible: true },
+      browser: { allowSpeechServices: false },
+    });
+  if (url.includes("/yusuf-os-ui/voice/transcribe"))
+    return json({ text: "FIXTURE transcript: check the release branch" });
+  if (url.includes("/yusuf-os-ui/voice/commands")) {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    return json(
+      scenario === "attention"
+        ? {
+            taskId: "11111111-1111-4111-8111-111111111111",
+            runId: "22222222-2222-4222-8222-222222222222",
+            state: "APPROVAL_REQUIRED",
+            response:
+              "FIXTURE: this request needs Yusuf's approval before it can continue.",
+            approvalId: "44444444-4444-4444-8444-444444444444",
+          }
+        : {
+            taskId: "11111111-1111-4111-8111-111111111111",
+            runId: "22222222-2222-4222-8222-222222222222",
+            state: "COMPLETED",
+            response:
+              "FIXTURE: the request was recorded and the Agent turn finished.",
+            approvalId: null,
+          }
+    );
+  }
+  if (url.includes("/yusuf-os-ui/voice/speak"))
+    return new Response(fixtureSpeechWav(), {
+      status: 200,
+      headers: { "content-type": "audio/wav" },
+    });
   if (url.includes("/yusuf-os-ui/")) return json({});
   return realFetch(input, init);
 };
 
 // The harness does not exercise SSE; that path is covered by the reducer suite.
+// `?events=1` plays a short scripted fixture stream (types/ids only) so stage
+// and trace motion can be inspected; otherwise the stream stays inert.
 class InertEventSource {
   constructor() {
     this.readyState = 0;
+    this.listeners = {};
+    this.timers = [];
+    if (params.get("events") !== "1") return;
+    const script = [
+      "agent.run.started",
+      "intent.created",
+      "policy.decision",
+      "execution.claimed",
+      "execution.verified",
+    ];
+    this.timers.push(setTimeout(() => this.onopen?.(), 300));
+    script.forEach((type, index) =>
+      this.timers.push(
+        setTimeout(
+          () => {
+            const data = JSON.stringify({
+              id: `fixture-${index}`,
+              sequence: 43 + index,
+              schemaVersion: 1,
+              type,
+              occurredAt: new Date().toISOString(),
+              aggregateType: "run",
+              aggregateId: "22222222-2222-4222-8222-222222222222",
+              data: {},
+            });
+            (this.listeners.yusuf || []).forEach((fn) => fn({ data }));
+          },
+          1500 + index * 2500
+        )
+      )
+    );
   }
-  addEventListener() {}
+  addEventListener(type, fn) {
+    (this.listeners[type] ||= []).push(fn);
+  }
   removeEventListener() {}
-  close() {}
+  close() {
+    this.timers.forEach(clearTimeout);
+  }
 }
 window.EventSource = InertEventSource;
 

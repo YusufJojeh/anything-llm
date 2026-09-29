@@ -20,6 +20,7 @@ vi.mock("../api/client", () => ({
     runtime: mocks.runtime,
   },
   eventStreamUrl: () => "/events",
+  // (EventSource is replaced per-test below where the stream matters.)
   setCsrfToken: vi.fn(),
   onSessionLost: () => () => {},
 }));
@@ -88,5 +89,50 @@ describe("runtime state isolation", () => {
     expect(mocks.runtime).toHaveBeenCalledTimes(2);
     view.unmount();
     vi.useRealTimers();
+  });
+
+  test("an applied stream event re-reads the snapshot without a manual refresh", async () => {
+    const sources = [];
+    const Original = window.EventSource;
+    window.EventSource = class {
+      constructor() {
+        this.listeners = {};
+        sources.push(this);
+      }
+      addEventListener(type, fn) {
+        this.listeners[type] = fn;
+      }
+      close() {}
+    };
+    mocks.dashboard.mockResolvedValue({
+      marker: "dashboard-ok",
+      eventCursor: 5,
+    });
+    mocks.roster.mockResolvedValue({ marker: "roster-ok", agents: [] });
+    mocks.runtime.mockResolvedValue({});
+    const view = render(
+      <YusufOSProvider>
+        <Probe />
+      </YusufOSProvider>
+    );
+    await waitFor(() => expect(sources).toHaveLength(1));
+    expect(mocks.dashboard).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      sources[0].listeners.yusuf({
+        data: JSON.stringify({
+          id: "e6",
+          sequence: 6,
+          schemaVersion: 1,
+          type: "agent.run.started",
+          aggregateType: "run",
+          aggregateId: "run-1",
+        }),
+      });
+    });
+    await waitFor(() => expect(mocks.dashboard).toHaveBeenCalledTimes(2), {
+      timeout: 2000,
+    });
+    view.unmount();
+    window.EventSource = Original;
   });
 });
